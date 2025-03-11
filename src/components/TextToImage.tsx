@@ -2,9 +2,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { fal } from "@fal-ai/client";
 import { Loader2, Download, Image as ImageIcon } from "lucide-react";
 
 interface TextToImageProps {
@@ -17,8 +17,6 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // This is a mock function for now, as we don't have the actual text-to-image API integration
-  // In a real app, you would call the API here
   const generateImage = async () => {
     if (!prompt.trim()) {
       toast({
@@ -32,17 +30,28 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
     setIsLoading(true);
     
     try {
-      // For now, using a placeholder image
-      const placeholderImage = "https://fal.media/files/elephant/8kkhB12hEZI2kkbU8pZPA_test.jpeg";
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      setGeneratedImage(placeholderImage);
-      toast({
-        title: "Success",
-        description: "Image generated successfully!",
+      // Use Fal.ai API to generate image
+      const result = await fal.subscribe("fal-ai/fast-sdxl", {
+        input: {
+          prompt: prompt,
+          negative_prompt: "blurry, bad quality, distorted",
+          height: 1024,
+          width: 1024,
+          num_inference_steps: 30,
+          guidance_scale: 7.5,
+        },
       });
+      
+      if (result.data && result.data.images && result.data.images[0]) {
+        const imageUrl = result.data.images[0].url;
+        setGeneratedImage(imageUrl);
+        toast({
+          title: "Success",
+          description: "Image generated successfully!",
+        });
+      } else {
+        throw new Error("No image URL in response");
+      }
     } catch (error) {
       console.error("Failed to generate image:", error);
       toast({

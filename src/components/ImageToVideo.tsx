@@ -1,5 +1,5 @@
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,12 +9,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { fal } from "@fal-ai/client";
-import { CheckCircle, Loader2, Upload, Play, Pause, Video } from "lucide-react";
+import { CheckCircle, Loader2, Upload, Play, Pause, Video, Download } from "lucide-react";
 
-// Mock function, in production you'd use actual API key
-fal.config({
-  credentials: "YOUR_FAL_KEY" // This should be set by server environment in production
-});
+// Initialize fal.ai client
+try {
+  fal.config({
+    // This would be replaced with an environment variable in production
+    credentials: process.env.FAL_KEY || "fal_key_placeholder"
+  });
+} catch (error) {
+  console.error("Error initializing fal.ai client:", error);
+}
 
 const ImageToVideo = () => {
   const [prompt, setPrompt] = useState("A stylish woman walks down a Tokyo street filled with warm glowing neon and animated city signage.");
@@ -33,11 +38,25 @@ const ImageToVideo = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // Handle video play/pause when isPlaying state changes
+  useEffect(() => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.play().catch(error => {
+          console.error("Error playing video:", error);
+        });
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  }, [isPlaying, videoUrl]);
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
+    
     try {
       // Create a preview
       const reader = new FileReader();
@@ -48,29 +67,28 @@ const ImageToVideo = () => {
       };
       reader.readAsDataURL(file);
 
-      // In a real app, you'd upload to fal.ai storage
-      // For demo, we'll just use the local preview
-      setTimeout(() => {
-        setImageUrl(imagePreview);
-        setIsUploading(false);
-        toast({
-          title: "Success",
-          description: "Image uploaded successfully",
-        });
-      }, 1500);
+      // Upload to fal.ai storage
+      const uploadedUrl = await fal.storage.upload(file);
+      setImageUrl(uploadedUrl);
+      
+      toast({
+        title: "Success",
+        description: "Image uploaded successfully",
+      });
     } catch (error) {
       console.error("Upload failed:", error);
       toast({
         title: "Error",
-        description: "Failed to upload image",
+        description: "Failed to upload image. Please try again.",
         variant: "destructive",
       });
+    } finally {
       setIsUploading(false);
     }
   };
 
   const generateVideo = async () => {
-    if (!imagePreview || !prompt.trim()) {
+    if (!imageUrl || !prompt.trim()) {
       toast({
         title: "Error",
         description: "Please upload an image and provide a prompt",
@@ -83,33 +101,39 @@ const ImageToVideo = () => {
     setGenerationLogs([]);
     
     try {
-      // For demo purposes, we're not actually calling the API
-      // In a real app, you would make the API call here
-      
-      // Simulate API call with logs
       setGenerationLogs(prev => [...prev, "Initializing model..."]);
-      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      setGenerationLogs(prev => [...prev, "Processing input image..."]);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setGenerationLogs(prev => [...prev, "Generating video frames..."]);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      setGenerationLogs(prev => [...prev, "Enhancing frame quality..."]);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setGenerationLogs(prev => [...prev, "Creating final video..."]);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Sample video URL for demo
-      const sampleVideoUrl = "https://v3.fal.media/files/elephant/Nj4jZupkZvR7g0QkNueJZ_video-1740522225.mp4";
-      setVideoUrl(sampleVideoUrl);
-      
-      toast({
-        title: "Success",
-        description: "Video generated successfully!",
+      // Call the Fal.ai API using subscribe for real-time updates
+      const result = await fal.subscribe("fal-ai/wan-i2v", {
+        input: {
+          prompt: prompt,
+          image_url: imageUrl,
+          num_frames: frames,
+          frames_per_second: fps,
+          resolution: resolution as "480p" | "720p",
+          num_inference_steps: numInferenceSteps,
+          enable_safety_checker: true
+        },
+        logs: true,
+        onQueueUpdate: (update) => {
+          if (update.status === "IN_PROGRESS") {
+            // Add new logs to our state
+            const newLogs = update.logs.map(log => log.message);
+            setGenerationLogs(prev => [...prev, ...newLogs]);
+          }
+        },
       });
+      
+      // Set the video URL from the API response
+      if (result.data && result.data.video && result.data.video.url) {
+        setVideoUrl(result.data.video.url);
+        toast({
+          title: "Success",
+          description: "Video generated successfully!",
+        });
+      } else {
+        throw new Error("No video URL in response");
+      }
     } catch (error) {
       console.error("Failed to generate video:", error);
       toast({
@@ -123,14 +147,7 @@ const ImageToVideo = () => {
   };
 
   const handlePlayPause = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
-    }
+    setIsPlaying(!isPlaying);
   };
 
   const handleDownload = () => {
@@ -285,7 +302,7 @@ const ImageToVideo = () => {
               <div className="w-full max-w-md bg-slate-200 rounded-full h-2.5 mb-2">
                 <div 
                   className="bg-brand-purple h-2.5 rounded-full animate-pulse-opacity" 
-                  style={{ width: `${Math.min(generationLogs.length * 20, 100)}%` }}
+                  style={{ width: `${Math.min(generationLogs.length * 10, 100)}%` }}
                 ></div>
               </div>
               <div className="text-slate-600 text-sm mt-2 text-center">
@@ -320,6 +337,7 @@ const ImageToVideo = () => {
                   )}
                 </Button>
                 <Button onClick={handleDownload}>
+                  <Download className="h-4 w-4 mr-2" />
                   Download Video
                 </Button>
               </div>
