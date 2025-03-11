@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,7 +35,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         input: {
           prompt: prompt,
           negative_prompt: "blurry, bad quality, distorted",
-          image_size: 1024,
+          image_size: "square_hd",
           num_inference_steps: 30,
           guidance_scale: 7.5,
         },
