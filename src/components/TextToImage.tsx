@@ -6,15 +6,36 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { fal } from "@fal-ai/client";
 import { Loader2, Download, Image as ImageIcon } from "lucide-react";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
 
 interface TextToImageProps {
   onImageGenerated: (imageUrl: string) => void;
 }
 
+// Define the types of image sizes with their display values
+const IMAGE_SIZES = {
+  square: "Square (1:1)",
+  square_hd: "Square HD (1:1)",
+  portrait_4_3: "Portrait (4:3)",
+  portrait_16_9: "Portrait (16:9)",
+  landscape_4_3: "Landscape (4:3)",
+  landscape_16_9: "Landscape (16:9)",
+};
+
+// Define the type for image size
+type ImageSizeOption = keyof typeof IMAGE_SIZES;
+
 const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [prompt, setPrompt] = useState("");
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [imageSize, setImageSize] = useState<ImageSizeOption>("square_hd");
   const { toast } = useToast();
 
   const generateImage = async () => {
@@ -35,7 +56,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         input: {
           prompt: prompt,
           negative_prompt: "blurry, bad quality, distorted",
-          image_size: "square_hd",
+          image_size: imageSize,
           num_inference_steps: 30,
           guidance_scale: 7.5,
         },
@@ -93,6 +114,24 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
                 onChange={(e) => setPrompt(e.target.value)}
                 className="min-h-[120px]"
               />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Image Size</label>
+              <Select 
+                value={imageSize} 
+                onValueChange={(value: ImageSizeOption) => setImageSize(value)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select size" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(IMAGE_SIZES).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <Button 
               onClick={generateImage} 
