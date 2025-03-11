@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { fal } from "@fal-ai/client";
-import { CheckCircle, Loader2, Upload, Play, Pause, Video, Download } from "lucide-react";
+import { CheckCircle, Loader2, Upload, Play, Pause, Video, Download, Languages } from "lucide-react";
+import { LANGUAGES, translateText } from "@/utils/translationUtils";
 
 // Initialize fal.ai client
 try {
@@ -20,6 +20,8 @@ try {
 } catch (error) {
   console.error("Error initializing fal.ai client:", error);
 }
+
+type LanguageOption = keyof typeof LANGUAGES;
 
 const ImageToVideo = () => {
   const [prompt, setPrompt] = useState("A stylish woman walks down a Tokyo street filled with warm glowing neon and animated city signage.");
@@ -34,6 +36,8 @@ const ImageToVideo = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [generationLogs, setGenerationLogs] = useState<string[]>([]);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageOption>("en");
+  const [isTranslating, setIsTranslating] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -87,6 +91,32 @@ const ImageToVideo = () => {
     }
   };
 
+  const handleLanguageChange = async (language: LanguageOption) => {
+    if (language === selectedLanguage || !prompt.trim()) {
+      setSelectedLanguage(language);
+      return;
+    }
+
+    setIsTranslating(true);
+    try {
+      const translatedText = await translateText(prompt, selectedLanguage, language);
+      setPrompt(translatedText);
+      setSelectedLanguage(language);
+      toast({
+        title: "Prompt Translated",
+        description: `Translated to ${LANGUAGES[language]}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Translation Error",
+        description: "Failed to translate text",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
   const generateVideo = async () => {
     if (!imageUrl || !prompt.trim()) {
       toast({
@@ -103,10 +133,22 @@ const ImageToVideo = () => {
     try {
       setGenerationLogs(prev => [...prev, "Initializing model..."]);
       
+      // Translate to English for better results if not already in English
+      let promptToUse = prompt;
+      if (selectedLanguage !== "en") {
+        try {
+          promptToUse = await translateText(prompt, selectedLanguage, "en");
+          setGenerationLogs(prev => [...prev, "Translated prompt to English for better results."]);
+        } catch (error) {
+          console.error("Failed to translate to English:", error);
+          // Continue with original prompt if translation fails
+        }
+      }
+      
       // Call the Fal.ai API using subscribe for real-time updates
       const result = await fal.subscribe("fal-ai/wan-i2v", {
         input: {
-          prompt: prompt,
+          prompt: promptToUse,
           image_url: imageUrl,
           num_frames: frames,
           frames_per_second: fps,
@@ -173,14 +215,40 @@ const ImageToVideo = () => {
           
           <div className="space-y-4">
             <div>
-              <Label htmlFor="prompt">Prompt</Label>
+              <div className="flex items-center justify-between mb-2">
+                <Label htmlFor="prompt">Prompt</Label>
+                <Select 
+                  value={selectedLanguage} 
+                  onValueChange={(value: LanguageOption) => handleLanguageChange(value)}
+                  disabled={isTranslating}
+                >
+                  <SelectTrigger className="h-7 w-36">
+                    <Languages className="mr-2 h-4 w-4" />
+                    <SelectValue placeholder="Language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(LANGUAGES).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Textarea
                 id="prompt"
                 placeholder="Describe how you want the image to animate..."
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 className="min-h-[100px]"
+                disabled={isTranslating}
               />
+              {isTranslating && (
+                <div className="text-xs text-slate-500 mt-1 flex items-center">
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  Translating...
+                </div>
+              )}
             </div>
             
             <div>
@@ -273,7 +341,7 @@ const ImageToVideo = () => {
             
             <Button
               onClick={generateVideo}
-              disabled={isLoading || !imagePreview || !prompt.trim()}
+              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating}
               className="w-full"
             >
               {isLoading ? (
