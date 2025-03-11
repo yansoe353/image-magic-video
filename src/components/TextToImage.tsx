@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { fal } from "@fal-ai/client";
-import { Loader2, Download, Image as ImageIcon } from "lucide-react";
+import { Loader2, Download, Image as ImageIcon, Languages } from "lucide-react";
 import { 
   Select,
   SelectContent,
@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import { LANGUAGES, translateText } from "@/utils/translationUtils";
 
 interface TextToImageProps {
   onImageGenerated: (imageUrl: string) => void;
@@ -30,13 +31,46 @@ const IMAGE_SIZES = {
 
 // Define the type for image size
 type ImageSizeOption = keyof typeof IMAGE_SIZES;
+type LanguageOption = keyof typeof LANGUAGES;
 
 const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [prompt, setPrompt] = useState("");
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [imageSize, setImageSize] = useState<ImageSizeOption>("square_hd");
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageOption>("en");
   const { toast } = useToast();
+
+  const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setPrompt(e.target.value);
+  };
+
+  const handleLanguageChange = async (language: LanguageOption) => {
+    if (language === selectedLanguage || !prompt.trim()) {
+      setSelectedLanguage(language);
+      return;
+    }
+
+    setIsTranslating(true);
+    try {
+      const translatedText = await translateText(prompt, selectedLanguage, language);
+      setPrompt(translatedText);
+      setSelectedLanguage(language);
+      toast({
+        title: "Prompt Translated",
+        description: `Translated to ${LANGUAGES[language]}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Translation Error",
+        description: "Failed to translate text",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   const generateImage = async () => {
     if (!prompt.trim()) {
@@ -51,10 +85,21 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
     setIsLoading(true);
     
     try {
+      // If not in English, translate to English for better image generation
+      let promptToUse = prompt;
+      if (selectedLanguage !== "en") {
+        try {
+          promptToUse = await translateText(prompt, selectedLanguage, "en");
+        } catch (error) {
+          console.error("Failed to translate to English:", error);
+          // Continue with original prompt if translation fails
+        }
+      }
+
       // Use Fal.ai API to generate image
       const result = await fal.subscribe("fal-ai/fast-sdxl", {
         input: {
-          prompt: prompt,
+          prompt: promptToUse,
           negative_prompt: "blurry, bad quality, distorted",
           image_size: imageSize,
           num_inference_steps: 30,
@@ -108,12 +153,39 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           <h2 className="text-2xl font-bold mb-4">Create an Image</h2>
           <div className="space-y-4">
             <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium">Prompt</label>
+                <Select 
+                  value={selectedLanguage} 
+                  onValueChange={(value: LanguageOption) => handleLanguageChange(value)}
+                  disabled={isTranslating}
+                >
+                  <SelectTrigger className="h-7 w-36">
+                    <Languages className="mr-2 h-4 w-4" />
+                    <SelectValue placeholder="Language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(LANGUAGES).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Textarea
                 placeholder="Describe the image you want to create... (e.g., A stylish woman walks down a Tokyo street filled with warm glowing neon and animated city signage)"
                 value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
+                onChange={handlePromptChange}
                 className="min-h-[120px]"
+                disabled={isTranslating}
               />
+              {isTranslating && (
+                <div className="text-xs text-slate-500 mt-1 flex items-center">
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  Translating...
+                </div>
+              )}
             </div>
             <div>
               <label className="text-sm font-medium mb-2 block">Image Size</label>
@@ -135,7 +207,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             </div>
             <Button 
               onClick={generateImage} 
-              disabled={isLoading || !prompt.trim()} 
+              disabled={isLoading || isTranslating || !prompt.trim()} 
               className="w-full"
             >
               {isLoading ? (
