@@ -21,9 +21,11 @@ try {
   console.error("Error initializing fal.ai client:", error);
 }
 
-type LanguageOption = keyof typeof LANGUAGES;
+interface ImageToVideoProps {
+  initialImageUrl?: string | null;
+}
 
-const ImageToVideo = () => {
+const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
   const [prompt, setPrompt] = useState("A stylish woman walks down a Tokyo street filled with warm glowing neon and animated city signage.");
   const [imageUrl, setImageUrl] = useState("");
   const [imagePreview, setImagePreview] = useState("");
@@ -41,6 +43,14 @@ const ImageToVideo = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Use effect to handle initialImageUrl changes
+  useEffect(() => {
+    if (initialImageUrl) {
+      setImagePreview(initialImageUrl);
+      setImageUrl(initialImageUrl);
+    }
+  }, [initialImageUrl]);
 
   // Handle video play/pause when isPlaying state changes
   useEffect(() => {

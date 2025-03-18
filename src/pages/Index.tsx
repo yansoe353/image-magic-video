@@ -56,7 +56,7 @@ const Index = () => {
           </TabsContent>
           
           <TabsContent value="image-to-video" className="mt-0">
-            <ImageToVideo />
+            <ImageToVideo initialImageUrl={generatedImageUrl} />
           </TabsContent>
         </Tabs>
       </main>
