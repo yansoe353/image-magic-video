@@ -1,6 +1,4 @@
 
-import { fal } from "@fal-ai/client";
-
 type SupportedLanguage = "en" | "my" | "th";
 
 export const LANGUAGES = {
@@ -15,18 +13,13 @@ export async function translateText(text: string, from: SupportedLanguage, to: S
   if (!text.trim()) return "";
   
   try {
-    // Use fal.ai's text translation capabilities
-    const result = await fal.subscribe("fal-ai/text-translation", {
-      input: {
-        text: text,
-        source_language: from,
-        target_language: to
-      },
-    });
-    
-    return result.data?.translated_text || text;
+    const apiUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(text)}`;
+    const response = await fetch(apiUrl);
+    const data = await response.json();
+    return data[0][0][0]; // Return translated text
   } catch (error) {
     console.error("Translation error:", error);
     return text; // Return original text if translation fails
   }
 }
+
