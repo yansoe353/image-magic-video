@@ -56,6 +56,12 @@ const Header = () => {
           >
             Create
           </Link>
+          <Link 
+            to="/examples" 
+            className={`font-medium ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
+          >
+            Examples
+          </Link>
           <ApiKeyInput onApiKeySet={setIsApiKeySet} />
           
           {isApiKeySet && (
@@ -102,6 +108,13 @@ const Header = () => {
               onClick={() => setMobileMenuOpen(false)}
             >
               Create
+            </Link>
+            <Link 
+              to="/examples" 
+              className="font-medium text-slate-600 hover:text-brand-purple"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Examples
             </Link>
             <div className="py-2">
               <ApiKeyInput onApiKeySet={setIsApiKeySet} />

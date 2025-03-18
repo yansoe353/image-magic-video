@@ -1,7 +1,7 @@
 
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Brain, Sparkles, Video, Image, Shield } from "lucide-react";
+import { ArrowRight, Brain, Sparkles, Video, Image, Shield, Play, Eye, Film } from "lucide-react";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -33,8 +33,10 @@ const Home = () => {
                 <Button 
                   size="lg" 
                   variant="outline" 
-                  className="text-white border-white hover:bg-white/10"
+                  onClick={() => navigate("/examples")}
+                  className="text-white border-white hover:bg-white/10 group transition-all"
                 >
+                  <Film className="mr-2 group-hover:animate-pulse" />
                   View Examples
                 </Button>
               </div>
