@@ -1,35 +1,16 @@
 
-import { useState, useEffect } from "react";
-import { Github, Key, Menu, X, LogOut, UserPlus, LogIn } from "lucide-react";
+import { useState } from "react";
+import { Github, Menu, X, LogOut, UserPlus, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import ApiKeyInput from "@/components/ApiKeyInput";
 import CreditSystem from "@/components/CreditSystem";
-import { fal } from "@fal-ai/client";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Header = () => {
-  const [isApiKeySet, setIsApiKeySet] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-
-  useEffect(() => {
-    // Check if API key is already set in localStorage
-    const storedApiKey = localStorage.getItem("falApiKey");
-    if (storedApiKey) {
-      try {
-        // Configure fal.ai client with the API key
-        fal.config({
-          credentials: storedApiKey
-        });
-        setIsApiKeySet(true);
-      } catch (error) {
-        console.error("Error configuring fal.ai client:", error);
-      }
-    }
-  }, []);
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
@@ -105,14 +86,6 @@ const Header = () => {
                 Sign Up
               </Button>
             </>
-          )}
-          
-          <ApiKeyInput onApiKeySet={setIsApiKeySet} />
-          
-          {isApiKeySet && (
-            <span className={`text-xs ${isHomePage ? 'text-green-300' : 'text-green-600'} mr-2`}>
-              API Key Set
-            </span>
           )}
           
           <Button variant="outline" size="icon" asChild>
@@ -204,15 +177,6 @@ const Header = () => {
                 </Button>
               </>
             )}
-            
-            <div className="py-2">
-              <ApiKeyInput onApiKeySet={setIsApiKeySet} />
-              {isApiKeySet && (
-                <span className="text-xs text-green-600 ml-2">
-                  API Key Set
-                </span>
-              )}
-            </div>
           </nav>
         </div>
       )}

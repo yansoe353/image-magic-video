@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { fal } from "@fal-ai/client";
+import { falService } from "@/services/falService";
 
 interface ImageUploaderProps {
   imagePreview: string;
@@ -40,7 +40,7 @@ const ImageUploader = ({
       };
       reader.readAsDataURL(file);
 
-      const uploadedUrl = await fal.storage.upload(file);
+      const uploadedUrl = await falService.uploadImage(file);
       setImageUrl(uploadedUrl);
       
       toast({
