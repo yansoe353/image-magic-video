@@ -1,13 +1,18 @@
 
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Brain, Sparkles, Video, Image, Shield, Play, Eye, Film } from "lucide-react";
+import { ArrowRight, Brain, Sparkles, Video, Image, Shield, Play, Eye, Film, UserPlus, Coins } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import Header from "@/components/Header";
 
 const Home = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   return (
     <div className="min-h-screen flex flex-col">
+      <Header />
+      
       {/* Hero Section */}
       <section className="py-20 px-4 bg-gradient-to-br from-slate-900 to-purple-900 text-white">
         <div className="container mx-auto max-w-6xl">
@@ -25,10 +30,10 @@ const Home = () => {
               <div className="flex flex-wrap gap-4">
                 <Button 
                   size="lg" 
-                  onClick={() => navigate("/create")} 
+                  onClick={() => navigate(user ? "/create" : "/signup")} 
                   className="bg-gradient-to-r from-brand-purple to-brand-blue hover:opacity-90 transition-opacity"
                 >
-                  Start Creating <ArrowRight className="ml-2" />
+                  {user ? "Start Creating" : "Sign Up & Get 10 Free Credits"} <ArrowRight className="ml-2" />
                 </Button>
                 <Button 
                   size="lg" 
@@ -57,6 +62,43 @@ const Home = () => {
           </div>
         </div>
       </section>
+
+      {/* Credit System Highlight Section (new) */}
+      {!user && (
+        <section className="py-12 px-4 bg-slate-100">
+          <div className="container mx-auto max-w-6xl">
+            <div className="bg-white rounded-lg shadow-md p-6 border border-slate-200">
+              <div className="flex flex-col md:flex-row gap-6 items-center">
+                <div className="flex-1">
+                  <h2 className="text-2xl font-bold mb-2 text-slate-900">Sign Up and Get 10 Free Credits</h2>
+                  <p className="text-slate-600 mb-4">
+                    Create your account today and receive 10 free credits to start generating amazing videos right away.
+                  </p>
+                  <Button 
+                    onClick={() => navigate("/signup")}
+                    className="bg-gradient-to-r from-brand-purple to-brand-blue hover:opacity-90 transition-opacity"
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Create Free Account
+                  </Button>
+                </div>
+                <div className="flex-1 flex justify-center">
+                  <div className="grid grid-cols-3 gap-3">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="flex flex-col items-center">
+                        <div className="w-14 h-14 rounded-full bg-purple-100 flex items-center justify-center">
+                          <Coins className="h-6 w-6 text-brand-purple" />
+                        </div>
+                        <span className="text-xs font-medium text-slate-600 mt-1">Credit</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Features Section */}
       <section className="py-20 px-4 bg-white">
@@ -149,14 +191,16 @@ const Home = () => {
             Ready to Create Amazing Videos?
           </h2>
           <p className="text-lg text-slate-300 max-w-2xl mx-auto mb-8">
-            Join thousands of creators who are already using YoteShin AI to bring their ideas to life.
+            {user 
+              ? "Use your credits to create stunning videos with our AI technology."
+              : "Join thousands of creators who are already using YoteShin AI to bring their ideas to life."}
           </p>
           <Button 
             size="lg" 
-            onClick={() => navigate("/create")}
+            onClick={() => navigate(user ? "/create" : "/signup")}
             className="bg-gradient-to-r from-brand-purple to-brand-blue hover:opacity-90 transition-opacity"
           >
-            Get Started Now <ArrowRight className="ml-2" />
+            {user ? "Start Creating Now" : "Sign Up & Get 10 Free Credits"} <ArrowRight className="ml-2" />
           </Button>
         </div>
       </section>

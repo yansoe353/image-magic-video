@@ -1,15 +1,19 @@
 
 import { useState, useEffect } from "react";
-import { Github, Key, Menu, X } from "lucide-react";
+import { Github, Key, Menu, X, LogOut, UserPlus, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ApiKeyInput from "@/components/ApiKeyInput";
+import CreditSystem from "@/components/CreditSystem";
 import { fal } from "@fal-ai/client";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Header = () => {
   const [isApiKeySet, setIsApiKeySet] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   useEffect(() => {
     // Check if API key is already set in localStorage
@@ -29,6 +33,11 @@ const Header = () => {
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate("/");
   };
 
   const isHomePage = location.pathname === "/";
@@ -62,6 +71,42 @@ const Header = () => {
           >
             Examples
           </Link>
+          
+          {user ? (
+            <>
+              <CreditSystem />
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleLogout}
+                className={isHomePage ? 'border-white text-white hover:bg-white/10' : ''}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate("/login")}
+                className={isHomePage ? 'border-white text-white hover:bg-white/10' : ''}
+              >
+                <LogIn className="mr-2 h-4 w-4" />
+                Login
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={() => navigate("/signup")}
+                className={isHomePage ? 'bg-white text-slate-800 hover:bg-white/90' : ''}
+              >
+                <UserPlus className="mr-2 h-4 w-4" />
+                Sign Up
+              </Button>
+            </>
+          )}
+          
           <ApiKeyInput onApiKeySet={setIsApiKeySet} />
           
           {isApiKeySet && (
@@ -116,6 +161,50 @@ const Header = () => {
             >
               Examples
             </Link>
+            
+            {user ? (
+              <>
+                <div className="py-2">
+                  <CreditSystem />
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleLogout}
+                  className="w-full justify-start"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    navigate("/login");
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full justify-start"
+                >
+                  <LogIn className="mr-2 h-4 w-4" />
+                  Login
+                </Button>
+                <Button 
+                  size="sm" 
+                  onClick={() => {
+                    navigate("/signup");
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full justify-start"
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Sign Up
+                </Button>
+              </>
+            )}
+            
             <div className="py-2">
               <ApiKeyInput onApiKeySet={setIsApiKeySet} />
               {isApiKeySet && (
