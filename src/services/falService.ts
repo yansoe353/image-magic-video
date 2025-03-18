@@ -26,6 +26,7 @@ export const falService = {
   // Generate an image using the backend proxy
   async generateImage(params: GenerateImageParams) {
     try {
+      console.log("Generating image with params:", params);
       const result = await callFalApi('fast-sdxl', {
         method: 'POST',
         body: {
@@ -36,6 +37,8 @@ export const falService = {
           guidance_scale: params.guidance_scale || 7.5,
         },
       });
+      
+      console.log("Image generation result:", result);
       
       if (result && result.images && result.images[0]) {
         return result.images[0].url;
@@ -50,6 +53,7 @@ export const falService = {
   // Generate a video using the backend proxy
   async generateVideo(params: GenerateVideoParams) {
     try {
+      console.log("Generating video with params:", params);
       const result = await callFalApi('wan-i2v', {
         method: 'POST',
         body: {
@@ -62,6 +66,8 @@ export const falService = {
           enable_safety_checker: params.enable_safety_checker !== false,
         },
       });
+      
+      console.log("Video generation result:", result);
       
       if (result && result.video && result.video.url) {
         return result.video.url;

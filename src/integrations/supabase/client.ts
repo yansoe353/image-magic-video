@@ -13,6 +13,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
 
 // Helper function to call the Fal.ai proxy Edge Function
 export async function callFalApi(endpoint: string, params: any = {}) {
+  console.log(`Calling Fal.ai proxy with endpoint ${endpoint}`, params);
   try {
     const { data, error } = await supabase.functions.invoke('fal-ai-proxy', {
       body: { endpoint, params },
@@ -20,7 +21,7 @@ export async function callFalApi(endpoint: string, params: any = {}) {
 
     if (error) {
       console.error('Error calling Fal.ai proxy:', error);
-      throw new Error(error.message);
+      throw new Error(error.message || 'Failed to call Fal.ai API proxy');
     }
 
     return data;
@@ -32,28 +33,29 @@ export async function callFalApi(endpoint: string, params: any = {}) {
 
 // Helper function to upload a file to Fal.ai
 export async function uploadToFal(file: File) {
-  const formData = new FormData();
-  formData.append('file', file);
-
+  console.log('Uploading file to Fal.ai:', file.name, file.size);
+  
   try {
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/fal-ai-proxy`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
-      },
-      body: JSON.stringify({
+    // Convert file to ArrayBuffer
+    const arrayBuffer = await file.arrayBuffer();
+    
+    console.log('File converted to ArrayBuffer, size:', arrayBuffer.byteLength);
+    
+    const { data, error } = await supabase.functions.invoke('fal-ai-proxy', {
+      body: {
         endpoint: 'upload',
         params: {
-          file: await file.arrayBuffer(),
+          file: Array.from(new Uint8Array(arrayBuffer)),
         },
-      }),
+      },
     });
-
-    if (!response.ok) {
-      throw new Error(`Upload failed: ${response.statusText}`);
+    
+    if (error) {
+      console.error('Upload error from Edge Function:', error);
+      throw new Error(error.message || 'File upload failed');
     }
-
-    const data = await response.json();
+    
+    console.log('Upload response from Edge Function:', data);
     return data.url || '';
   } catch (error) {
     console.error('Upload error:', error);

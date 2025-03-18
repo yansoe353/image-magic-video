@@ -52,7 +52,7 @@ serve(async (req) => {
     if (!apiKeyData || !apiKeyData.key_value) {
       console.error('API key not found or empty');
       return new Response(
-        JSON.stringify({ error: 'Fal.ai API key not configured or empty' }),
+        JSON.stringify({ error: 'Fal.ai API key not configured or empty. Please set it in the Supabase database.' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -101,7 +101,7 @@ serve(async (req) => {
     console.log(`Making request to Fal.ai endpoint: ${falUrl}`);
 
     // Prepare request options
-    const options: any = {
+    const options: RequestInit = {
       method: endpoint === 'upload' ? 'POST' : params.method || 'POST',
       headers: {
         'Authorization': `Key ${falApiKey}`,
@@ -112,7 +112,8 @@ serve(async (req) => {
     // For uploads, we need to handle the file
     if (endpoint === 'upload') {
       if (params.file) {
-        options.body = params.file;
+        const fileContent = new Uint8Array(params.file);
+        options.body = fileContent;
       } else {
         return new Response(
           JSON.stringify({ error: 'File is required for upload endpoint' }),
