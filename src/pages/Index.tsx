@@ -114,13 +114,11 @@ export default function Index() {
           <TabsTrigger value="image-to-video">Image to Video</TabsTrigger>
         </TabsList>
         <TabsContent value="text-to-image">
-          <TextToImage onImageGenerated={setImageUrl} onCheckCredits={handleGenerateVideo} />
+          <TextToImage onImageGenerated={setImageUrl} />
         </TabsContent>
         <TabsContent value="image-to-video">
-          <ImageToVideo
-            imageUrl={imageUrl}
-            onVideoGenerated={setVideoBlob}
-            onCheckCredits={handleGenerateVideo}
+          <ImageToVideo 
+            initialImageUrl={imageUrl} 
           />
         </TabsContent>
       </Tabs>
