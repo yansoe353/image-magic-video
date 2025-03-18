@@ -17,6 +17,18 @@ serve(async (req) => {
     // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing Supabase environment variables');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get the Fal.ai API key from the database
@@ -26,10 +38,10 @@ serve(async (req) => {
       .eq('key_name', 'falApiKey')
       .single();
 
-    if (apiKeyError || !apiKeyData) {
+    if (apiKeyError) {
       console.error('Error fetching API key:', apiKeyError);
       return new Response(
-        JSON.stringify({ error: 'Failed to retrieve API key' }),
+        JSON.stringify({ error: 'Failed to retrieve API key', details: apiKeyError }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -37,11 +49,10 @@ serve(async (req) => {
       );
     }
 
-    const falApiKey = apiKeyData.key_value;
-    
-    if (!falApiKey || falApiKey === '') {
+    if (!apiKeyData || !apiKeyData.key_value) {
+      console.error('API key not found or empty');
       return new Response(
-        JSON.stringify({ error: 'Fal.ai API key not configured' }),
+        JSON.stringify({ error: 'Fal.ai API key not configured or empty' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -49,8 +60,24 @@ serve(async (req) => {
       );
     }
 
+    const falApiKey = apiKeyData.key_value;
+    
     // Get request data
-    const { endpoint, params } = await req.json();
+    let requestData;
+    try {
+      requestData = await req.json();
+    } catch (error) {
+      console.error('Error parsing request JSON:', error);
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+    
+    const { endpoint, params } = requestData;
 
     // Validate endpoint
     if (!endpoint) {
@@ -71,8 +98,10 @@ serve(async (req) => {
       falUrl = `https://rest.fal.ai/v1/${endpoint}`;
     }
 
+    console.log(`Making request to Fal.ai endpoint: ${falUrl}`);
+
     // Prepare request options
-    const options = {
+    const options: any = {
       method: endpoint === 'upload' ? 'POST' : params.method || 'POST',
       headers: {
         'Authorization': `Key ${falApiKey}`,
@@ -82,8 +111,6 @@ serve(async (req) => {
 
     // For uploads, we need to handle the file
     if (endpoint === 'upload') {
-      // In a real implementation, you would need to handle file uploads differently
-      // This is a simplified version
       if (params.file) {
         options.body = params.file;
       } else {
@@ -100,21 +127,44 @@ serve(async (req) => {
     }
 
     // Make the request to Fal.ai
+    console.log(`Sending request to Fal.ai with options:`, JSON.stringify({
+      url: falUrl,
+      method: options.method,
+      hasBody: !!options.body
+    }));
+    
     const response = await fetch(falUrl, options);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Fal.ai error (${response.status}):`, errorText);
+      return new Response(
+        JSON.stringify({ 
+          error: `Fal.ai API returned ${response.status}`, 
+          details: errorText 
+        }),
+        { 
+          status: response.status, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+    
     const data = await response.json();
+    console.log('Fal.ai response received successfully');
 
     // Return the response
     return new Response(
       JSON.stringify(data),
       { 
-        status: response.status, 
+        status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
   } catch (error) {
     console.error('Error in fal-ai-proxy function:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message, stack: error.stack }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

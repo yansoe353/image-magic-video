@@ -7,29 +7,17 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
-import { fal } from "@fal-ai/client";
 import { Languages } from "lucide-react";
 import { LANGUAGES, translateText, type LanguageOption } from "@/utils/translationUtils";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import { usePromptTranslation } from "@/hooks/usePromptTranslation";
+import { falService } from "@/services/falService";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
 import VideoEditor from "./VideoEditor";
 
-// Initialize fal.ai client
-try {
-  fal.config({
-    credentials: process.env.FAL_KEY || "fal_key_placeholder"
-  });
-} catch (error) {
-  console.error("Error initializing fal.ai client:", error);
-}
-
-interface ImageToVideoProps {
-  initialImageUrl?: string | null;
-}
-
-const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
+// Remove the process.env reference that was causing the error
+const ImageToVideo = ({ initialImageUrl }: { initialImageUrl?: string | null }) => {
   const { prompt, setPrompt, selectedLanguage, isTranslating, handleLanguageChange } = 
     usePromptTranslation("A stylish woman walks down a Tokyo street filled with warm glowing neon and animated city signage.");
   const [imageUrl, setImageUrl] = useState("");
@@ -81,27 +69,17 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
         }
       }
       
-      const result = await fal.subscribe("fal-ai/wan-i2v", {
-        input: {
-          prompt: promptToUse,
-          image_url: imageUrl,
-          num_frames: frames,
-          frames_per_second: fps,
-          resolution: resolution as "480p" | "720p",
-          num_inference_steps: numInferenceSteps,
-          enable_safety_checker: true
-        },
-        logs: true,
-        onQueueUpdate: (update) => {
-          if (update.status === "IN_PROGRESS") {
-            const newLogs = update.logs.map(log => log.message);
-            setGenerationLogs(prev => [...prev, ...newLogs]);
-          }
-        },
+      const videoUrl = await falService.generateVideo({
+        prompt: promptToUse,
+        image_url: imageUrl,
+        num_frames: frames,
+        frames_per_second: fps,
+        resolution: resolution as "480p" | "720p",
+        num_inference_steps: numInferenceSteps
       });
       
-      if (result.data?.video?.url) {
-        setVideoUrl(result.data.video.url);
+      if (videoUrl) {
+        setVideoUrl(videoUrl);
         toast({
           title: "Success",
           description: "Video generated successfully!",
