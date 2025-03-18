@@ -1,3 +1,4 @@
+
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Brain, Sparkles, Video, Image, Shield, Play, Eye, Film } from "lucide-react";
@@ -33,10 +34,10 @@ const Home = () => {
                   size="lg" 
                   variant="outline" 
                   onClick={() => navigate("/examples")}
-                  className="text-white border-white hover:bg-white/10 group transition-all"
+                  className="bg-white/80 text-slate-800 border-white hover:bg-white hover:text-slate-900 group transition-all"
                 >
-                  <Eye className="mr-2 group-hover:animate-pulse" />
-                  <span className="text-white font-medium">View Examples</span>
+                  <Eye className="mr-2 text-slate-800 group-hover:animate-pulse" />
+                  View Examples
                 </Button>
               </div>
             </div>
