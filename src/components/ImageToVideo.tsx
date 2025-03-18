@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { fal } from "@fal-ai/client";
 import { CheckCircle, Loader2, Upload, Play, Pause, Video, Download, Languages } from "lucide-react";
-import { LANGUAGES, translateText } from "@/utils/translationUtils";
+import { LANGUAGES, translateText, type LanguageOption } from "@/utils/translationUtils";
 
 // Initialize fal.ai client
 try {

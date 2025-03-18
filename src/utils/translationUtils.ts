@@ -1,4 +1,3 @@
-
 type SupportedLanguage = "en" | "my" | "th";
 
 export const LANGUAGES = {
@@ -6,6 +5,8 @@ export const LANGUAGES = {
   my: "Myanmar",
   th: "Thai"
 };
+
+export type LanguageOption = keyof typeof LANGUAGES;
 
 export async function translateText(text: string, from: SupportedLanguage, to: SupportedLanguage): Promise<string> {
   // Don't translate if the languages are the same
@@ -22,4 +23,3 @@ export async function translateText(text: string, from: SupportedLanguage, to: S
     return text; // Return original text if translation fails
   }
 }
-
