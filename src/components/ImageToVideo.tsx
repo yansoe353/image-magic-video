@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import { useVideoControls } from "@/hooks/useVideoControls";
 import { usePromptTranslation } from "@/hooks/usePromptTranslation";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
+import VideoEditor from "./VideoEditor";
 
 // Initialize fal.ai client
 try {
@@ -36,6 +38,7 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [generationLogs, setGenerationLogs] = useState<string[]>([]);
+  const [showEditor, setShowEditor] = useState(false);
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
 
@@ -228,19 +231,35 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden">
-        <CardContent className="p-6">
-          <h2 className="text-2xl font-bold mb-4">Video Preview</h2>
-          <VideoPreview
-            videoUrl={videoUrl}
-            isLoading={isLoading}
-            generationLogs={generationLogs}
-            videoRef={videoRef}
-            isPlaying={isPlaying}
-            handlePlayPause={handlePlayPause}
-          />
-        </CardContent>
-      </Card>
+      <div className="space-y-8">
+        <Card className="overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Video Preview</h2>
+              {videoUrl && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowEditor(!showEditor)}
+                >
+                  {showEditor ? "Hide Editor" : "Edit Video"}
+                </Button>
+              )}
+            </div>
+            <VideoPreview
+              videoUrl={videoUrl}
+              isLoading={isLoading}
+              generationLogs={generationLogs}
+              videoRef={videoRef}
+              isPlaying={isPlaying}
+              handlePlayPause={handlePlayPause}
+            />
+          </CardContent>
+        </Card>
+
+        {showEditor && videoUrl && (
+          <VideoEditor generatedVideoUrl={videoUrl} />
+        )}
+      </div>
     </div>
   );
 };
