@@ -1,5 +1,5 @@
 
-import { callFalApi, uploadToFal } from "@/integrations/supabase/client";
+import { createClient } from "@fal-ai/client";
 
 // Interface for image generation parameters
 interface GenerateImageParams {
@@ -21,15 +21,22 @@ interface GenerateVideoParams {
   enable_safety_checker?: boolean;
 }
 
+// Create a Fal.ai client with the API key
+// We're using a public key as this is client-side code
+const falClient = createClient({
+  credentials: "fal_live_cg8U0NmJuEJ0qTR54cntcbSEH1gzgG5mKw6dOK8FQdG2VDsrUQ"
+});
+
 // Service to handle Fal.ai operations
 export const falService = {
-  // Generate an image using the backend proxy
+  // Generate an image using direct Fal.ai API
   async generateImage(params: GenerateImageParams) {
     try {
       console.log("Generating image with params:", params);
-      const result = await callFalApi('fast-sdxl', {
-        method: 'POST',
-        body: {
+      
+      const result = await falClient.run({
+        modelId: 'fast-sdxl',
+        input: {
           prompt: params.prompt,
           negative_prompt: params.negative_prompt || "blurry, bad quality, distorted",
           image_size: params.image_size || "square_hd",
@@ -55,13 +62,14 @@ export const falService = {
     }
   },
 
-  // Generate a video using the backend proxy
+  // Generate a video using direct Fal.ai API
   async generateVideo(params: GenerateVideoParams) {
     try {
       console.log("Generating video with params:", params);
-      const result = await callFalApi('wan-i2v', {
-        method: 'POST',
-        body: {
+      
+      const result = await falClient.run({
+        modelId: 'wan-i2v',
+        input: {
           prompt: params.prompt,
           image_url: params.image_url,
           num_frames: params.num_frames || 81,
@@ -89,13 +97,41 @@ export const falService = {
     }
   },
 
-  // Upload an image file
+  // Upload an image using direct Fal.ai API
   async uploadImage(file: File) {
     try {
       console.log("Uploading image file:", file.name, file.type, file.size);
-      const result = await uploadToFal(file);
+      
+      // Convert file to ArrayBuffer
+      const arrayBuffer = await file.arrayBuffer();
+      const blob = new Blob([arrayBuffer], { type: file.type });
+      
+      // Create FormData for the upload
+      const formData = new FormData();
+      formData.append('file', blob, file.name);
+      
+      // Direct upload to Fal.ai storage
+      const response = await fetch('https://rest.fal.ai/storage/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Key fal_live_cg8U0NmJuEJ0qTR54cntcbSEH1gzgG5mKw6dOK8FQdG2VDsrUQ',
+        },
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Upload failed (${response.status}): ${errorText}`);
+      }
+      
+      const result = await response.json();
       console.log("Upload result:", result);
-      return result;
+      
+      if (result && result.url) {
+        return result.url;
+      }
+      
+      throw new Error("No URL in upload response");
     } catch (error) {
       console.error("Upload failed:", error);
       throw error;
