@@ -45,7 +45,7 @@ const BuyApiKey = () => {
         <SheetHeader>
           <SheetTitle className="text-center">Buy Infinity API Key</SheetTitle>
           <SheetDescription className="text-center">
-            <p className="font-bold text-xl mb-4">Price: 50000 Ks</p>
+            <p className="font-bold text-xl mb-4">Price: 60000 Ks</p>
           </SheetDescription>
         </SheetHeader>
         

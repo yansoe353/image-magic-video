@@ -49,7 +49,7 @@ const BuyAccount = () => {
           <CardHeader className="bg-gradient-to-r from-brand-purple to-brand-blue text-white rounded-t-lg">
             <CardTitle className="text-center">Premium Account</CardTitle>
             <CardDescription className="text-center text-lg font-semibold text-white">
-              50000 Ks
+              60000 Ks
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 py-6">
@@ -64,7 +64,7 @@ const BuyAccount = () => {
               </li>
               <li className="flex items-start">
                 <VideoIcon className="h-5 w-5 text-brand-purple mr-2 flex-shrink-0" />
-                <span><strong>50</strong> video generations</span>
+                <span><strong>20</strong> video generations</span>
               </li>
               <li className="flex items-start">
                 <span className="text-green-500 mr-2">✓</span>
