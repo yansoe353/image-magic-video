@@ -5,7 +5,10 @@ import { MessageCircle, Phone, Send } from "lucide-react";
 import CustomerSupportChat from "./CustomerSupportChat";
 
 const BuyApiKeyPopover = () => {
-  const handleContactClick = (url: string) => {
+  const handleContactClick = (url: string, e: React.MouseEvent) => {
+    // Prevent the popover from closing when clicking the button
+    e.stopPropagation();
+    // Open the URL in a new tab
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
@@ -26,21 +29,21 @@ const BuyApiKeyPopover = () => {
             <p className="font-bold text-xl mb-4">Price: 50000 Ks</p>
             <div className="grid grid-cols-1 gap-2">
               <Button 
-                onClick={() => handleContactClick("viber://chat?number=+959740807009")}
+                onClick={(e) => handleContactClick("viber://chat?number=+959740807009", e)}
                 className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white transition-colors"
               >
                 <Phone className="h-4 w-4" />
                 Viber Contact (09740807009)
               </Button>
               <Button 
-                onClick={() => handleContactClick("https://m.me/infinitytechmyanmar")}
+                onClick={(e) => handleContactClick("https://m.me/infinitytechmyanmar", e)}
                 className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white transition-colors"
               >
                 <MessageCircle className="h-4 w-4" />
                 Messenger Contact
               </Button>
               <Button 
-                onClick={() => handleContactClick("https://t.me/+959740807009")}
+                onClick={(e) => handleContactClick("https://t.me/+959740807009", e)}
                 className="flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 text-white transition-colors"
               >
                 <Send className="h-4 w-4" />
