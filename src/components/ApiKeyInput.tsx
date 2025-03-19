@@ -6,6 +6,10 @@ import { isLoggedIn } from "@/utils/authUtils";
 import { useNavigate } from "react-router-dom";
 import ApiKeyDialog from "./api-key/ApiKeyDialog";
 import InvalidApiKeyAlert from "./api-key/InvalidApiKeyAlert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Key } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ApiKeyInputProps {
   onApiKeySet: (isSet: boolean) => void;
@@ -14,22 +18,25 @@ interface ApiKeyInputProps {
 const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
   const [open, setOpen] = useState(false);
   const [invalidKeyAlert, setInvalidKeyAlert] = useState(false);
+  const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false);
+  const [apiKey, setApiKey] = useState<string>(localStorage.getItem("falApiKey") || "");
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Try to initialize the fal client with the server's API key
-  try {
-    // Using environment variable for API key
-    const apiKey = import.meta.env.VITE_FAL_API_KEY;
-    
-    if (apiKey) {
+  // Try to initialize the fal client with the stored API key
+  const storedApiKey = localStorage.getItem("falApiKey");
+  if (storedApiKey) {
+    try {
       fal.config({
-        credentials: apiKey
+        credentials: storedApiKey
       });
       onApiKeySet(true);
+    } catch (error) {
+      console.error("Error initializing fal.ai client:", error);
+      onApiKeySet(false);
     }
-  } catch (error) {
-    console.error("Error initializing fal.ai client:", error);
+  } else {
+    onApiKeySet(false);
   }
 
   const checkApiAccess = () => {
@@ -43,11 +50,91 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
       return;
     }
 
-    setOpen(true);
+    setApiKeyDialogOpen(true);
+  };
+
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setApiKey(e.target.value);
+  };
+
+  const saveApiKey = () => {
+    if (!apiKey.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid API key",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      localStorage.setItem("falApiKey", apiKey);
+      
+      // Configure fal client with the new API key
+      fal.config({
+        credentials: apiKey
+      });
+      
+      onApiKeySet(true);
+      setApiKeyDialogOpen(false);
+      
+      toast({
+        title: "Success",
+        description: "API key saved successfully",
+      });
+    } catch (error) {
+      console.error("Failed to save API key:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save API key",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
     <>
+      <Button variant="outline" size="sm" onClick={checkApiAccess} className="flex items-center gap-2">
+        <Key className="h-4 w-4" />
+        Set API Key
+      </Button>
+
+      <Dialog open={apiKeyDialogOpen} onOpenChange={setApiKeyDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Set Your FAL.AI API Key</DialogTitle>
+            <DialogDescription>
+              Enter your FAL.AI API key to generate images and videos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Input
+                id="apiKey"
+                type="password"
+                value={apiKey}
+                onChange={handleApiKeyChange}
+                placeholder="Enter your FAL.AI API key"
+              />
+              <p className="text-xs text-slate-500">
+                <a 
+                  href="https://fal.ai/dashboard/keys" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline"
+                >
+                  Get your API key from FAL.AI
+                </a>
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApiKeyDialogOpen(false)}>Cancel</Button>
+            <Button onClick={saveApiKey}>Save API Key</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <ApiKeyDialog 
         open={open}
         setOpen={setOpen}
