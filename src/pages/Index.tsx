@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -5,6 +6,7 @@ import TextToImage from "@/components/TextToImage";
 import ImageToVideo from "@/components/ImageToVideo";
 import Header from "@/components/Header";
 import { getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface SelectedContent {
   url: string;
@@ -85,9 +87,10 @@ const Index = () => {
           className="w-full"
           onValueChange={(value) => setActiveTab(value)}
         >
-          <TabsList className="grid w-full grid-cols-2 mb-8">
+          <TabsList className="grid w-full grid-cols-3 mb-8">
             <TabsTrigger value="text-to-image">Text to Image</TabsTrigger>
             <TabsTrigger value="image-to-video">Image to Video</TabsTrigger>
+            <TabsTrigger value="playground">Playground</TabsTrigger>
           </TabsList>
           
           <TabsContent value="text-to-image" className="mt-0">
@@ -96,6 +99,22 @@ const Index = () => {
           
           <TabsContent value="image-to-video" className="mt-0">
             <ImageToVideo initialImageUrl={generatedImageUrl} />
+          </TabsContent>
+          
+          <TabsContent value="playground" className="mt-0">
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-0">
+                <div className="aspect-video w-full">
+                  <iframe
+                    src="https://waloneai-zerocodewl.hf.space"
+                    title="WaloneAI Playground"
+                    className="w-full h-[700px] border-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>
