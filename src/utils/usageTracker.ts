@@ -1,6 +1,10 @@
 
 import { getCurrentUser } from "./authUtils";
 
+// Define constants for usage limits
+export const IMAGE_LIMIT = 100;
+export const VIDEO_LIMIT = 50;
+
 // Define interface for usage tracking
 export interface ApiKeyUsage {
   key: string;
@@ -31,12 +35,12 @@ export const getApiKeyUsage = (): ApiKeyUsage | null => {
 export const getUserLimits = (): { imageLimit: number; videoLimit: number } => {
   const user = getCurrentUser();
   if (!user) {
-    return { imageLimit: 100, videoLimit: 50 }; // Default limits
+    return { imageLimit: IMAGE_LIMIT, videoLimit: VIDEO_LIMIT }; // Use constants
   }
   
   return {
-    imageLimit: user.imageLimit || 100,
-    videoLimit: user.videoLimit || 50
+    imageLimit: user.imageLimit || IMAGE_LIMIT,
+    videoLimit: user.videoLimit || VIDEO_LIMIT
   };
 };
 
