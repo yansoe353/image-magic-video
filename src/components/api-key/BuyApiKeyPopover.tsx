@@ -2,6 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MessageCircle, Phone, Send } from "lucide-react";
+import CustomerSupportChat from "./CustomerSupportChat";
 
 const BuyApiKeyPopover = () => {
   const handleContactClick = (url: string) => {
@@ -45,6 +46,7 @@ const BuyApiKeyPopover = () => {
                 <Send className="h-4 w-4" />
                 Telegram Contact (09740807009)
               </Button>
+              <CustomerSupportChat />
             </div>
           </div>
         </div>
