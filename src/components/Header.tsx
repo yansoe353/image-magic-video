@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Menu, X, LogOut, LogIn, Users, History } from "lucide-react";
+import { Menu, X, LogOut, LogIn, Users, History, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ApiKeyInput from "@/components/ApiKeyInput";
 import { fal } from "@fal-ai/client";
@@ -12,6 +12,7 @@ const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -53,6 +54,10 @@ const Header = () => {
     setLoggedIn(false);
     setCurrentUser(null);
     navigate("/");
+  };
+
+  const handleApiKeyClick = () => {
+    setApiKeyDialogOpen(true);
   };
 
   const isHomePage = location.pathname === "/";
@@ -102,12 +107,24 @@ const Header = () => {
               <span className={`text-sm ${isHomePage ? 'text-white' : 'text-slate-600'}`}>
                 {currentUser?.name || currentUser?.email}
               </span>
+
               <ApiKeyInput onApiKeySet={setIsApiKeySet} />
               {isApiKeySet && (
                 <span className={`text-xs ${isHomePage ? 'text-green-300' : 'text-green-600'} mr-2`}>
                   API Key Set
                 </span>
               )}
+
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2"
+                onClick={handleApiKeyClick}
+              >
+                <Key className="h-4 w-4" />
+                API Info
+              </Button>
+
               <Link 
                 to="/users"
                 className={`font-medium flex items-center gap-1 ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
@@ -196,6 +213,15 @@ const Header = () => {
                     </span>
                   )}
                 </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2 w-full flex items-center" 
+                  onClick={handleApiKeyClick}
+                >
+                  <Key className="h-4 w-4" />
+                  API Info
+                </Button>
                 <Link 
                   to="/users"
                   className="font-medium flex items-center gap-1 text-slate-600 hover:text-brand-purple"

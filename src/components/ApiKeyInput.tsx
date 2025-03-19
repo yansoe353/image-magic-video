@@ -6,8 +6,6 @@ import { isLoggedIn } from "@/utils/authUtils";
 import { useNavigate } from "react-router-dom";
 import ApiKeyDialog from "./api-key/ApiKeyDialog";
 import InvalidApiKeyAlert from "./api-key/InvalidApiKeyAlert";
-import { Button } from "@/components/ui/button";
-import { Key } from "lucide-react";
 
 interface ApiKeyInputProps {
   onApiKeySet: (isSet: boolean) => void;
@@ -59,16 +57,6 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
         open={invalidKeyAlert}
         setOpen={setInvalidKeyAlert}
       />
-
-      <Button 
-        variant="outline" 
-        size="sm" 
-        className="gap-2"
-        onClick={checkApiAccess}
-      >
-        <Key className="h-4 w-4" />
-        API Info
-      </Button>
     </>
   );
 };
