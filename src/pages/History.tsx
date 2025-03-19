@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import HistoryPanel from "@/components/HistoryPanel";
@@ -9,12 +9,12 @@ import { isLoggedIn } from "@/utils/authUtils";
 const History = () => {
   const navigate = useNavigate();
   
-  // Redirect to login if not logged in
-  useState(() => {
+  // Redirect to login if not logged in - Fixed: Changed useState to useEffect
+  useEffect(() => {
     if (!isLoggedIn()) {
       navigate('/login');
     }
-  });
+  }, [navigate]);
 
   const handleSelectContent = (url: string, type: 'image' | 'video') => {
     // Navigate to creator with the selected content

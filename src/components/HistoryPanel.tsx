@@ -212,10 +212,15 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
-                  <PaginationPrevious 
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                  />
+                  {/* Fixed: Removed the disabled prop and replaced with a conditional rendering */}
+                  {currentPage === 1 ? (
+                    <Button variant="outline" size="icon" disabled className="cursor-not-allowed">
+                      <span className="sr-only">Go to previous page</span>
+                      &lt;
+                    </Button>
+                  ) : (
+                    <PaginationPrevious onClick={() => setCurrentPage(p => Math.max(1, p - 1))} />
+                  )}
                 </PaginationItem>
                 
                 {Array.from({ length: totalPages }, (_, i) => i + 1)
@@ -247,10 +252,15 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
                   })}
                 
                 <PaginationItem>
-                  <PaginationNext 
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                  />
+                  {/* Fixed: Removed the disabled prop and replaced with a conditional rendering */}
+                  {currentPage === totalPages ? (
+                    <Button variant="outline" size="icon" disabled className="cursor-not-allowed">
+                      <span className="sr-only">Go to next page</span>
+                      &gt;
+                    </Button>
+                  ) : (
+                    <PaginationNext onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} />
+                  )}
                 </PaginationItem>
               </PaginationContent>
             </Pagination>

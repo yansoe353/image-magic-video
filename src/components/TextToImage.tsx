@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -89,9 +90,22 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
     if (!isLoggedIn()) return;
     
     try {
+      // Get current user's ID from localStorage
+      const user = localStorage.getItem("user");
+      if (!user) return;
+      
+      const userData = JSON.parse(user);
+      const userId = userData.id;
+      
+      if (!userId) {
+        console.error("No user ID found");
+        return;
+      }
+      
       const { error } = await supabase
         .from('user_content_history')
         .insert({
+          user_id: userId,
           content_type: 'image',
           content_url: imageUrl,
           prompt: prompt,
