@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Github, Key, Menu, X, LogOut, LogIn } from "lucide-react";
+import { Github, Key, Menu, X, LogOut, LogIn, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ApiKeyInput from "@/components/ApiKeyInput";
 import { fal } from "@fal-ai/client";
@@ -87,6 +87,13 @@ const Header = () => {
                   API Key Set
                 </span>
               )}
+              <Link 
+                to="/users"
+                className={`font-medium flex items-center gap-1 ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
+              >
+                <Users className="h-4 w-4" />
+                Users
+              </Link>
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -169,6 +176,14 @@ const Header = () => {
                     </span>
                   )}
                 </div>
+                <Link 
+                  to="/users"
+                  className="font-medium flex items-center gap-1 text-slate-600 hover:text-brand-purple"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Users className="h-4 w-4" />
+                  Users
+                </Link>
                 <Button 
                   variant="outline" 
                   size="sm" 

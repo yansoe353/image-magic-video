@@ -9,6 +9,8 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Examples from "./pages/Examples";
 import Login from "./components/Login";
+import AddUser from "./components/AddUser";
+import UserList from "./components/UserList";
 import { isLoggedIn } from "./utils/authUtils";
 
 const queryClient = new QueryClient();
@@ -39,6 +41,22 @@ const App = () => (
             } 
           />
           <Route path="/examples" element={<Examples />} />
+          <Route 
+            path="/users" 
+            element={
+              <ProtectedRoute>
+                <UserList />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/add-user" 
+            element={
+              <ProtectedRoute>
+                <AddUser />
+              </ProtectedRoute>
+            } 
+          />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

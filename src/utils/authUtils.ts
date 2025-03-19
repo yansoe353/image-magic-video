@@ -23,6 +23,32 @@ const MOCK_USERS = [
   }
 ];
 
+// Function to save users to local storage
+const saveUsers = () => {
+  localStorage.setItem("mockUsers", JSON.stringify(MOCK_USERS));
+};
+
+// Function to load users from local storage
+const loadUsers = () => {
+  const storedUsers = localStorage.getItem("mockUsers");
+  if (storedUsers) {
+    try {
+      const parsedUsers = JSON.parse(storedUsers);
+      if (Array.isArray(parsedUsers)) {
+        return parsedUsers;
+      }
+    } catch (error) {
+      console.error("Error parsing stored users:", error);
+    }
+  }
+  // If no stored users or error, initialize with default user
+  saveUsers();
+  return MOCK_USERS;
+};
+
+// Initialize users from local storage
+let users = loadUsers();
+
 // Check if user is logged in
 export const isLoggedIn = (): boolean => {
   const sessionStr = localStorage.getItem("userSession");
@@ -61,11 +87,14 @@ export const getCurrentUser = (): User | null => {
 
 // Login user
 export const loginUser = async (email: string, password: string): Promise<boolean> => {
+  // Reload users to ensure we have the latest data
+  users = loadUsers();
+  
   // Simulate API call delay
   await new Promise(resolve => setTimeout(resolve, 500));
   
   // Find user
-  const user = MOCK_USERS.find(u => u.email === email && u.password === password);
+  const user = users.find(u => u.email === email && u.password === password);
   
   if (!user) return false;
   
@@ -89,4 +118,46 @@ export const loginUser = async (email: string, password: string): Promise<boolea
 // Logout user
 export const logoutUser = (): void => {
   localStorage.removeItem("userSession");
+};
+
+// Add new user
+export const addNewUser = async (email: string, password: string, name?: string): Promise<boolean> => {
+  // Reload users to ensure we have the latest data
+  users = loadUsers();
+  
+  // Simulate API call delay
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  // Check if email already exists
+  if (users.some(u => u.email === email)) {
+    return false;
+  }
+  
+  // Generate new user ID
+  const newUserId = `user${Date.now()}`;
+  
+  // Create new user
+  const newUser = {
+    id: newUserId,
+    email,
+    password,
+    name: name || undefined,
+  };
+  
+  // Add to users array
+  users.push(newUser);
+  
+  // Save updated users to localStorage
+  saveUsers();
+  
+  return true;
+};
+
+// Get all users (admin function)
+export const getAllUsers = (): Omit<typeof users[0], 'password'>[] => {
+  // Reload users to ensure we have the latest data
+  users = loadUsers();
+  
+  // Return users without passwords
+  return users.map(({ id, email, name }) => ({ id, email, name }));
 };
