@@ -46,8 +46,9 @@ export const falService = {
       
       console.log("Image generation result:", result);
       
-      // Access the image URL from the result
-      if (result && Array.isArray(result.images) && result.images[0]) {
+      // The result structure from Fal.ai fast-sdxl model
+      // Access data correctly based on API response structure
+      if (result && result.images && Array.isArray(result.images) && result.images.length > 0) {
         return result.images[0].url;
       }
       
@@ -77,7 +78,8 @@ export const falService = {
       
       console.log("Video generation result:", result);
       
-      // Access the video URL from the result
+      // The result structure from Fal.ai wan-i2v model
+      // Access data correctly based on API response structure
       if (result && result.video && result.video.url) {
         return result.video.url;
       }
