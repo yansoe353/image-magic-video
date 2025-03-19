@@ -27,16 +27,14 @@ const falClient = createFalClient({
   credentials: "fal_live_cg8U0NmJuEJ0qTR54cntcbSEH1gzgG5mKw6dOK8FQdG2VDsrUQ"
 });
 
-// Type definition for image generation response
-interface ImageGenerationResponse {
+// Interface for the fast-sdxl model response
+interface FastSdxlResponse {
   images: Array<{ url: string }>;
-  error?: string;
 }
 
-// Type definition for video generation response
-interface VideoGenerationResponse {
+// Interface for the wan-i2v model response
+interface WanI2vResponse {
   video: { url: string };
-  error?: string;
 }
 
 // Service to handle Fal.ai operations
@@ -46,23 +44,22 @@ export const falService = {
     try {
       console.log("Generating image with params:", params);
       
-      const result = await falClient.run("fast-sdxl", {
-        prompt: params.prompt,
-        negative_prompt: params.negative_prompt || "blurry, bad quality, distorted",
-        image_size: params.image_size || "square_hd",
-        num_inference_steps: params.num_inference_steps || 30,
-        guidance_scale: params.guidance_scale || 7.5,
+      // Using type assertion to properly type the response
+      const result = await falClient.run<FastSdxlResponse>("fast-sdxl", {
+        input: {
+          prompt: params.prompt,
+          negative_prompt: params.negative_prompt || "blurry, bad quality, distorted",
+          image_size: params.image_size || "square_hd",
+          num_inference_steps: params.num_inference_steps || 30,
+          guidance_scale: params.guidance_scale || 7.5,
+        }
       });
       
       console.log("Image generation result:", result);
       
-      // The result should directly contain the image information
+      // Access the images from the typed result
       if (result && result.images && result.images[0]) {
         return result.images[0].url;
-      }
-      
-      if (result && result.error) {
-        throw new Error(`API Error: ${result.error}`);
       }
       
       throw new Error("No image URL in response");
@@ -77,25 +74,24 @@ export const falService = {
     try {
       console.log("Generating video with params:", params);
       
-      const result = await falClient.run("wan-i2v", {
-        prompt: params.prompt,
-        image_url: params.image_url,
-        num_frames: params.num_frames || 81,
-        frames_per_second: params.frames_per_second || 16,
-        resolution: params.resolution || "720p",
-        num_inference_steps: params.num_inference_steps || 30,
-        enable_safety_checker: params.enable_safety_checker !== false,
+      // Using type assertion to properly type the response
+      const result = await falClient.run<WanI2vResponse>("wan-i2v", {
+        input: {
+          prompt: params.prompt,
+          image_url: params.image_url,
+          num_frames: params.num_frames || 81,
+          frames_per_second: params.frames_per_second || 16,
+          resolution: params.resolution || "720p",
+          num_inference_steps: params.num_inference_steps || 30,
+          enable_safety_checker: params.enable_safety_checker !== false,
+        }
       });
       
       console.log("Video generation result:", result);
       
-      // The result should directly contain the video information
+      // Access the video from the typed result
       if (result && result.video && result.video.url) {
         return result.video.url;
-      }
-      
-      if (result && result.error) {
-        throw new Error(`API Error: ${result.error}`);
       }
       
       throw new Error("No video URL in response");
