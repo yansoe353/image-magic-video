@@ -135,6 +135,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         height = 1280;
       }
 
+      // Update to use the correct properties for FluxLoraInput
       const result = await fal.subscribe("fal-ai/flux-lora", {
         input: {
           prompt: promptToUse,
@@ -142,8 +143,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             path: lora,
             strength: 0.8
           })),
-          width,
-          height,
+          image_size: { width, height },
           guidance_scale: guidanceScale,
           inference_steps: 30,
         },
