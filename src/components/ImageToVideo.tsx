@@ -8,10 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { fal } from "@fal-ai/client";
-import { Languages } from "lucide-react";
+import { Languages, AlertCircle } from "lucide-react";
 import { LANGUAGES, translateText, type LanguageOption } from "@/utils/translationUtils";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import { usePromptTranslation } from "@/hooks/usePromptTranslation";
+import { incrementVideoCount, getRemainingCounts, VIDEO_LIMIT } from "@/utils/usageTracker";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
 import VideoEditor from "./VideoEditor";
@@ -41,6 +43,7 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
   const [showEditor, setShowEditor] = useState(false);
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
+  const { remainingVideos } = getRemainingCounts();
 
   // Settings state
   const [frames, setFrames] = useState(81);
@@ -60,6 +63,16 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
       toast({
         title: "Error",
         description: "Please upload an image and provide a prompt",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check usage limits
+    if (remainingVideos <= 0) {
+      toast({
+        title: "Usage Limit Reached",
+        description: `You've reached the limit of ${VIDEO_LIMIT} video generations.`,
         variant: "destructive",
       });
       return;
@@ -102,10 +115,20 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
       
       if (result.data?.video?.url) {
         setVideoUrl(result.data.video.url);
-        toast({
-          title: "Success",
-          description: "Video generated successfully!",
-        });
+        
+        // Increment usage count
+        if (incrementVideoCount()) {
+          toast({
+            title: "Success",
+            description: "Video generated successfully!",
+          });
+        } else {
+          toast({
+            title: "Usage Tracking Error",
+            description: "Failed to update usage count.",
+            variant: "destructive",
+          });
+        }
       } else {
         throw new Error("No video URL in response");
       }
@@ -126,6 +149,16 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
       <Card className="overflow-hidden">
         <CardContent className="p-6">
           <h2 className="text-2xl font-bold mb-4">Image to Video</h2>
+          
+          {remainingVideos <= 5 && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Usage Limit Warning</AlertTitle>
+              <AlertDescription>
+                You have {remainingVideos} video generation{remainingVideos === 1 ? '' : 's'} remaining.
+              </AlertDescription>
+            </Alert>
+          )}
           
           <div className="space-y-4">
             <div>
@@ -222,11 +255,17 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
             
             <Button
               onClick={generateVideo}
-              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating}
+              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || remainingVideos <= 0}
               className="w-full"
             >
               Generate Video
             </Button>
+            
+            {remainingVideos > 0 && (
+              <p className="text-xs text-slate-500 text-center">
+                {remainingVideos} of {VIDEO_LIMIT} video generations remaining
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

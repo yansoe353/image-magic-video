@@ -1,11 +1,10 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { fal } from "@fal-ai/client";
-import { Loader2, Download, Image as ImageIcon, Languages } from "lucide-react";
+import { Loader2, Download, Image as ImageIcon, Languages, AlertCircle } from "lucide-react";
 import { 
   Select,
   SelectContent,
@@ -14,6 +13,8 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { LANGUAGES, translateText } from "@/utils/translationUtils";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { incrementImageCount, getRemainingCounts, IMAGE_LIMIT } from "@/utils/usageTracker";
 
 interface TextToImageProps {
   onImageGenerated: (imageUrl: string) => void;
@@ -41,6 +42,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [isTranslating, setIsTranslating] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageOption>("en");
   const { toast } = useToast();
+  const { remainingImages } = getRemainingCounts();
 
   const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setPrompt(e.target.value);
@@ -82,6 +84,16 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       return;
     }
 
+    // Check usage limits
+    if (remainingImages <= 0) {
+      toast({
+        title: "Usage Limit Reached",
+        description: `You've reached the limit of ${IMAGE_LIMIT} image generations.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     
     try {
@@ -110,10 +122,20 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       if (result.data && result.data.images && result.data.images[0]) {
         const imageUrl = result.data.images[0].url;
         setGeneratedImage(imageUrl);
-        toast({
-          title: "Success",
-          description: "Image generated successfully!",
-        });
+        
+        // Increment usage count
+        if (incrementImageCount()) {
+          toast({
+            title: "Success",
+            description: "Image generated successfully!",
+          });
+        } else {
+          toast({
+            title: "Usage Tracking Error",
+            description: "Failed to update usage count.",
+            variant: "destructive",
+          });
+        }
       } else {
         throw new Error("No image URL in response");
       }
@@ -151,6 +173,17 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       <Card className="overflow-hidden">
         <CardContent className="p-6">
           <h2 className="text-2xl font-bold mb-4">Create an Image</h2>
+          
+          {remainingImages <= 10 && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Usage Limit Warning</AlertTitle>
+              <AlertDescription>
+                You have {remainingImages} image generation{remainingImages === 1 ? '' : 's'} remaining.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -187,6 +220,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
                 </div>
               )}
             </div>
+            
             <div>
               <label className="text-sm font-medium mb-2 block">Image Size</label>
               <Select 
@@ -205,23 +239,32 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
                 </SelectContent>
               </Select>
             </div>
-            <Button 
-              onClick={generateImage} 
-              disabled={isLoading || isTranslating || !prompt.trim()} 
-              className="w-full"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <ImageIcon className="mr-2 h-4 w-4" />
-                  Generate Image
-                </>
-              )}
-            </Button>
+            
+            <div className="flex items-center justify-between">
+              <Button 
+                onClick={generateImage} 
+                disabled={isLoading || isTranslating || !prompt.trim() || remainingImages <= 0} 
+                className="w-full"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon className="mr-2 h-4 w-4" />
+                    Generate Image
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            {remainingImages > 0 && (
+              <p className="text-xs text-slate-500 text-center">
+                {remainingImages} of {IMAGE_LIMIT} image generations remaining
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

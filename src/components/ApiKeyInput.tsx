@@ -12,6 +12,16 @@ interface ApiKeyInputProps {
   onApiKeySet: (isSet: boolean) => void;
 }
 
+// Define interface for usage tracking
+interface ApiKeyUsage {
+  key: string;
+  imageCount: number;
+  videoCount: number;
+}
+
+const IMAGE_LIMIT = 100;
+const VIDEO_LIMIT = 50;
+
 const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
   const [apiKey, setApiKey] = useState("");
   const [open, setOpen] = useState(false);
@@ -33,8 +43,16 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
         credentials: apiKey
       });
       
-      // Save API key to localStorage
+      // Initialize usage tracking
+      const usage: ApiKeyUsage = {
+        key: apiKey,
+        imageCount: 0,
+        videoCount: 0
+      };
+      
+      // Save API key and usage to localStorage
       localStorage.setItem("falApiKey", apiKey);
+      localStorage.setItem("apiKeyUsage", JSON.stringify(usage));
       
       toast({
         title: "Success",
@@ -81,6 +99,7 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
           </div>
           <div className="text-sm text-slate-500">
             <p>Your API key is stored locally in your browser and not sent to our servers.</p>
+            <p className="mt-1">Usage limits: {IMAGE_LIMIT} image generations and {VIDEO_LIMIT} video generations.</p>
             <p className="mt-2">
               <a 
                 href="https://www.fal.ai/dashboard" 

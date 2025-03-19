@@ -4,16 +4,29 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TextToImage from "@/components/TextToImage";
 import ImageToVideo from "@/components/ImageToVideo";
 import Header from "@/components/Header";
+import { getRemainingCounts, IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<string>("text-to-image");
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [usageCounts, setUsageCounts] = useState({ remainingImages: 0, remainingVideos: 0 });
 
   useEffect(() => {
     // Check if API key is set
     const storedApiKey = localStorage.getItem("falApiKey");
     setHasApiKey(!!storedApiKey);
+    
+    // Get current usage counts
+    const counts = getRemainingCounts();
+    setUsageCounts(counts);
+    
+    // Set up interval to refresh usage counts
+    const interval = setInterval(() => {
+      setUsageCounts(getRemainingCounts());
+    }, 5000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const handleImageGenerated = (imageUrl: string) => {
@@ -37,6 +50,17 @@ const Index = () => {
           {!hasApiKey && (
             <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800 text-sm">
               Please set your Infinity API key using the button in the header to enable image and video generation.
+            </div>
+          )}
+          
+          {hasApiKey && (
+            <div className="mt-4 flex justify-center gap-8 text-sm">
+              <div className="px-4 py-2 bg-blue-50 border border-blue-100 rounded-md">
+                <span className="font-medium">Images:</span> {usageCounts.remainingImages}/{IMAGE_LIMIT} remaining
+              </div>
+              <div className="px-4 py-2 bg-purple-50 border border-purple-100 rounded-md">
+                <span className="font-medium">Videos:</span> {usageCounts.remainingVideos}/{VIDEO_LIMIT} remaining
+              </div>
             </div>
           )}
         </section>
