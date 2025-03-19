@@ -1,7 +1,9 @@
+
 import { useState, useEffect } from "react";
 import { Menu, X, LogOut, LogIn, Users, History, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ApiKeyInput from "@/components/ApiKeyInput";
+import ApiKeyDialog from "@/components/api-key/ApiKeyDialog";
 import { fal } from "@fal-ai/client";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { isLoggedIn, logoutUser, getCurrentUser, AppUser } from "@/utils/authUtils";
