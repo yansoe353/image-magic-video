@@ -27,6 +27,18 @@ const falClient = createFalClient({
   credentials: "fal_live_cg8U0NmJuEJ0qTR54cntcbSEH1gzgG5mKw6dOK8FQdG2VDsrUQ"
 });
 
+// Type definition for image response
+interface ImageGenerationResponse {
+  images: Array<{ url: string }>;
+  error?: string;
+}
+
+// Type definition for video response
+interface VideoGenerationResponse {
+  video: { url: string };
+  error?: string;
+}
+
 // Service to handle Fal.ai operations
 export const falService = {
   // Generate an image using direct Fal.ai API
@@ -34,7 +46,7 @@ export const falService = {
     try {
       console.log("Generating image with params:", params);
       
-      const result = await falClient.run({
+      const result = await falClient.run<ImageGenerationResponse>({
         modelId: 'fast-sdxl',
         input: {
           prompt: params.prompt,
@@ -47,12 +59,15 @@ export const falService = {
       
       console.log("Image generation result:", result);
       
-      if (result && result.images && result.images[0]) {
-        return result.images[0].url;
+      // Access the response data from result.output for typesafe access
+      const output = result.output;
+      
+      if (output && output.images && output.images[0]) {
+        return output.images[0].url;
       }
       
-      if (result && result.error) {
-        throw new Error(`API Error: ${result.error}`);
+      if (output && output.error) {
+        throw new Error(`API Error: ${output.error}`);
       }
       
       throw new Error("No image URL in response");
@@ -67,7 +82,7 @@ export const falService = {
     try {
       console.log("Generating video with params:", params);
       
-      const result = await falClient.run({
+      const result = await falClient.run<VideoGenerationResponse>({
         modelId: 'wan-i2v',
         input: {
           prompt: params.prompt,
@@ -82,12 +97,15 @@ export const falService = {
       
       console.log("Video generation result:", result);
       
-      if (result && result.video && result.video.url) {
-        return result.video.url;
+      // Access the response data from result.output for typesafe access
+      const output = result.output;
+      
+      if (output && output.video && output.video.url) {
+        return output.video.url;
       }
       
-      if (result && result.error) {
-        throw new Error(`API Error: ${result.error}`);
+      if (output && output.error) {
+        throw new Error(`API Error: ${output.error}`);
       }
       
       throw new Error("No video URL in response");
