@@ -64,7 +64,7 @@ export const logoutUser = async (): Promise<void> => {
   await supabase.auth.signOut();
 };
 
-// Add new user
+// Add new user - changed to use regular signup instead of admin methods
 export const addNewUser = async (
   email: string, 
   password: string, 
@@ -73,12 +73,13 @@ export const addNewUser = async (
   imageLimit: number = 100, 
   videoLimit: number = 50
 ): Promise<boolean> => {
-  // First create auth user
-  const { data, error } = await supabase.auth.admin.createUser({
+  // Use regular signup method instead of admin method
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    email_confirm: true,
-    user_metadata: { name, isAdmin, imageLimit, videoLimit }
+    options: {
+      data: { name, isAdmin, imageLimit, videoLimit }
+    }
   });
   
   if (error || !data.user) {
@@ -101,23 +102,15 @@ export const updateUser = async (
     videoLimit?: number;
   }
 ): Promise<boolean> => {
-  // Update auth user if email or password changed
-  if (data.email || data.password) {
-    const authUpdates: any = {};
-    if (data.email) authUpdates.email = data.email;
-    if (data.password) authUpdates.password = data.password;
-    
-    const { error: authError } = await supabase.auth.admin.updateUserById(
-      userId,
-      authUpdates
-    );
-    
-    if (authError) {
-      console.error("Error updating auth user:", authError);
-      return false;
-    }
-  }
+  // For non-admin users, only allow self-updates
+  const currentUser = await getCurrentUser();
+  const isAdminUser = await isAdmin();
   
+  if (!isAdminUser && currentUser?.id !== userId) {
+    console.error("Only admins can update other users");
+    return false;
+  }
+
   // Update user metadata
   const userMetadata: any = {};
   if (data.name !== undefined) userMetadata.name = data.name;
@@ -126,10 +119,9 @@ export const updateUser = async (
   if (data.videoLimit !== undefined) userMetadata.videoLimit = data.videoLimit;
   
   if (Object.keys(userMetadata).length > 0) {
-    const { error: metadataError } = await supabase.auth.admin.updateUserById(
-      userId,
-      { user_metadata: userMetadata }
-    );
+    const { error: metadataError } = await supabase.auth.updateUser({
+      data: userMetadata
+    });
     
     if (metadataError) {
       console.error("Error updating user metadata:", metadataError);
@@ -137,38 +129,44 @@ export const updateUser = async (
     }
   }
   
-  return true;
-};
-
-// Delete user
-export const deleteUser = async (userId: string): Promise<boolean> => {
-  const { error } = await supabase.auth.admin.deleteUser(userId);
-  
-  if (error) {
-    console.error("Error deleting user:", error);
-    return false;
+  // Update email or password if provided
+  if (data.email || data.password) {
+    const authUpdates: any = {};
+    if (data.email) authUpdates.email = data.email;
+    if (data.password) authUpdates.password = data.password;
+    
+    const { error: authError } = await supabase.auth.updateUser(authUpdates);
+    
+    if (authError) {
+      console.error("Error updating auth user:", authError);
+      return false;
+    }
   }
   
   return true;
+};
+
+// Delete user - Note: regular users cannot delete users, only admins can
+export const deleteUser = async (userId: string): Promise<boolean> => {
+  const isAdminUser = await isAdmin();
+  
+  if (!isAdminUser) {
+    console.error("Only admins can delete users");
+    return false;
+  }
+  
+  // This will need to be done by an admin through the Supabase dashboard
+  // or with a custom server-side function with admin privileges
+  console.error("User deletion requires admin privileges in Supabase dashboard");
+  return false;
 };
 
 // Get all users (admin function)
 export const getAllUsers = async (): Promise<AppUser[]> => {
-  const { data, error } = await supabase.auth.admin.listUsers();
-  
-  if (error || !data.users) {
-    console.error("Error fetching users:", error);
-    return [];
-  }
-  
-  return data.users.map(user => ({
-    id: user.id,
-    email: user.email || '',
-    name: user.user_metadata?.name as string | undefined,
-    isAdmin: user.user_metadata?.isAdmin as boolean | undefined,
-    imageLimit: user.user_metadata?.imageLimit as number | undefined,
-    videoLimit: user.user_metadata?.videoLimit as number | undefined
-  }));
+  // Regular users cannot list all users, this requires admin privileges
+  // Return empty array for now with a console warning
+  console.warn("Listing users requires admin privileges in Supabase dashboard");
+  return [];
 };
 
 // Set user limits
