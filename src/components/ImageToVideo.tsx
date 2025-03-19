@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,11 +18,14 @@ import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
 import VideoEditor from "./VideoEditor";
 
-// Initialize fal.ai client
+// Initialize fal.ai client with proper environment variable handling for browser
 try {
-  fal.config({
-    credentials: process.env.FAL_KEY || "fal_key_placeholder"
-  });
+  const apiKey = localStorage.getItem("falApiKey") || "";
+  if (apiKey) {
+    fal.config({
+      credentials: apiKey
+    });
+  }
 } catch (error) {
   console.error("Error initializing fal.ai client:", error);
 }
@@ -40,6 +44,13 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [generationLogs, setGenerationLogs] = useState<string[]>([]);
   const [showEditor, setShowEditor] = useState(false);
+  
+  // Add the missing state variables for video generation parameters
+  const [resolution, setResolution] = useState<string>("480p");
+  const [fps, setFps] = useState<number>(15);
+  const [frames, setFrames] = useState<number>(81);
+  const [numInferenceSteps, setNumInferenceSteps] = useState<number>(25);
+  
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
   const [counts, setCounts] = useState(getRemainingCounts());
