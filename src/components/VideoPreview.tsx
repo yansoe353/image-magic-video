@@ -94,11 +94,9 @@ const VideoPreview = ({
           Download Video
         </Button>
       </div>
-      {videoUrl.includes('supabase') && (
-        <p className="text-xs text-slate-500 text-center">
-          Stored in your personal cloud storage
-        </p>
-      )}
+      <p className="text-xs text-slate-500 text-center">
+        Stored in your personal cloud storage
+      </p>
     </div>
   );
 };

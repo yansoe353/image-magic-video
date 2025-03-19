@@ -165,13 +165,14 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
       if (result.data?.video?.url) {
         const falVideoUrl = result.data.video.url;
         setOriginalVideoUrl(falVideoUrl);
-        setVideoUrl(falVideoUrl);
+        setVideoUrl(""); // Clear any existing URL
         
         setIsStoringVideo(true);
         try {
           const userId = getUserId();
           const supabaseUrl = await uploadUrlToStorage(falVideoUrl, 'video', userId);
           setSupabaseVideoUrl(supabaseUrl);
+          setVideoUrl(supabaseUrl); // Set the Supabase URL as the video URL
           
           await saveToHistory(supabaseUrl, falVideoUrl);
           
@@ -181,6 +182,7 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
           });
         } catch (uploadError) {
           console.error("Failed to upload to Supabase:", uploadError);
+          setVideoUrl(falVideoUrl);
           await saveToHistory(falVideoUrl, falVideoUrl);
         } finally {
           setIsStoringVideo(false);
