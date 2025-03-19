@@ -1,7 +1,6 @@
 
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Key } from "lucide-react";
 import { IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
 import BuyApiKeyPopover from "./BuyApiKeyPopover";
 
@@ -13,12 +12,6 @@ interface ApiKeyDialogProps {
 const ApiKeyDialog = ({ open, setOpen }: ApiKeyDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Key className="h-4 w-4" />
-          API Info
-        </Button>
-      </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>API Usage Information</DialogTitle>

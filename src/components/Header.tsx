@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Menu, X, LogOut, LogIn, Users, History, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,6 @@ const Header = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check login status and load user data
     const initialize = async () => {
       const isUserLoggedIn = await isLoggedIn();
       setLoggedIn(isUserLoggedIn);
@@ -27,11 +25,9 @@ const Header = () => {
         setCurrentUser(user);
       }
       
-      // Check if API key is already set in localStorage
       const storedApiKey = localStorage.getItem("falApiKey");
       if (storedApiKey) {
         try {
-          // Configure fal.ai client with the API key
           fal.config({
             credentials: storedApiKey
           });
@@ -71,7 +67,6 @@ const Header = () => {
           </Link>
         </div>
         
-        {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6">
           <Link 
             to="/" 
@@ -155,7 +150,6 @@ const Header = () => {
           )}
         </nav>
         
-        {/* Mobile Menu Button */}
         <div className="md:hidden">
           <Button variant="ghost" size="icon" onClick={toggleMobileMenu} className={isHomePage ? 'text-white hover:bg-white/10' : ''}>
             {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -163,7 +157,6 @@ const Header = () => {
         </div>
       </div>
       
-      {/* Mobile Navigation */}
       {mobileMenuOpen && (
         <div className="md:hidden bg-white border-t border-slate-200 py-4 px-6">
           <nav className="flex flex-col space-y-4">
@@ -260,6 +253,11 @@ const Header = () => {
           </nav>
         </div>
       )}
+      
+      <ApiKeyDialog 
+        open={apiKeyDialogOpen}
+        setOpen={setApiKeyDialogOpen}
+      />
     </header>
   );
 };
