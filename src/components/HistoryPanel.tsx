@@ -1,5 +1,5 @@
-
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
   PaginationNext, 
   PaginationPrevious 
 } from "@/components/ui/pagination";
+import { toast } from "sonner";
 
 interface ContentHistoryItem {
   id: string;
@@ -26,17 +27,19 @@ interface ContentHistoryItem {
 }
 
 interface HistoryPanelProps {
+  userId: string | null;
   onSelectContent?: (url: string, type: 'image' | 'video') => void;
 }
 
-const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
+const HistoryPanel = ({ userId, onSelectContent }: HistoryPanelProps) => {
   const [activeTab, setActiveTab] = useState<'all' | 'image' | 'video'>('all');
   const [items, setItems] = useState<ContentHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
+  const navigate = useNavigate();
   
   const itemsPerPage = 12;
 
@@ -45,18 +48,8 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
     setError(null);
     
     try {
-      // Get the current user from Supabase session
-      const { data: sessionData } = await supabase.auth.getSession();
-      
-      if (!sessionData.session) {
-        setError("You need to be logged in to view your history");
-        setIsLoading(false);
-        return;
-      }
-      
-      const userId = sessionData.session.user.id;
-      
       if (!userId) {
+        console.error("No user ID provided for fetching history");
         setError("User ID not found. Please log in again.");
         setIsLoading(false);
         return;
@@ -84,23 +77,23 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
       
       if (count) {
         setTotalPages(Math.ceil(count / itemsPerPage));
+      } else {
+        setTotalPages(1);
       }
     } catch (err) {
       console.error("Error fetching history:", err);
       setError("Failed to load history. Please try again.");
-      toast({
-        title: "Error",
-        description: "Failed to load content history.",
-        variant: "destructive",
-      });
+      toast.error("Failed to load content history");
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchHistory();
-  }, [activeTab, currentPage]);
+    if (userId) {
+      fetchHistory();
+    }
+  }, [activeTab, currentPage, userId]);
 
   const handleDownload = (url: string, contentType: 'image' | 'video') => {
     const link = document.createElement("a");
@@ -114,12 +107,19 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
   const handleSelectContent = (url: string, contentType: 'image' | 'video') => {
     if (onSelectContent) {
       onSelectContent(url, contentType);
-      toast({
-        title: "Content Selected",
+      toast("Content Selected", {
         description: `The ${contentType} has been selected for use.`,
       });
     }
   };
+
+  if (!userId) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
+        Please log in to view your history.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -157,6 +157,13 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
               ? "You haven't generated any content yet."
               : `You haven't generated any ${activeTab}s yet.`}
           </p>
+          <Button 
+            variant="outline" 
+            className="mt-4"
+            onClick={() => navigate('/create')}
+          >
+            Go create some
+          </Button>
         </div>
       ) : (
         <>
