@@ -8,8 +8,18 @@ import Home from "./pages/Home";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Examples from "./pages/Examples";
+import Login from "./components/Login";
+import { isLoggedIn } from "./utils/authUtils";
 
 const queryClient = new QueryClient();
+
+// Protected route component
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  if (!isLoggedIn()) {
+    return <Navigate to="/login" replace />;
+  }
+  return <>{children}</>;
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -19,7 +29,15 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/create" element={<Index />} />
+          <Route path="/login" element={<Login />} />
+          <Route 
+            path="/create" 
+            element={
+              <ProtectedRoute>
+                <Index />
+              </ProtectedRoute>
+            } 
+          />
           <Route path="/examples" element={<Examples />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

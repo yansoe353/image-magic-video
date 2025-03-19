@@ -7,27 +7,31 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { fal } from "@fal-ai/client";
 import { Key } from "lucide-react";
+import { initializeApiKeyUsage, IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
+import { isLoggedIn } from "@/utils/authUtils";
+import { useNavigate } from "react-router-dom";
 
 interface ApiKeyInputProps {
   onApiKeySet: (isSet: boolean) => void;
 }
 
-// Define interface for usage tracking
-interface ApiKeyUsage {
-  key: string;
-  imageCount: number;
-  videoCount: number;
-}
-
-const IMAGE_LIMIT = 100;
-const VIDEO_LIMIT = 50;
-
 const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
   const [apiKey, setApiKey] = useState("");
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const saveApiKey = () => {
+    if (!isLoggedIn()) {
+      toast({
+        title: "Login Required",
+        description: "Please login to save your API key",
+        variant: "destructive",
+      });
+      navigate("/login");
+      return;
+    }
+
     if (!apiKey.trim()) {
       toast({
         title: "Error",
@@ -44,15 +48,10 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
       });
       
       // Initialize usage tracking
-      const usage: ApiKeyUsage = {
-        key: apiKey,
-        imageCount: 0,
-        videoCount: 0
-      };
+      initializeApiKeyUsage(apiKey);
       
-      // Save API key and usage to localStorage
+      // Save API key to localStorage
       localStorage.setItem("falApiKey", apiKey);
-      localStorage.setItem("apiKeyUsage", JSON.stringify(usage));
       
       toast({
         title: "Success",

@@ -1,17 +1,23 @@
 
 import { useState, useEffect } from "react";
-import { Github, Key, Menu, X } from "lucide-react";
+import { Github, Key, Menu, X, LogOut, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ApiKeyInput from "@/components/ApiKeyInput";
 import { fal } from "@fal-ai/client";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { isLoggedIn, logoutUser, getCurrentUser } from "@/utils/authUtils";
 
 const Header = () => {
   const [isApiKeySet, setIsApiKeySet] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
+    // Check login status
+    setLoggedIn(isLoggedIn());
+    
     // Check if API key is already set in localStorage
     const storedApiKey = localStorage.getItem("falApiKey");
     if (storedApiKey) {
@@ -25,12 +31,19 @@ const Header = () => {
         console.error("Error configuring fal.ai client:", error);
       }
     }
-  }, []);
+  }, [location.pathname]);
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
   };
 
+  const handleLogout = () => {
+    logoutUser();
+    setLoggedIn(false);
+    navigate("/");
+  };
+
+  const user = getCurrentUser();
   const isHomePage = location.pathname === "/";
 
   return (
@@ -62,12 +75,38 @@ const Header = () => {
           >
             Examples
           </Link>
-          <ApiKeyInput onApiKeySet={setIsApiKeySet} />
           
-          {isApiKeySet && (
-            <span className={`text-xs ${isHomePage ? 'text-green-300' : 'text-green-600'} mr-2`}>
-              API Key Set
-            </span>
+          {loggedIn ? (
+            <>
+              <span className={`text-sm ${isHomePage ? 'text-white' : 'text-slate-600'}`}>
+                {user?.name || user?.email}
+              </span>
+              <ApiKeyInput onApiKeySet={setIsApiKeySet} />
+              {isApiKeySet && (
+                <span className={`text-xs ${isHomePage ? 'text-green-300' : 'text-green-600'} mr-2`}>
+                  API Key Set
+                </span>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2" 
+                onClick={handleLogout}
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+            </>
+          ) : (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="gap-2" 
+              onClick={() => navigate("/login")}
+            >
+              <LogIn className="h-4 w-4" />
+              Login
+            </Button>
           )}
           
           <Button variant="outline" size="icon" asChild>
@@ -116,14 +155,47 @@ const Header = () => {
             >
               Examples
             </Link>
-            <div className="py-2">
-              <ApiKeyInput onApiKeySet={setIsApiKeySet} />
-              {isApiKeySet && (
-                <span className="text-xs text-green-600 ml-2">
-                  API Key Set
-                </span>
-              )}
-            </div>
+            
+            {loggedIn ? (
+              <>
+                <div className="py-2">
+                  <span className="text-sm text-slate-600 block mb-2">
+                    {user?.name || user?.email}
+                  </span>
+                  <ApiKeyInput onApiKeySet={setIsApiKeySet} />
+                  {isApiKeySet && (
+                    <span className="text-xs text-green-600 ml-2">
+                      API Key Set
+                    </span>
+                  )}
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2 w-full" 
+                  onClick={() => {
+                    handleLogout();
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <LogOut className="h-4 w-4" />
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2 w-full" 
+                onClick={() => {
+                  navigate("/login");
+                  setMobileMenuOpen(false);
+                }}
+              >
+                <LogIn className="h-4 w-4" />
+                Login
+              </Button>
+            )}
           </nav>
         </div>
       )}
