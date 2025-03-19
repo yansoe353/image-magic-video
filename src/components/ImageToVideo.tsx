@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,7 +15,6 @@ import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
 import VideoEditor from "./VideoEditor";
 
-// Remove the process.env reference that was causing the error
 const ImageToVideo = ({ initialImageUrl }: { initialImageUrl?: string | null }) => {
   const { prompt, setPrompt, selectedLanguage, isTranslating, handleLanguageChange } = 
     usePromptTranslation("A stylish woman walks down a Tokyo street filled with warm glowing neon and animated city signage.");
@@ -30,7 +28,6 @@ const ImageToVideo = ({ initialImageUrl }: { initialImageUrl?: string | null }) 
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
 
-  // Settings state
   const [frames, setFrames] = useState(81);
   const [fps, setFps] = useState(16);
   const [resolution, setResolution] = useState("720p");

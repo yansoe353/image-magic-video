@@ -40,6 +40,7 @@ const ImageUploader = ({
       };
       reader.readAsDataURL(file);
 
+      // Direct upload using falService
       const uploadedUrl = await falService.uploadImage(file);
       setImageUrl(uploadedUrl);
       

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -95,7 +96,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         }
       }
 
-      // Use our backend service to generate the image
+      // Use falService to generate the image directly
       const imageUrl = await falService.generateImage({
         prompt: promptToUse,
         negative_prompt: "blurry, bad quality, distorted",
