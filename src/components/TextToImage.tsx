@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,6 +19,8 @@ import { incrementImageCount, getRemainingCounts, getRemainingCountsAsync, IMAGE
 import { supabase } from "@/integrations/supabase/client";
 import { isLoggedIn } from "@/utils/authUtils";
 import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 
 interface TextToImageProps {
   onImageGenerated: (imageUrl: string) => void;
@@ -32,8 +35,19 @@ const IMAGE_SIZES = {
   landscape_16_9: "Landscape (16:9)",
 };
 
+// Available LoRAs for flux-lora model
+const AVAILABLE_LORAS = [
+  { id: "anime", name: "Anime Style", description: "Anime art style" },
+  { id: "photorealistic", name: "Photorealistic", description: "Ultra realistic photos" },
+  { id: "illustration", name: "Illustration", description: "Illustrated art style" },
+  { id: "concept", name: "Concept Art", description: "Professional concept art" },
+  { id: "painting", name: "Painting", description: "Traditional painting style" },
+  { id: "3d", name: "3D Render", description: "3D rendered models" },
+];
+
 type ImageSizeOption = keyof typeof IMAGE_SIZES;
 type LanguageOption = keyof typeof LANGUAGES;
+type LoraOption = typeof AVAILABLE_LORAS[number]['id'];
 
 const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [prompt, setPrompt] = useState("");
@@ -47,6 +61,8 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
   const [supabaseImageUrl, setSupabaseImageUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedLoras, setSelectedLoras] = useState<LoraOption[]>([]);
+  const [guidanceScale, setGuidanceScale] = useState(9);
 
   useEffect(() => {
     const updateCounts = async () => {
@@ -86,6 +102,14 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
     }
   };
 
+  const toggleLora = (loraId: LoraOption) => {
+    setSelectedLoras(current => 
+      current.includes(loraId) 
+        ? current.filter(id => id !== loraId) 
+        : [...current, loraId]
+    );
+  };
+
   const saveToHistory = async (imageUrl: string, originalUrl: string) => {
     if (!isLoggedIn()) return;
     
@@ -105,7 +129,10 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           prompt: prompt,
           metadata: { 
             size: imageSize,
-            original_url: originalUrl 
+            original_url: originalUrl,
+            loras: selectedLoras,
+            model: "flux-lora",
+            guidance_scale: guidanceScale
           }
         });
         
@@ -150,13 +177,30 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         }
       }
 
-      const result = await fal.subscribe("fal-ai/fast-sdxl", {
+      // Map the image size to dimensions for flux-lora
+      let width = 1024;
+      let height = 1024;
+      
+      if (imageSize.includes('landscape')) {
+        width = 1280;
+        height = 768;
+      } else if (imageSize.includes('portrait')) {
+        width = 768;
+        height = 1280;
+      }
+
+      const result = await fal.subscribe("fal-ai/flux-lora", {
         input: {
           prompt: promptToUse,
-          negative_prompt: "blurry, bad quality, distorted",
-          image_size: imageSize,
-          num_inference_steps: 30,
-          guidance_scale: 7.5,
+          negative_prompt: "blurry, bad quality, distorted, disfigured",
+          loras: selectedLoras.map(lora => ({
+            model_name: lora,
+            strength: 0.8
+          })),
+          width,
+          height,
+          guidance_scale: guidanceScale,
+          inference_steps: 30,
         },
       });
       
@@ -305,6 +349,59 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium mb-2 block">Guidance Scale: {guidanceScale}</label>
+              <input
+                type="range"
+                min="1"
+                max="20"
+                step="0.5"
+                value={guidanceScale}
+                onChange={(e) => setGuidanceScale(parseFloat(e.target.value))}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-slate-500 mt-1">
+                <span>Creative</span>
+                <span>Precise</span>
+              </div>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium mb-2 block">Style Modifiers (LoRAs)</label>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                {AVAILABLE_LORAS.map((lora) => (
+                  <div key={lora.id} className="flex items-start space-x-2">
+                    <Checkbox 
+                      id={`lora-${lora.id}`}
+                      checked={selectedLoras.includes(lora.id as LoraOption)}
+                      onCheckedChange={() => toggleLora(lora.id as LoraOption)}
+                    />
+                    <div className="grid gap-1.5 leading-none">
+                      <label
+                        htmlFor={`lora-${lora.id}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {lora.name}
+                      </label>
+                      <p className="text-xs text-slate-500">
+                        {lora.description}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {selectedLoras.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {selectedLoras.map(lora => (
+                    <Badge key={lora} variant="outline" onClick={() => toggleLora(lora)} className="cursor-pointer">
+                      {AVAILABLE_LORAS.find(l => l.id === lora)?.name}
+                      <span className="ml-1">×</span>
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
             
             <div className="flex items-center justify-between">
