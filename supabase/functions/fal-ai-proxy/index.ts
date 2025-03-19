@@ -61,6 +61,7 @@ serve(async (req) => {
     }
 
     const falApiKey = apiKeyData.key_value;
+    console.log('Successfully retrieved Fal.ai API key');
     
     // Get request data
     let requestData;
@@ -113,7 +114,10 @@ serve(async (req) => {
     if (endpoint === 'upload') {
       if (params.file) {
         const fileContent = new Uint8Array(params.file);
+        console.log(`Preparing to upload file, size: ${fileContent.length} bytes`);
         options.body = fileContent;
+        // For file uploads, don't use application/json
+        options.headers['Content-Type'] = 'application/octet-stream';
       } else {
         return new Response(
           JSON.stringify({ error: 'File is required for upload endpoint' }),
@@ -125,13 +129,15 @@ serve(async (req) => {
       }
     } else if (params.body) {
       options.body = JSON.stringify(params.body);
+      console.log(`Request body prepared for ${endpoint}`);
     }
 
     // Make the request to Fal.ai
     console.log(`Sending request to Fal.ai with options:`, JSON.stringify({
       url: falUrl,
       method: options.method,
-      hasBody: !!options.body
+      hasBody: !!options.body,
+      contentType: options.headers['Content-Type']
     }));
     
     const response = await fetch(falUrl, options);
@@ -152,7 +158,11 @@ serve(async (req) => {
     }
     
     const data = await response.json();
-    console.log('Fal.ai response received successfully');
+    console.log('Fal.ai response received successfully:', JSON.stringify({
+      endpoint: endpoint,
+      hasData: !!data,
+      dataKeys: Object.keys(data)
+    }));
 
     // Return the response
     return new Response(
