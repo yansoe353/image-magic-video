@@ -23,8 +23,9 @@ const Index = () => {
   useEffect(() => {
     // Initialize component
     const initialize = async () => {
-      // Check if API key is set in environment variables
-      setHasApiKey(!!import.meta.env.VITE_FAL_API_KEY);
+      // Check if API key is set
+      const storedApiKey = localStorage.getItem("falApiKey");
+      setHasApiKey(!!storedApiKey);
       
       // Get current usage counts
       const counts = await getRemainingCountsAsync();
@@ -59,7 +60,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
-      <Header onApiKeySet={setHasApiKey} />
+      <Header />
       
       <main className="flex-1 container max-w-5xl py-8 px-4 md:px-6 mt-16">
         <section className="mb-12 text-center">
@@ -72,7 +73,7 @@ const Index = () => {
           
           {!hasApiKey && (
             <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800 text-sm">
-              API key is not configured. Please contact support to enable image and video generation.
+              Please set your Infinity API key using the button in the header to enable image and video generation.
             </div>
           )}
           
