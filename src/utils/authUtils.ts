@@ -1,3 +1,4 @@
+
 // Define interface for user data
 export interface User {
   id: string;
@@ -107,8 +108,8 @@ export const loginUser = async (email: string, password: string): Promise<boolea
   // Simulate API call delay
   await new Promise(resolve => setTimeout(resolve, 500));
   
-  // Find user
-  const user = users.find(u => u.email === email && u.password === password);
+  // Find user - make sure to do case-insensitive email comparison
+  const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
   
   if (!user) return false;
   
@@ -144,7 +145,7 @@ export const addNewUser = async (email: string, password: string, name?: string,
   await new Promise(resolve => setTimeout(resolve, 500));
   
   // Check if email already exists
-  if (users.some(u => u.email === email)) {
+  if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
     return false;
   }
   
