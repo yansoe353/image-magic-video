@@ -2,6 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import Header from "@/components/Header";
 
 const Examples = () => {
   const navigate = useNavigate();
@@ -33,6 +34,8 @@ const Examples = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
+      <Header />
+      
       <main className="flex-1 container max-w-5xl py-8 px-4 md:px-6 mt-16">
         <div className="mb-8">
           <Button 

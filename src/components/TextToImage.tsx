@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { fal } from "@fal-ai/client";
 import { Loader2, Download, Image as ImageIcon, Languages } from "lucide-react";
 import { 
   Select,
@@ -13,7 +14,6 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { LANGUAGES, translateText } from "@/utils/translationUtils";
-import { falService } from "@/services/falService";
 
 interface TextToImageProps {
   onImageGenerated: (imageUrl: string) => void;
@@ -96,20 +96,27 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         }
       }
 
-      // Use falService to generate the image directly
-      const imageUrl = await falService.generateImage({
-        prompt: promptToUse,
-        negative_prompt: "blurry, bad quality, distorted",
-        image_size: imageSize,
-        num_inference_steps: 30,
-        guidance_scale: 7.5,
+      // Use Fal.ai API to generate image
+      const result = await fal.subscribe("fal-ai/fast-sdxl", {
+        input: {
+          prompt: promptToUse,
+          negative_prompt: "blurry, bad quality, distorted",
+          image_size: imageSize,
+          num_inference_steps: 30,
+          guidance_scale: 7.5,
+        },
       });
       
-      setGeneratedImage(imageUrl);
-      toast({
-        title: "Success",
-        description: "Image generated successfully!",
-      });
+      if (result.data && result.data.images && result.data.images[0]) {
+        const imageUrl = result.data.images[0].url;
+        setGeneratedImage(imageUrl);
+        toast({
+          title: "Success",
+          description: "Image generated successfully!",
+        });
+      } else {
+        throw new Error("No image URL in response");
+      }
     } catch (error) {
       console.error("Failed to generate image:", error);
       toast({
