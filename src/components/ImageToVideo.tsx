@@ -37,7 +37,7 @@ interface ImageToVideoProps {
 }
 
 const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
-  const { prompt, setPrompt, selectedLanguage, isTranslating, handleLanguageChange } = 
+  const { prompt, setPrompt, selectedLanguage, isTranslating, handleLanguageChange } =
     usePromptTranslation("A stylish woman walks down a Tokyo street filled with warm glowing neon and animated city signage.");
   const [imageUrl, setImageUrl] = useState("");
   const [imagePreview, setImagePreview] = useState("");
@@ -49,16 +49,16 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
   const [originalVideoUrl, setOriginalVideoUrl] = useState("");
   const [supabaseVideoUrl, setSupabaseVideoUrl] = useState("");
   const [isStoringVideo, setIsStoringVideo] = useState(false);
-  
-  const [resolution, setResolution] = useState<string>("480p");
-  const [fps, setFps] = useState<number>(15);
-  const [frames, setFrames] = useState<number>(81);
-  const [numInferenceSteps, setNumInferenceSteps] = useState<number>(25);
-  
+
+  const [duration, setDuration] = useState<string>("5");
+  const [aspectRatio, setAspectRatio] = useState<string>("16:9");
+  const [negativePrompt, setNegativePrompt] = useState<string>("blur, distort, and low quality");
+  const [cfgScale, setCfgScale] = useState<number>(0.5);
+
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
   const [counts, setCounts] = useState(getRemainingCounts());
-  
+
   useEffect(() => {
     const updateCounts = async () => {
       const freshCounts = await getRemainingCountsAsync();
@@ -76,14 +76,14 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
 
   const saveToHistory = async (videoUrl: string, originalUrl: string) => {
     if (!isLoggedIn()) return;
-    
+
     try {
       const userId = await getUserId();
       if (!userId) {
         console.error("No user ID found");
         return;
       }
-      
+
       const { error } = await supabase
         .from('user_content_history')
         .insert({
@@ -92,14 +92,14 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
           content_url: videoUrl,
           prompt: prompt,
           metadata: {
-            resolution,
-            fps,
-            frames,
-            numInferenceSteps,
+            duration,
+            aspectRatio,
+            negativePrompt,
+            cfgScale,
             original_url: originalUrl
           }
         });
-        
+
       if (error) {
         console.error("Error saving to history:", error);
       } else {
@@ -131,10 +131,10 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
 
     setIsLoading(true);
     setGenerationLogs([]);
-    
+
     try {
       setGenerationLogs(prev => [...prev, "Initializing model..."]);
-      
+
       let promptToUse = prompt;
       if (selectedLanguage !== "en") {
         try {
@@ -144,16 +144,15 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
           console.error("Failed to translate to English:", error);
         }
       }
-      
-      const result = await fal.subscribe("fal-ai/wan-i2v", {
+
+      const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
         input: {
           prompt: promptToUse,
           image_url: imageUrl,
-          num_frames: frames,
-          frames_per_second: fps,
-          resolution: resolution as "480p" | "720p",
-          num_inference_steps: numInferenceSteps,
-          enable_safety_checker: true
+          duration: duration as "5" | "10",
+          aspect_ratio: aspectRatio as "16:9" | "9:16" | "1:1",
+          negative_prompt: negativePrompt,
+          cfg_scale: cfgScale,
         },
         logs: true,
         onQueueUpdate: (update) => {
@@ -163,21 +162,21 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
           }
         },
       });
-      
+
       if (result.data?.video?.url) {
         const falVideoUrl = result.data.video.url;
         setOriginalVideoUrl(falVideoUrl);
         setVideoUrl(""); // Clear any existing URL
-        
+
         setIsStoringVideo(true);
         try {
           const userId = await getUserId();
           const supabaseUrl = await uploadUrlToStorage(falVideoUrl, 'video', userId);
           setSupabaseVideoUrl(supabaseUrl);
           setVideoUrl(supabaseUrl); // Set the Supabase URL as the video URL
-        
+
           await saveToHistory(supabaseUrl, falVideoUrl);
-          
+
           toast({
             title: "Video Stored",
             description: "Video uploaded to your storage",
@@ -189,7 +188,7 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
         } finally {
           setIsStoringVideo(false);
         }
-        
+
         if (await incrementVideoCount()) {
           toast({
             title: "Success",
@@ -224,7 +223,7 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
       <Card className="overflow-hidden">
         <CardContent className="p-6">
           <h2 className="text-2xl font-bold mb-4">Image to Video</h2>
-          
+
           {counts.remainingVideos <= 5 && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
@@ -234,13 +233,13 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
               </AlertDescription>
             </Alert>
           )}
-          
+
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-2">
                 <Label htmlFor="prompt">Prompt</Label>
-                <Select 
-                  value={selectedLanguage} 
+                <Select
+                  value={selectedLanguage}
                   onValueChange={(value: LanguageOption) => handleLanguageChange(value)}
                   disabled={isTranslating}
                 >
@@ -266,7 +265,7 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
                 disabled={isTranslating}
               />
             </div>
-            
+
             <ImageUploader
               imagePreview={imagePreview}
               setImagePreview={setImagePreview}
@@ -274,60 +273,61 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
               isUploading={isUploading}
               setIsUploading={setIsUploading}
             />
-            
+
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="resolution">Resolution</Label>
-                <Select value={resolution} onValueChange={setResolution}>
+                <Label htmlFor="duration">Duration</Label>
+                <Select value={duration} onValueChange={setDuration}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select resolution" />
+                    <SelectValue placeholder="Select duration" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="480p">480p</SelectItem>
-                    <SelectItem value="720p">720p</SelectItem>
+                    <SelectItem value="5">5 seconds</SelectItem>
+                    <SelectItem value="10">10 seconds</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div>
-                <Label htmlFor="fps">Frames Per Second: {fps}</Label>
-                <Slider
-                  value={[fps]}
-                  min={5}
-                  max={24}
-                  step={1}
-                  onValueChange={(values) => setFps(values[0])}
-                  className="py-2"
-                />
+                <Label htmlFor="aspectRatio">Aspect Ratio</Label>
+                <Select value={aspectRatio} onValueChange={setAspectRatio}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select aspect ratio" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="16:9">16:9</SelectItem>
+                    <SelectItem value="9:16">9:16</SelectItem>
+                    <SelectItem value="1:1">1:1</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="frames">Frames: {frames}</Label>
-                <Slider
-                  value={[frames]}
-                  min={81}
-                  max={100}
-                  step={1}
-                  onValueChange={(values) => setFrames(values[0])}
-                  className="py-2"
+                <Label htmlFor="negativePrompt">Negative Prompt</Label>
+                <Textarea
+                  id="negativePrompt"
+                  placeholder="Enter negative prompt..."
+                  value={negativePrompt}
+                  onChange={(e) => setNegativePrompt(e.target.value)}
+                  className="min-h-[50px]"
                 />
               </div>
-              
+
               <div>
-                <Label htmlFor="steps">Inference Steps: {numInferenceSteps}</Label>
+                <Label htmlFor="cfgScale">CFG Scale</Label>
                 <Slider
-                  value={[numInferenceSteps]}
-                  min={10}
-                  max={50}
-                  step={1}
-                  onValueChange={(values) => setNumInferenceSteps(values[0])}
+                  value={[cfgScale]}
+                  min={0.1}
+                  max={1.0}
+                  step={0.1}
+                  onValueChange={(values) => setCfgScale(values[0])}
                   className="py-2"
                 />
               </div>
             </div>
-            
+
             <Button
               onClick={generateVideo}
               disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || counts.remainingVideos <= 0}
@@ -335,7 +335,7 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
             >
               Generate Video
             </Button>
-            
+
             {counts.remainingVideos > 0 && (
               <p className="text-xs text-slate-500 text-center">
                 {counts.remainingVideos} of {VIDEO_LIMIT} video generations remaining
@@ -351,8 +351,8 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">Video Preview</h2>
               {videoUrl && (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setShowEditor(!showEditor)}
                 >
                   {showEditor ? "Hide Editor" : "Edit Video"}
