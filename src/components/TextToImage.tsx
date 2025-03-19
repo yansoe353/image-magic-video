@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -161,13 +162,14 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       if (result.data && result.data.images && result.data.images[0]) {
         const falImageUrl = result.data.images[0].url;
         setOriginalImageUrl(falImageUrl);
-        setGeneratedImage(falImageUrl);
+        setGeneratedImage(""); // Clear any existing URL
         
         setIsUploading(true);
         try {
           const userId = getUserId();
           const supabaseUrl = await uploadUrlToStorage(falImageUrl, 'image', userId);
           setSupabaseImageUrl(supabaseUrl);
+          setGeneratedImage(supabaseUrl); // Set the Supabase URL as the image URL
           
           await saveToHistory(supabaseUrl, falImageUrl);
           
@@ -177,6 +179,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           });
         } catch (uploadError) {
           console.error("Failed to upload to Supabase:", uploadError);
+          setGeneratedImage(falImageUrl);
           await saveToHistory(falImageUrl, falImageUrl);
         } finally {
           setIsUploading(false);
@@ -373,11 +376,9 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
               <Download className="h-4 w-4" />
             </Button>
           </div>
-          {supabaseImageUrl && (
-            <p className="text-xs text-slate-500 mt-2">
-              Stored in your personal cloud storage
-            </p>
-          )}
+          <p className="text-xs text-slate-500 mt-2 text-center">
+            Stored in your personal cloud storage
+          </p>
         </CardContent>
       </Card>
     </div>
