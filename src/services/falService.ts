@@ -1,6 +1,7 @@
 
 import { createFalClient } from "@fal-ai/client";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 // Interface for image generation parameters
 interface GenerateImageParams {
@@ -22,16 +23,47 @@ interface GenerateVideoParams {
   enable_safety_checker?: boolean;
 }
 
-// Create a Fal.ai client with the public key
-const falClient = createFalClient({
-  credentials: "fal_live_cg8U0NmJuEJ0qTR54cntcbSEH1gzgG5mKw6dOK8FQdG2VDsrUQ"
+// Initialize the client with null credentials - we'll set them after fetching the API key
+let falClient = createFalClient({
+  credentials: null
 });
+
+// Flag to track if we've initialized the client
+let isClientInitialized = false;
+
+// Function to initialize the Fal client with the API key from Supabase
+const initFalClient = async () => {
+  try {
+    if (isClientInitialized) return;
+    
+    // Get API key from Supabase secrets using RLS policy
+    const { data, error } = await supabase.rpc('get_secret', { 
+      secret_name: 'FAL_API_KEY'
+    });
+    
+    if (error || !data) {
+      console.error('Failed to retrieve FAL_API_KEY:', error);
+      throw new Error('Could not retrieve API key');
+    }
+    
+    // Create new client with the retrieved key
+    falClient = createFalClient({
+      credentials: data
+    });
+    
+    isClientInitialized = true;
+  } catch (error) {
+    console.error('Error initializing Fal client:', error);
+    throw error;
+  }
+};
 
 // Service to handle Fal.ai operations
 export const falService = {
   // Generate an image using Fal.ai API
   async generateImage(params: GenerateImageParams) {
     try {
+      await initFalClient();
       console.log("Generating image with params:", params);
       
       // Direct client-side API call
@@ -64,6 +96,7 @@ export const falService = {
   // Generate a video using Fal.ai API
   async generateVideo(params: GenerateVideoParams) {
     try {
+      await initFalClient();
       console.log("Generating video with params:", params);
       
       // Direct client-side API call
@@ -98,6 +131,7 @@ export const falService = {
   // Upload an image using Fal.ai API
   async uploadImage(file: File) {
     try {
+      await initFalClient();
       console.log("Uploading image file:", file.name, file.type, file.size);
       
       // Convert file to ArrayBuffer
@@ -112,7 +146,7 @@ export const falService = {
       const response = await fetch('https://rest.fal.ai/storage/upload', {
         method: 'POST',
         headers: {
-          'Authorization': 'Key fal_live_cg8U0NmJuEJ0qTR54cntcbSEH1gzgG5mKw6dOK8FQdG2VDsrUQ',
+          'Authorization': `Key ${falClient.credentials}`,
         },
         body: formData,
       });
