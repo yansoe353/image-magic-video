@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUser } from "./authUtils";
 
@@ -100,21 +99,8 @@ export const initializeApiKeyUsage = async (apiKey: string): Promise<void> => {
   const user = await getCurrentUser();
   const storageKey = await getStorageKey();
   
-  // Store the key in Supabase if user is logged in
-  if (user) {
-    const { error } = await supabase.from('api_keys').upsert([
-      {
-        user_id: user.id,
-        key_name: 'fal_api_key',
-        key_value: apiKey
-      }
-    ], { onConflict: 'user_id,key_name' });
-    
-    if (error) {
-      console.error("Error storing API key:", error);
-    }
-  }
-  
+  // No need to store the key in Supabase since we're using environment variable
+  // Just initialize the usage counts
   const usage: ApiKeyUsage = {
     key: apiKey,
     imageCount: 0,

@@ -1,251 +1,153 @@
-
 import { useState, useEffect } from "react";
-import { Github, Key, Menu, X, LogOut, LogIn, Users, History } from "lucide-react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import ApiKeyInput from "@/components/ApiKeyInput";
-import { fal } from "@fal-ai/client";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { isLoggedIn, logoutUser, getCurrentUser, AppUser } from "@/utils/authUtils";
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetTrigger 
+} from "@/components/ui/sheet";
+import { Menu, LogOut, User, Home, History, Users } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { logoutUser, isLoggedIn, isAdmin } from "@/utils/authUtils";
+import ApiKeyInput from "./ApiKeyInput";
 
-const Header = () => {
-  const [isApiKeySet, setIsApiKeySet] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
-  const location = useLocation();
+interface HeaderProps {
+  onApiKeySet?: (isSet: boolean) => void;
+}
+
+const Header = ({ onApiKeySet }: HeaderProps) => {
+  const [userAuthenticated, setUserAuthenticated] = useState<boolean>(false);
+  const [userIsAdmin, setUserIsAdmin] = useState<boolean>(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-    // Check login status and load user data
-    const initialize = async () => {
-      const isUserLoggedIn = await isLoggedIn();
-      setLoggedIn(isUserLoggedIn);
+    const checkAuth = async () => {
+      const loggedIn = await isLoggedIn();
+      setUserAuthenticated(loggedIn);
       
-      if (isUserLoggedIn) {
-        const user = await getCurrentUser();
-        setCurrentUser(user);
+      if (loggedIn) {
+        const adminStatus = await isAdmin();
+        setUserIsAdmin(adminStatus);
       }
       
-      // Check if API key is already set in localStorage
-      const storedApiKey = localStorage.getItem("falApiKey");
-      if (storedApiKey) {
-        try {
-          // Configure fal.ai client with the API key
-          fal.config({
-            credentials: storedApiKey
-          });
-          setIsApiKeySet(true);
-        } catch (error) {
-          console.error("Error configuring fal.ai client:", error);
-        }
+      // Check if API key exists in environment
+      if (onApiKeySet) {
+        const hasApiKey = !!import.meta.env.VITE_FAL_API_KEY;
+        onApiKeySet(hasApiKey);
       }
     };
     
-    initialize();
-  }, [location.pathname]);
-
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
-  };
+    checkAuth();
+  }, [location.pathname, onApiKeySet]);
 
   const handleLogout = async () => {
     await logoutUser();
-    setLoggedIn(false);
-    setCurrentUser(null);
+    setUserAuthenticated(false);
+    setUserIsAdmin(false);
+    toast({
+      title: "Logged out",
+      description: "You have been logged out successfully",
+    });
     navigate("/");
   };
 
-  const isHomePage = location.pathname === "/";
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+  };
 
-  return (
-    <header className={`w-full border-b border-slate-200 ${isHomePage ? 'bg-transparent absolute top-0 left-0 z-10 border-transparent' : 'bg-white'}`}>
-      <div className="container flex h-16 items-center justify-between px-4 md:px-6 max-w-6xl mx-auto">
-        <div className="flex items-center gap-2">
-          <Link to="/" className={`text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-purple to-brand-blue ${isHomePage ? 'hover:opacity-80' : ''}`}>
-            YoteShin AI
-          </Link>
-        </div>
-        
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-6">
-          <Link 
-            to="/" 
-            className={`font-medium ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
-          >
-            Home
-          </Link>
-          <Link 
-            to="/create" 
-            className={`font-medium ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
-          >
+  const DesktopNavigation = () => (
+    <div className="hidden md:flex items-center space-x-6">
+      <Link to="/" className="text-sm font-medium hover:underline">
+        Home
+      </Link>
+      {userAuthenticated && (
+        <>
+          <Link to="/create" className="text-sm font-medium hover:underline">
             Create
           </Link>
-          <Link 
-            to="/examples" 
-            className={`font-medium ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
-          >
-            Examples
+          <Link to="/history" className="text-sm font-medium hover:underline">
+            History
           </Link>
-          
-          {loggedIn && (
-            <Link 
-              to="/history" 
-              className={`font-medium flex items-center gap-1 ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
-            >
-              <History className="h-4 w-4" />
-              History
+          {userIsAdmin && (
+            <Link to="/users" className="text-sm font-medium hover:underline">
+              Users
             </Link>
           )}
-          
-          {loggedIn ? (
+        </>
+      )}
+      {!userAuthenticated ? (
+        <Link to="/login" className="text-sm font-medium hover:underline">
+          Login
+        </Link>
+      ) : (
+        <Button size="sm" onClick={handleLogout}>
+          Logout
+        </Button>
+      )}
+    </div>
+  );
+
+  const MobileNavigation = () => (
+    <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+      <SheetTrigger asChild>
+        <Button variant="ghost" size="sm" className="md:hidden">
+          <Menu className="h-4 w-4" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="left" className="w-64">
+        <div className="flex flex-col space-y-4">
+          <Link to="/" className="text-sm font-medium hover:underline" onClick={closeMobileMenu}>
+            <Home className="mr-2 h-4 w-4 inline-block" />
+            Home
+          </Link>
+          {userAuthenticated && (
             <>
-              <span className={`text-sm ${isHomePage ? 'text-white' : 'text-slate-600'}`}>
-                {currentUser?.name || currentUser?.email}
-              </span>
-              <ApiKeyInput onApiKeySet={setIsApiKeySet} />
-              {isApiKeySet && (
-                <span className={`text-xs ${isHomePage ? 'text-green-300' : 'text-green-600'} mr-2`}>
-                  API Key Set
-                </span>
-              )}
-              <Link 
-                to="/users"
-                className={`font-medium flex items-center gap-1 ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
-              >
-                <Users className="h-4 w-4" />
-                Users
+              <Link to="/create" className="text-sm font-medium hover:underline" onClick={closeMobileMenu}>
+                <User className="mr-2 h-4 w-4 inline-block" />
+                Create
               </Link>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-2" 
-                onClick={handleLogout}
-              >
-                <LogOut className="h-4 w-4" />
-                Logout
-              </Button>
-            </>
-          ) : (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="gap-2" 
-              onClick={() => navigate("/login")}
-            >
-              <LogIn className="h-4 w-4" />
-              Login
-            </Button>
-          )}
-          
-          <Button variant="outline" size="icon" asChild>
-            <a 
-              href="https://github.com/your-username/ai-video-generator"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="GitHub"
-              className={isHomePage ? 'border-white text-white hover:bg-white/10' : ''}
-            >
-              <Github className="h-4 w-4" />
-            </a>
-          </Button>
-        </nav>
-        
-        {/* Mobile Menu Button */}
-        <div className="md:hidden">
-          <Button variant="ghost" size="icon" onClick={toggleMobileMenu} className={isHomePage ? 'text-white hover:bg-white/10' : ''}>
-            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </Button>
-        </div>
-      </div>
-      
-      {/* Mobile Navigation */}
-      {mobileMenuOpen && (
-        <div className="md:hidden bg-white border-t border-slate-200 py-4 px-6">
-          <nav className="flex flex-col space-y-4">
-            <Link 
-              to="/" 
-              className="font-medium text-slate-600 hover:text-brand-purple"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Home
-            </Link>
-            <Link 
-              to="/create" 
-              className="font-medium text-slate-600 hover:text-brand-purple"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Create
-            </Link>
-            <Link 
-              to="/examples" 
-              className="font-medium text-slate-600 hover:text-brand-purple"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Examples
-            </Link>
-            
-            {loggedIn && (
-              <Link 
-                to="/history" 
-                className="font-medium flex items-center gap-1 text-slate-600 hover:text-brand-purple"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <History className="h-4 w-4" />
+              <Link to="/history" className="text-sm font-medium hover:underline" onClick={closeMobileMenu}>
+                <History className="mr-2 h-4 w-4 inline-block" />
                 History
               </Link>
-            )}
-            
-            {loggedIn ? (
-              <>
-                <div className="py-2">
-                  <span className="text-sm text-slate-600 block mb-2">
-                    {currentUser?.name || currentUser?.email}
-                  </span>
-                  <ApiKeyInput onApiKeySet={setIsApiKeySet} />
-                  {isApiKeySet && (
-                    <span className="text-xs text-green-600 ml-2">
-                      API Key Set
-                    </span>
-                  )}
-                </div>
-                <Link 
-                  to="/users"
-                  className="font-medium flex items-center gap-1 text-slate-600 hover:text-brand-purple"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Users className="h-4 w-4" />
+              {userIsAdmin && (
+                <Link to="/users" className="text-sm font-medium hover:underline" onClick={closeMobileMenu}>
+                  <Users className="mr-2 h-4 w-4 inline-block" />
                   Users
                 </Link>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="gap-2 w-full" 
-                  onClick={() => {
-                    handleLogout();
-                    setMobileMenuOpen(false);
-                  }}
-                >
-                  <LogOut className="h-4 w-4" />
-                  Logout
-                </Button>
-              </>
-            ) : (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-2 w-full" 
-                onClick={() => {
-                  navigate("/login");
-                  setMobileMenuOpen(false);
-                }}
-              >
-                <LogIn className="h-4 w-4" />
-                Login
-              </Button>
-            )}
-          </nav>
+              )}
+            </>
+          )}
+          {!userAuthenticated ? (
+            <Link to="/login" className="text-sm font-medium hover:underline" onClick={closeMobileMenu}>
+              <LogOut className="mr-2 h-4 w-4 inline-block" />
+              Login
+            </Link>
+          ) : (
+            <Button size="sm" onClick={handleLogout} variant="ghost">
+              Logout
+            </Button>
+          )}
         </div>
-      )}
+      </SheetContent>
+    </Sheet>
+  );
+
+  return (
+    <header className="bg-white py-4 shadow-sm sticky top-0 z-50">
+      <div className="container flex items-center justify-between">
+        <Link to="/" className="font-bold text-lg">
+          YoteShin AI
+        </Link>
+        <div className="flex items-center space-x-4">
+          <DesktopNavigation />
+          <ApiKeyInput onApiKeySet={onApiKeySet} />
+          <MobileNavigation />
+        </div>
+      </div>
     </header>
   );
 };

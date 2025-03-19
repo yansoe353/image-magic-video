@@ -20,14 +20,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { isLoggedIn } from "@/utils/authUtils";
 import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
 
-// Initialize fal.ai client with proper environment variable handling for browser
+// Initialize fal.ai client using the environment API key
 try {
-  const apiKey = localStorage.getItem("falApiKey") || "";
-  if (apiKey) {
-    fal.config({
-      credentials: apiKey
-    });
-  }
+  // Use the server API key instead of the localStorage key
+  fal.config({
+    credentials: import.meta.env.VITE_FAL_API_KEY || ""
+  });
 } catch (error) {
   console.error("Error initializing fal.ai client:", error);
 }

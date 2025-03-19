@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Key } from "lucide-react";
 import { IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
-import BuyApiKeyPopover from "./BuyApiKeyPopover";
 
 interface ApiKeyDialogProps {
   apiKey: string;
@@ -22,36 +21,27 @@ const ApiKeyDialog = ({ apiKey, setApiKey, open, setOpen, saveApiKey }: ApiKeyDi
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
           <Key className="h-4 w-4" />
-          Set API Key
+          Contact Support
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Set Your Infinity API Key</DialogTitle>
+          <DialogTitle>API Key Management</DialogTitle>
           <DialogDescription>
-            Enter your Infinity API key to enable image and video generation.
+            Your API key is managed by the system administrator.
+            Please contact support if you need assistance.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="apiKey">API Key</Label>
-            <Input
-              id="apiKey"
-              type="password"
-              placeholder="Enter your Infinity API key"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-            />
-          </div>
           <div className="text-sm text-slate-500">
             <p className="mt-1">Usage limits: {IMAGE_LIMIT} image generations and {VIDEO_LIMIT} video generations.</p>
             <p className="mt-2">
-              <BuyApiKeyPopover />
+              If you need to purchase an API key, please visit the Buy Account page.
             </p>
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={saveApiKey}>Save</Button>
+          <Button onClick={() => setOpen(false)}>Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
