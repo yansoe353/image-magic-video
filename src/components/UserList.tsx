@@ -1,13 +1,13 @@
 
 import { useState, useEffect } from "react";
-import { getAllUsers } from "@/utils/authUtils";
+import { getAllUsers, User } from "@/utils/authUtils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 
 const UserList = () => {
-  const [users, setUsers] = useState<Array<{ id: string; email: string; name?: string }>>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {

@@ -1,4 +1,3 @@
-
 // Define interface for user data
 export interface User {
   id: string;
@@ -154,7 +153,7 @@ export const addNewUser = async (email: string, password: string, name?: string)
 };
 
 // Get all users (admin function)
-export const getAllUsers = (): Omit<typeof users[0], 'password'>[] => {
+export const getAllUsers = (): User[] => {
   // Reload users to ensure we have the latest data
   users = loadUsers();
   
