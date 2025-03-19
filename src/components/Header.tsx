@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Github, Key, Menu, X, LogOut, LogIn, Users, History } from "lucide-react";
+import { Menu, X, LogOut, LogIn, Users, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ApiKeyInput from "@/components/ApiKeyInput";
 import { fal } from "@fal-ai/client";
@@ -136,18 +136,6 @@ const Header = () => {
               Login
             </Button>
           )}
-          
-          <Button variant="outline" size="icon" asChild>
-            <a 
-              href="https://github.com/your-username/ai-video-generator"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="GitHub"
-              className={isHomePage ? 'border-white text-white hover:bg-white/10' : ''}
-            >
-              <Github className="h-4 w-4" />
-            </a>
-          </Button>
         </nav>
         
         {/* Mobile Menu Button */}
