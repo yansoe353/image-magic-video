@@ -194,7 +194,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           prompt: promptToUse,
           negative_prompt: "blurry, bad quality, distorted, disfigured",
           loras: selectedLoras.map(lora => ({
-            model_name: lora,
+            path: lora, // Changed from model_name to path to match LoraWeight type
             strength: 0.8
           })),
           width,
