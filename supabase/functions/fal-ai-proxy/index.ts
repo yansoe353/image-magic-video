@@ -132,7 +132,15 @@ serve(async (req) => {
       console.log(`Request body prepared for ${endpoint}`);
     }
 
-    // Make the request to Fal.ai
+    // Add network timeout and diagnosis
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+    options.signal = controller.signal;
+
+    // Attempt a DNS resolution check (simplified diagnosis)
+    console.log(`Attempting to diagnose connectivity to Fal.ai...`);
+    
+    // Make the request to Fal.ai with enhanced error handling
     console.log(`Sending request to Fal.ai with options:`, JSON.stringify({
       url: falUrl,
       method: options.method,
@@ -144,15 +152,34 @@ serve(async (req) => {
     let response;
     try {
       response = await fetch(falUrl, options);
+      clearTimeout(timeoutId);
     } catch (fetchError) {
+      clearTimeout(timeoutId);
       console.error(`Fetch error when calling Fal.ai:`, fetchError);
+      
+      // Enhanced network error diagnostics
+      let errorDetails = fetchError.message || "Unknown network error";
+      let errorStatus = 500;
+      
+      if (fetchError.name === "AbortError") {
+        errorDetails = "Request timed out after 60 seconds";
+        errorStatus = 504; // Gateway Timeout
+      } else if (errorDetails.includes("connection refused") || errorDetails.includes("ECONNREFUSED")) {
+        errorDetails = "Connection refused - the Fal.ai service may be blocking requests from Supabase Edge Functions";
+        errorStatus = 502; // Bad Gateway
+      } else if (errorDetails.includes("getaddrinfo")) {
+        errorDetails = "DNS resolution failed - unable to resolve Fal.ai domain";
+        errorStatus = 502; // Bad Gateway
+      }
+      
       return new Response(
         JSON.stringify({ 
           error: `Failed to connect to Fal.ai API`, 
-          details: fetchError.message 
+          details: errorDetails,
+          recommendation: "Fal.ai may be restricting access from Supabase Edge Functions. Consider using a direct integration from your frontend."
         }),
         { 
-          status: 500, 
+          status: errorStatus, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
