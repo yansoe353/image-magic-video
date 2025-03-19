@@ -30,6 +30,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_content_history: {
+        Row: {
+          content_type: string
+          content_url: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          prompt: string | null
+          user_id: string
+        }
+        Insert: {
+          content_type: string
+          content_url: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          prompt?: string | null
+          user_id: string
+        }
+        Update: {
+          content_type?: string
+          content_url?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          prompt?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

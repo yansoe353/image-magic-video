@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +16,8 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
 import VideoEditor from "./VideoEditor";
+import { supabase } from "@/integrations/supabase/client";
+import { isLoggedIn } from "@/utils/authUtils";
 
 // Initialize fal.ai client with proper environment variable handling for browser
 try {
@@ -45,7 +46,6 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
   const [generationLogs, setGenerationLogs] = useState<string[]>([]);
   const [showEditor, setShowEditor] = useState(false);
   
-  // Add the missing state variables for video generation parameters
   const [resolution, setResolution] = useState<string>("480p");
   const [fps, setFps] = useState<number>(15);
   const [frames, setFrames] = useState<number>(81);
@@ -55,7 +55,6 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
   const { toast } = useToast();
   const [counts, setCounts] = useState(getRemainingCounts());
   
-  // Update counts when component mounts
   useEffect(() => {
     const updateCounts = async () => {
       const freshCounts = await getRemainingCountsAsync();
@@ -71,6 +70,32 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
     }
   }, [initialImageUrl]);
 
+  const saveToHistory = async (videoUrl: string) => {
+    if (!isLoggedIn()) return;
+    
+    try {
+      const { error } = await supabase
+        .from('user_content_history')
+        .insert({
+          content_type: 'video',
+          content_url: videoUrl,
+          prompt: prompt,
+          metadata: {
+            resolution,
+            fps,
+            frames,
+            numInferenceSteps
+          }
+        });
+        
+      if (error) {
+        console.error("Error saving to history:", error);
+      }
+    } catch (err) {
+      console.error("Failed to save to history:", err);
+    }
+  };
+
   const generateVideo = async () => {
     if (!imageUrl || !prompt.trim()) {
       toast({
@@ -81,7 +106,6 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
       return;
     }
 
-    // Check usage limits
     if (counts.remainingVideos <= 0) {
       toast({
         title: "Usage Limit Reached",
@@ -127,15 +151,16 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
       });
       
       if (result.data?.video?.url) {
-        setVideoUrl(result.data.video.url);
+        const videoUrl = result.data.video.url;
+        setVideoUrl(videoUrl);
         
-        // Increment usage count
+        await saveToHistory(videoUrl);
+        
         if (await incrementVideoCount()) {
           toast({
             title: "Success",
             description: "Video generated successfully!",
           });
-          // Update counts after successful generation
           const freshCounts = await getRemainingCountsAsync();
           setCounts(freshCounts);
         } else {

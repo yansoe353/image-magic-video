@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +15,8 @@ import {
 import { LANGUAGES, translateText } from "@/utils/translationUtils";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { incrementImageCount, getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT } from "@/utils/usageTracker";
+import { supabase } from "@/integrations/supabase/client";
+import { isLoggedIn } from "@/utils/authUtils";
 
 interface TextToImageProps {
   onImageGenerated: (imageUrl: string) => void;
@@ -45,13 +47,13 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [counts, setCounts] = useState(getRemainingCounts());
   
   // Update counts when component mounts
-  useState(() => {
+  useEffect(() => {
     const updateCounts = async () => {
       const freshCounts = await getRemainingCountsAsync();
       setCounts(freshCounts);
     };
     updateCounts();
-  });
+  }, []);
 
   const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setPrompt(e.target.value);
@@ -80,6 +82,27 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       });
     } finally {
       setIsTranslating(false);
+    }
+  };
+
+  const saveToHistory = async (imageUrl: string) => {
+    if (!isLoggedIn()) return;
+    
+    try {
+      const { error } = await supabase
+        .from('user_content_history')
+        .insert({
+          content_type: 'image',
+          content_url: imageUrl,
+          prompt: prompt,
+          metadata: { size: imageSize }
+        });
+        
+      if (error) {
+        console.error("Error saving to history:", error);
+      }
+    } catch (err) {
+      console.error("Failed to save to history:", err);
     }
   };
 
@@ -131,6 +154,9 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       if (result.data && result.data.images && result.data.images[0]) {
         const imageUrl = result.data.images[0].url;
         setGeneratedImage(imageUrl);
+        
+        // Save to history if user is logged in
+        await saveToHistory(imageUrl);
         
         // Increment usage count
         if (await incrementImageCount()) {

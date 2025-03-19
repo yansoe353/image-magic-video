@@ -8,6 +8,7 @@ import Home from "./pages/Home";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Examples from "./pages/Examples";
+import History from "./pages/History";
 import Login from "./components/Login";
 import AddUser from "./components/AddUser";
 import UserList from "./components/UserList";
@@ -43,6 +44,14 @@ const App = () => (
             } 
           />
           <Route path="/examples" element={<Examples />} />
+          <Route 
+            path="/history" 
+            element={
+              <ProtectedRoute>
+                <History />
+              </ProtectedRoute>
+            } 
+          />
           <Route 
             path="/users" 
             element={
