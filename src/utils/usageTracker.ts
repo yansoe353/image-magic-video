@@ -8,27 +8,41 @@ export const VIDEO_LIMIT = 50;
 
 // Define interface for usage tracking
 export interface ApiKeyUsage {
-  key: string;
   imageCount: number;
   videoCount: number;
   userId?: string;
 }
 
-// Get storage key based on user ID
-const getStorageKey = async (): Promise<string> => {
-  const user = await getCurrentUser();
-  return user ? `apiKeyUsage_${user.id}` : "apiKeyUsage";
-};
-
+// Get usage from supabase for current user
 export const getApiKeyUsage = async (): Promise<ApiKeyUsage | null> => {
-  const storageKey = await getStorageKey();
-  const usageData = localStorage.getItem(storageKey);
-  if (!usageData) return null;
+  const user = await getCurrentUser();
+  if (!user) return null;
   
   try {
-    return JSON.parse(usageData) as ApiKeyUsage;
+    // Get user's generation counts from user_content_history
+    const { data: imageData, error: imageError } = await supabase
+      .from('user_content_history')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('content_type', 'image');
+    
+    if (imageError) throw imageError;
+    
+    const { data: videoData, error: videoError } = await supabase
+      .from('user_content_history')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('content_type', 'video');
+    
+    if (videoError) throw videoError;
+    
+    return {
+      imageCount: imageData?.length || 0,
+      videoCount: videoData?.length || 0,
+      userId: user.id
+    };
   } catch (error) {
-    console.error("Error parsing API key usage data:", error);
+    console.error("Error getting API key usage data:", error);
     return null;
   }
 };
@@ -46,36 +60,20 @@ export const getUserLimits = async (): Promise<{ imageLimit: number; videoLimit:
 };
 
 export const incrementImageCount = async (): Promise<boolean> => {
-  const usage = await getApiKeyUsage();
-  if (!usage) return false;
-  
-  const { imageLimit } = await getUserLimits();
-  
-  if (usage.imageCount >= imageLimit) {
-    return false;
-  }
-  
-  usage.imageCount += 1;
-  localStorage.setItem(await getStorageKey(), JSON.stringify(usage));
-  return true;
+  // Don't increment count, as it will be handled by history entries
+  // Just check if user can generate more images
+  const { remainingImages } = await getRemainingCountsAsync();
+  return remainingImages > 0;
 };
 
 export const incrementVideoCount = async (): Promise<boolean> => {
-  const usage = await getApiKeyUsage();
-  if (!usage) return false;
-  
-  const { videoLimit } = await getUserLimits();
-  
-  if (usage.videoCount >= videoLimit) {
-    return false;
-  }
-  
-  usage.videoCount += 1;
-  localStorage.setItem(await getStorageKey(), JSON.stringify(usage));
-  return true;
+  // Don't increment count, as it will be handled by history entries
+  // Just check if user can generate more videos
+  const { remainingVideos } = await getRemainingCountsAsync();
+  return remainingVideos > 0;
 };
 
-// Modified to return a concrete object instead of a Promise
+// Get remaining counts (synchronous version with default values)
 export const getRemainingCounts = (): { remainingImages: number; remainingVideos: number } => {
   // Default values when not initialized
   return { remainingImages: IMAGE_LIMIT, remainingVideos: VIDEO_LIMIT };
@@ -97,30 +95,7 @@ export const getRemainingCountsAsync = async (): Promise<{ remainingImages: numb
 };
 
 export const initializeApiKeyUsage = async (apiKey: string): Promise<void> => {
-  const user = await getCurrentUser();
-  const storageKey = await getStorageKey();
-  
-  // Store the key in Supabase if user is logged in
-  if (user) {
-    const { error } = await supabase.from('api_keys').upsert([
-      {
-        user_id: user.id,
-        key_name: 'fal_api_key',
-        key_value: apiKey
-      }
-    ], { onConflict: 'user_id,key_name' });
-    
-    if (error) {
-      console.error("Error storing API key:", error);
-    }
-  }
-  
-  const usage: ApiKeyUsage = {
-    key: apiKey,
-    imageCount: 0,
-    videoCount: 0,
-    userId: user?.id
-  };
-  
-  localStorage.setItem(storageKey, JSON.stringify(usage));
+  // We don't need to track the API key usage in local storage anymore
+  // The apiKey parameter is kept for backward compatibility
+  console.log("API key initialized, usage tracking is now based on user account");
 };

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,7 +6,6 @@ import ImageToVideo from "@/components/ImageToVideo";
 import Header from "@/components/Header";
 import { getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
 
-// Define the type for selected content from history
 interface SelectedContent {
   url: string;
   type: 'image' | 'video';
@@ -17,26 +15,20 @@ const Index = () => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<string>("text-to-image");
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
-  const [hasApiKey, setHasApiKey] = useState(false);
+  const [hasApiKey, setHasApiKey] = useState(true);
   const [usageCounts, setUsageCounts] = useState(getRemainingCounts());
 
   useEffect(() => {
-    // Initialize component
     const initialize = async () => {
-      // Check if API key is set
-      const storedApiKey = localStorage.getItem("falApiKey");
-      setHasApiKey(!!storedApiKey);
+      setHasApiKey(true);
       
-      // Get current usage counts
       const counts = await getRemainingCountsAsync();
       setUsageCounts(counts);
       
-      // Check if we have a selected content from history
       const selectedContent = location.state?.selectedContent as SelectedContent | undefined;
       if (selectedContent) {
         if (selectedContent.type === 'image') {
           setGeneratedImageUrl(selectedContent.url);
-          // If it's an image and we're coming from history, switch to video tab
           setActiveTab("image-to-video");
         }
       }
@@ -44,7 +36,6 @@ const Index = () => {
     
     initialize();
     
-    // Set up interval to refresh usage counts
     const interval = setInterval(async () => {
       const freshCounts = await getRemainingCountsAsync();
       setUsageCounts(freshCounts);

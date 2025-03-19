@@ -195,8 +195,8 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           setCounts(freshCounts);
         } else {
           toast({
-            title: "Usage Tracking Error",
-            description: "Failed to update usage count.",
+            title: "Usage Limit Reached",
+            description: "You've reached your image generation limit.",
             variant: "destructive",
           });
         }

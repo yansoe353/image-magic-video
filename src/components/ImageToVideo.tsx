@@ -22,7 +22,7 @@ import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
 
 // Initialize fal.ai client with proper environment variable handling for browser
 try {
-  const apiKey = localStorage.getItem("falApiKey") || "";
+  const apiKey = import.meta.env.VITE_FAL_API_KEY;
   if (apiKey) {
     fal.config({
       credentials: apiKey
@@ -175,7 +175,7 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
           const supabaseUrl = await uploadUrlToStorage(falVideoUrl, 'video', userId);
           setSupabaseVideoUrl(supabaseUrl);
           setVideoUrl(supabaseUrl); // Set the Supabase URL as the video URL
-          
+        
           await saveToHistory(supabaseUrl, falVideoUrl);
           
           toast({
@@ -199,8 +199,8 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
           setCounts(freshCounts);
         } else {
           toast({
-            title: "Usage Tracking Error",
-            description: "Failed to update usage count.",
+            title: "Usage Limit Reached",
+            description: "You've reached your video generation limit.",
             variant: "destructive",
           });
         }
