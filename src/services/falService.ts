@@ -37,18 +37,24 @@ const initFalClient = async () => {
   try {
     if (isClientInitialized) return;
     
-    // Use type assertion to resolve the type issue
+    // Define a type for the expected response to avoid TypeScript errors
+    interface SecretResponse {
+      data: string | null;
+      error: any;
+    }
+    
+    // Cast the entire response to our expected type
     const { data, error } = await supabase.rpc('get_secret', {
       secret_name: 'FAL_API_KEY'
-    } as any);
+    }) as unknown as SecretResponse;
     
     if (error || !data) {
       console.error('Failed to retrieve FAL_API_KEY:', error);
       throw new Error('Could not retrieve API key');
     }
     
-    // Cast the data to string explicitly
-    falApiKey = String(data);
+    // Set the API key from the response
+    falApiKey = data;
     
     // Create new client with the retrieved key
     falClient = createFalClient({
