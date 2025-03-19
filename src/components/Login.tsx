@@ -101,11 +101,6 @@ const Login = () => {
             </CardFooter>
           </form>
         </CardContent>
-        <div className="px-6 pb-4 text-xs text-center text-muted-foreground">
-          <p>For admin access:</p>
-          <p>Email: htetnay4u@gmail.com</p>
-          <p>Password: Devyan@2332</p>
-        </div>
       </Card>
     </div>
   );
