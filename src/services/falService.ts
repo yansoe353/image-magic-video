@@ -48,8 +48,10 @@ export const falService = {
       
       // The result structure from Fal.ai fast-sdxl model
       // Access data correctly based on API response structure
-      if (result && result.images && Array.isArray(result.images) && result.images.length > 0) {
-        return result.images[0].url;
+      // Cast the result to 'any' to access the properties safely
+      const resultObj = result as any;
+      if (resultObj && resultObj.images && Array.isArray(resultObj.images) && resultObj.images.length > 0) {
+        return resultObj.images[0].url;
       }
       
       throw new Error("No image URL in response");
@@ -80,8 +82,10 @@ export const falService = {
       
       // The result structure from Fal.ai wan-i2v model
       // Access data correctly based on API response structure
-      if (result && result.video && result.video.url) {
-        return result.video.url;
+      // Cast the result to 'any' to access the properties safely
+      const resultObj = result as any;
+      if (resultObj && resultObj.video && resultObj.video.url) {
+        return resultObj.video.url;
       }
       
       throw new Error("No video URL in response");
