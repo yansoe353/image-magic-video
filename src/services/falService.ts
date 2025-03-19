@@ -27,16 +27,6 @@ const falClient = createFalClient({
   credentials: "fal_live_cg8U0NmJuEJ0qTR54cntcbSEH1gzgG5mKw6dOK8FQdG2VDsrUQ"
 });
 
-// Interface for the fast-sdxl model response
-interface FastSdxlResponse {
-  images: Array<{ url: string }>;
-}
-
-// Interface for the wan-i2v model response
-interface WanI2vResponse {
-  video: { url: string };
-}
-
 // Service to handle Fal.ai operations
 export const falService = {
   // Generate an image using direct Fal.ai API
@@ -44,8 +34,7 @@ export const falService = {
     try {
       console.log("Generating image with params:", params);
       
-      // Using type assertion to properly type the response
-      const result = await falClient.run<FastSdxlResponse>("fast-sdxl", {
+      const result = await falClient.run("fast-sdxl", {
         input: {
           prompt: params.prompt,
           negative_prompt: params.negative_prompt || "blurry, bad quality, distorted",
@@ -57,8 +46,8 @@ export const falService = {
       
       console.log("Image generation result:", result);
       
-      // Access the images from the typed result
-      if (result && result.images && result.images[0]) {
+      // Access the image URL from the result
+      if (result && Array.isArray(result.images) && result.images[0]) {
         return result.images[0].url;
       }
       
@@ -74,8 +63,7 @@ export const falService = {
     try {
       console.log("Generating video with params:", params);
       
-      // Using type assertion to properly type the response
-      const result = await falClient.run<WanI2vResponse>("wan-i2v", {
+      const result = await falClient.run("wan-i2v", {
         input: {
           prompt: params.prompt,
           image_url: params.image_url,
@@ -89,7 +77,7 @@ export const falService = {
       
       console.log("Video generation result:", result);
       
-      // Access the video from the typed result
+      // Access the video URL from the result
       if (result && result.video && result.video.url) {
         return result.video.url;
       }
