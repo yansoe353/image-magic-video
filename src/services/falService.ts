@@ -23,12 +23,13 @@ interface GenerateVideoParams {
   enable_safety_checker?: boolean;
 }
 
-// Initialize the client with null credentials - we'll set them after fetching the API key
+// Initialize with null credentials - we'll set them after fetching the API key
 let falClient = createFalClient({
   credentials: null
 });
 
-// Flag to track if we've initialized the client
+// Store the API key separately for upload requests
+let falApiKey = "";
 let isClientInitialized = false;
 
 // Function to initialize the Fal client with the API key from Supabase
@@ -37,14 +38,18 @@ const initFalClient = async () => {
     if (isClientInitialized) return;
     
     // Get API key from Supabase secrets using RLS policy
+    // Using 'any' type for the return to resolve the TS2345 error
     const { data, error } = await supabase.rpc('get_secret', { 
-      secret_name: 'FAL_API_KEY'
-    });
+      secret_name: 'FAL_API_KEY' 
+    } as any);
     
     if (error || !data) {
       console.error('Failed to retrieve FAL_API_KEY:', error);
       throw new Error('Could not retrieve API key');
     }
+    
+    // Store the API key for upload requests
+    falApiKey = data;
     
     // Create new client with the retrieved key
     falClient = createFalClient({
@@ -146,7 +151,7 @@ export const falService = {
       const response = await fetch('https://rest.fal.ai/storage/upload', {
         method: 'POST',
         headers: {
-          'Authorization': `Key ${falClient.credentials}`,
+          'Authorization': `Key ${falApiKey}`,
         },
         body: formData,
       });
