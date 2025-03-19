@@ -1,4 +1,6 @@
+
 import { supabase } from "@/integrations/supabase/client";
+import { IMAGE_LIMIT, VIDEO_LIMIT } from "./usageTracker";
 
 // Define interface for our app's user data
 export interface AppUser {
@@ -42,8 +44,8 @@ export const getCurrentUser = async (): Promise<AppUser | null> => {
     email: data.user.email || '',
     name: data.user.user_metadata?.name,
     isAdmin: isAdmin, // Use the extracted isAdmin value
-    imageLimit: data.user.user_metadata?.imageLimit || 100, // Default value
-    videoLimit: data.user.user_metadata?.videoLimit || 50   // Default value
+    imageLimit: data.user.user_metadata?.imageLimit || IMAGE_LIMIT, // Use constant
+    videoLimit: data.user.user_metadata?.videoLimit || VIDEO_LIMIT   // Use constant
   };
 };
 
@@ -74,8 +76,8 @@ export const addNewUser = async (
   password: string, 
   name?: string, 
   isAdmin: boolean = false, 
-  imageLimit: number = 100, 
-  videoLimit: number = 50
+  imageLimit: number = IMAGE_LIMIT, 
+  videoLimit: number = VIDEO_LIMIT
 ): Promise<boolean> => {
   // Use regular signup method instead of admin method
   const { data, error } = await supabase.auth.signUp({
