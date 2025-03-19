@@ -1,3 +1,4 @@
+
 import { createFalClient } from "@fal-ai/client";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,18 +37,18 @@ const initFalClient = async () => {
   try {
     if (isClientInitialized) return;
     
-    // Use a more generic approach without type parameters
-    const result = await supabase.rpc('get_secret', {
+    // Use type assertion to resolve the type issue
+    const { data, error } = await supabase.rpc('get_secret', {
       secret_name: 'FAL_API_KEY'
-    });
+    } as any);
     
-    if (result.error || !result.data) {
-      console.error('Failed to retrieve FAL_API_KEY:', result.error);
+    if (error || !data) {
+      console.error('Failed to retrieve FAL_API_KEY:', error);
       throw new Error('Could not retrieve API key');
     }
     
     // Cast the data to string explicitly
-    falApiKey = String(result.data);
+    falApiKey = String(data);
     
     // Create new client with the retrieved key
     falClient = createFalClient({
