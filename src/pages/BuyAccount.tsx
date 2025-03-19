@@ -49,7 +49,7 @@ const BuyAccount = () => {
           <CardHeader className="bg-gradient-to-r from-brand-purple to-brand-blue text-white rounded-t-lg">
             <CardTitle className="text-center">Premium Account</CardTitle>
             <CardDescription className="text-center text-lg font-semibold text-white">
-              100,000 Ks
+              50000 Ks
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 py-6">
