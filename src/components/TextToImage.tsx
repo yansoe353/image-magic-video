@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -91,7 +90,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
     if (!isLoggedIn()) return;
     
     try {
-      const userId = getUserId();
+      const userId = await getUserId();
       if (!userId) {
         console.error("No user ID found");
         return;
@@ -112,6 +111,8 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         
       if (error) {
         console.error("Error saving to history:", error);
+      } else {
+        console.log("Successfully saved image to history");
       }
     } catch (err) {
       console.error("Failed to save to history:", err);
@@ -166,7 +167,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         
         setIsUploading(true);
         try {
-          const userId = getUserId();
+          const userId = await getUserId();
           const supabaseUrl = await uploadUrlToStorage(falImageUrl, 'image', userId);
           setSupabaseImageUrl(supabaseUrl);
           setGeneratedImage(supabaseUrl); // Set the Supabase URL as the image URL

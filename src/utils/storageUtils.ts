@@ -49,17 +49,20 @@ export const uploadUrlToStorage = async (url: string, contentType: 'image' | 'vi
 };
 
 /**
- * Get user ID from local storage
+ * Get user ID from Supabase auth session
  */
-export const getUserId = (): string | undefined => {
+export const getUserId = async (): Promise<string | undefined> => {
   try {
-    const user = localStorage.getItem("user");
-    if (!user) return undefined;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.log("No active session found when getting user ID");
+      return undefined;
+    }
     
-    const userData = JSON.parse(user);
-    return userData.id;
+    return session.user.id;
   } catch (error) {
-    console.error("Error getting user ID:", error);
+    console.error("Error getting user ID from session:", error);
     return undefined;
   }
 };
+

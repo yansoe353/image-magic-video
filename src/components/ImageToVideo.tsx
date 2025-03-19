@@ -78,7 +78,7 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
     if (!isLoggedIn()) return;
     
     try {
-      const userId = getUserId();
+      const userId = await getUserId();
       if (!userId) {
         console.error("No user ID found");
         return;
@@ -102,6 +102,8 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
         
       if (error) {
         console.error("Error saving to history:", error);
+      } else {
+        console.log("Successfully saved video to history");
       }
     } catch (err) {
       console.error("Failed to save to history:", err);
@@ -169,7 +171,7 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
         
         setIsStoringVideo(true);
         try {
-          const userId = getUserId();
+          const userId = await getUserId();
           const supabaseUrl = await uploadUrlToStorage(falVideoUrl, 'video', userId);
           setSupabaseVideoUrl(supabaseUrl);
           setVideoUrl(supabaseUrl); // Set the Supabase URL as the video URL
