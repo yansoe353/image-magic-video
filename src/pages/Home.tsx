@@ -39,6 +39,24 @@ const Home = () => {
                   <Eye className="mr-2 text-slate-800 group-hover:animate-pulse" />
                   View Examples
                 </Button>
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  onClick={() => navigate("/demo-account")}
+                  className="bg-white/20 text-white border-white/30 hover:bg-white/30 transition-all"
+                >
+                  <Play className="mr-2" />
+                  Try Demo
+                </Button>
+              </div>
+              <div>
+                <Button 
+                  variant="link" 
+                  onClick={() => navigate("/buy-account")}
+                  className="text-white hover:text-brand-purple underline"
+                >
+                  Purchase Full Account
+                </Button>
               </div>
             </div>
             <div className="relative hidden md:block">
@@ -151,13 +169,31 @@ const Home = () => {
           <p className="text-lg text-slate-300 max-w-2xl mx-auto mb-8">
             Join thousands of creators who are already using YoteShin AI to bring their ideas to life.
           </p>
-          <Button 
-            size="lg" 
-            onClick={() => navigate("/create")}
-            className="bg-gradient-to-r from-brand-purple to-brand-blue hover:opacity-90 transition-opacity"
-          >
-            Get Started Now <ArrowRight className="ml-2" />
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button 
+              size="lg" 
+              onClick={() => navigate("/create")}
+              className="bg-gradient-to-r from-brand-purple to-brand-blue hover:opacity-90 transition-opacity"
+            >
+              Get Started Now <ArrowRight className="ml-2" />
+            </Button>
+            <Button 
+              size="lg" 
+              variant="outline"
+              onClick={() => navigate("/demo-account")}
+              className="border-white text-white hover:bg-white/10"
+            >
+              Try Demo
+            </Button>
+            <Button 
+              size="lg" 
+              variant="outline"
+              onClick={() => navigate("/buy-account")}
+              className="border-white text-white hover:bg-white/10"
+            >
+              Buy Account
+            </Button>
+          </div>
         </div>
       </section>
 

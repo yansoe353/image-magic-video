@@ -16,6 +16,8 @@ import UserList from "./components/UserList";
 import EditUser from "./components/EditUser";
 import UserLimits from "./components/UserLimits";
 import { supabase } from "./integrations/supabase/client";
+import BuyAccount from "./pages/BuyAccount";
+import DemoAccount from "./pages/DemoAccount";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +55,8 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/buy-account" element={<BuyAccount />} />
+          <Route path="/demo-account" element={<DemoAccount />} />
           <Route 
             path="/create" 
             element={
