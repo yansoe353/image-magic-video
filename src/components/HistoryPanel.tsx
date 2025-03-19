@@ -1,10 +1,11 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Image, Video, Calendar, Clock, Download, ExternalLink } from "lucide-react";
+import { Loader2, Image, Video, Calendar, Clock, Download, ExternalLink, Plus } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -147,22 +148,27 @@ const HistoryPanel = ({ userId, onSelectContent }: HistoryPanelProps) => {
           <div className="flex justify-center mb-4">
             {activeTab === 'video' ? (
               <Video className="h-12 w-12 text-slate-400" />
-            ) : (
+            ) : activeTab === 'image' ? (
               <Image className="h-12 w-12 text-slate-400" />
+            ) : (
+              <div className="flex space-x-2">
+                <Image className="h-12 w-12 text-slate-400" />
+                <Video className="h-12 w-12 text-slate-400" />
+              </div>
             )}
           </div>
           <h3 className="text-lg font-medium text-slate-700">No content found</h3>
-          <p className="text-slate-500 mt-2">
+          <p className="text-slate-500 mt-2 mb-6">
             {activeTab === 'all' 
               ? "You haven't generated any content yet."
               : `You haven't generated any ${activeTab}s yet.`}
           </p>
           <Button 
-            variant="outline" 
-            className="mt-4"
             onClick={() => navigate('/create')}
+            className="bg-brand-purple hover:bg-brand-purple/90 text-white"
           >
-            Go create some
+            <Plus className="h-4 w-4 mr-2" />
+            Create your first {activeTab === 'all' ? 'content' : activeTab}
           </Button>
         </div>
       ) : (
