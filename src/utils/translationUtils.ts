@@ -1,5 +1,3 @@
-import franc from 'franc';
-
 type SupportedLanguage = "en" | "my" | "th";
 
 export const LANGUAGES = {
@@ -35,11 +33,4 @@ export async function translateText(text: string, from: SupportedLanguage, to: S
     console.error("Translation error:", error);
     return text; // Return original text if translation fails
   }
-}
-
-export function detectLanguage(text: string): SupportedLanguage {
-  const detectedLang = franc(text);
-  if (detectedLang === 'mya') return 'my';
-  if (detectedLang === 'tha') return 'th';
-  return 'en';
 }
