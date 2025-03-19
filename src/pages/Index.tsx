@@ -4,13 +4,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TextToImage from "@/components/TextToImage";
 import ImageToVideo from "@/components/ImageToVideo";
 import Header from "@/components/Header";
-import { getRemainingCounts, IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
+import { getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<string>("text-to-image");
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState(false);
-  const [usageCounts, setUsageCounts] = useState({ remainingImages: 0, remainingVideos: 0 });
+  const [usageCounts, setUsageCounts] = useState(getRemainingCounts());
 
   useEffect(() => {
     // Initialize component
@@ -20,7 +20,7 @@ const Index = () => {
       setHasApiKey(!!storedApiKey);
       
       // Get current usage counts
-      const counts = await getRemainingCounts();
+      const counts = await getRemainingCountsAsync();
       setUsageCounts(counts);
     };
     
@@ -28,7 +28,7 @@ const Index = () => {
     
     // Set up interval to refresh usage counts
     const interval = setInterval(async () => {
-      const freshCounts = await getRemainingCounts();
+      const freshCounts = await getRemainingCountsAsync();
       setUsageCounts(freshCounts);
     }, 5000);
     

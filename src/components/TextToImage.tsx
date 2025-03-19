@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { LANGUAGES, translateText } from "@/utils/translationUtils";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { incrementImageCount, getRemainingCounts, IMAGE_LIMIT } from "@/utils/usageTracker";
+import { incrementImageCount, getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT } from "@/utils/usageTracker";
 
 interface TextToImageProps {
   onImageGenerated: (imageUrl: string) => void;
@@ -42,7 +42,16 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [isTranslating, setIsTranslating] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageOption>("en");
   const { toast } = useToast();
-  const { remainingImages } = getRemainingCounts();
+  const [counts, setCounts] = useState(getRemainingCounts());
+  
+  // Update counts when component mounts
+  useState(() => {
+    const updateCounts = async () => {
+      const freshCounts = await getRemainingCountsAsync();
+      setCounts(freshCounts);
+    };
+    updateCounts();
+  });
 
   const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setPrompt(e.target.value);
@@ -85,7 +94,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
     }
 
     // Check usage limits
-    if (remainingImages <= 0) {
+    if (counts.remainingImages <= 0) {
       toast({
         title: "Usage Limit Reached",
         description: `You've reached the limit of ${IMAGE_LIMIT} image generations.`,
@@ -124,11 +133,14 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         setGeneratedImage(imageUrl);
         
         // Increment usage count
-        if (incrementImageCount()) {
+        if (await incrementImageCount()) {
           toast({
             title: "Success",
             description: "Image generated successfully!",
           });
+          // Update counts after successful generation
+          const freshCounts = await getRemainingCountsAsync();
+          setCounts(freshCounts);
         } else {
           toast({
             title: "Usage Tracking Error",
@@ -174,12 +186,12 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         <CardContent className="p-6">
           <h2 className="text-2xl font-bold mb-4">Create an Image</h2>
           
-          {remainingImages <= 10 && (
+          {counts.remainingImages <= 10 && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Usage Limit Warning</AlertTitle>
               <AlertDescription>
-                You have {remainingImages} image generation{remainingImages === 1 ? '' : 's'} remaining.
+                You have {counts.remainingImages} image generation{counts.remainingImages === 1 ? '' : 's'} remaining.
               </AlertDescription>
             </Alert>
           )}
@@ -243,7 +255,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             <div className="flex items-center justify-between">
               <Button 
                 onClick={generateImage} 
-                disabled={isLoading || isTranslating || !prompt.trim() || remainingImages <= 0} 
+                disabled={isLoading || isTranslating || !prompt.trim() || counts.remainingImages <= 0} 
                 className="w-full"
               >
                 {isLoading ? (
@@ -260,9 +272,9 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
               </Button>
             </div>
             
-            {remainingImages > 0 && (
+            {counts.remainingImages > 0 && (
               <p className="text-xs text-slate-500 text-center">
-                {remainingImages} of {IMAGE_LIMIT} image generations remaining
+                {counts.remainingImages} of {IMAGE_LIMIT} image generations remaining
               </p>
             )}
           </div>

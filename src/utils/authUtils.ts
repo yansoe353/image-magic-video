@@ -1,6 +1,5 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 // Define interface for our app's user data
 export interface AppUser {
@@ -31,25 +30,15 @@ export const getCurrentUser = async (): Promise<AppUser | null> => {
   
   if (!data.user) return null;
   
-  // Get additional user data from users table
-  const { data: userData, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', data.user.id)
-    .single();
-  
-  if (error || !userData) {
-    console.error("Error fetching user data:", error);
-    return null;
-  }
-  
+  // For now, return basic user data from auth
+  // Once the database is properly set up, we can fetch additional user data
   return {
-    id: userData.id,
-    email: userData.email,
-    name: userData.name,
-    isAdmin: userData.is_admin,
-    imageLimit: userData.image_limit,
-    videoLimit: userData.video_limit
+    id: data.user.id,
+    email: data.user.email || '',
+    name: data.user.user_metadata?.name,
+    isAdmin: false, // Default value until we can fetch from database
+    imageLimit: 100, // Default value
+    videoLimit: 50   // Default value
   };
 };
 
@@ -88,56 +77,12 @@ export const addNewUser = async (
     email,
     password,
     email_confirm: true,
-    user_metadata: { name }
+    user_metadata: { name, isAdmin, imageLimit, videoLimit }
   });
   
   if (error || !data.user) {
     console.error("Error creating user:", error);
     return false;
-  }
-  
-  // Check if the trigger already created the user
-  const { data: existingUser } = await supabase
-    .from('users')
-    .select('id')
-    .eq('id', data.user.id)
-    .single();
-  
-  if (!existingUser) {
-    // If not, manually create user entry
-    const { error: insertError } = await supabase
-      .from('users')
-      .insert([
-        { 
-          id: data.user.id, 
-          email, 
-          name, 
-          is_admin: isAdmin,
-          image_limit: imageLimit,
-          video_limit: videoLimit
-        }
-      ]);
-    
-    if (insertError) {
-      console.error("Error adding user data:", insertError);
-      return false;
-    }
-  } else {
-    // Update user with additional data
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({ 
-        name, 
-        is_admin: isAdmin,
-        image_limit: imageLimit,
-        video_limit: videoLimit
-      })
-      .eq('id', data.user.id);
-    
-    if (updateError) {
-      console.error("Error updating user data:", updateError);
-      return false;
-    }
   }
   
   return true;
@@ -155,8 +100,6 @@ export const updateUser = async (
     videoLimit?: number;
   }
 ): Promise<boolean> => {
-  const updates: any = {};
-  
   // Update auth user if email or password changed
   if (data.email || data.password) {
     const authUpdates: any = {};
@@ -175,19 +118,20 @@ export const updateUser = async (
   }
   
   // Update user metadata
-  if (data.name !== undefined) updates.name = data.name;
-  if (data.isAdmin !== undefined) updates.is_admin = data.isAdmin;
-  if (data.imageLimit !== undefined) updates.image_limit = data.imageLimit;
-  if (data.videoLimit !== undefined) updates.video_limit = data.videoLimit;
+  const userMetadata: any = {};
+  if (data.name !== undefined) userMetadata.name = data.name;
+  if (data.isAdmin !== undefined) userMetadata.isAdmin = data.isAdmin;
+  if (data.imageLimit !== undefined) userMetadata.imageLimit = data.imageLimit;
+  if (data.videoLimit !== undefined) userMetadata.videoLimit = data.videoLimit;
   
-  if (Object.keys(updates).length > 0) {
-    const { error: updateError } = await supabase
-      .from('users')
-      .update(updates)
-      .eq('id', userId);
+  if (Object.keys(userMetadata).length > 0) {
+    const { error: metadataError } = await supabase.auth.admin.updateUserById(
+      userId,
+      { user_metadata: userMetadata }
+    );
     
-    if (updateError) {
-      console.error("Error updating user data:", updateError);
+    if (metadataError) {
+      console.error("Error updating user metadata:", metadataError);
       return false;
     }
   }
@@ -209,22 +153,20 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
 
 // Get all users (admin function)
 export const getAllUsers = async (): Promise<AppUser[]> => {
-  const { data, error } = await supabase
-    .from('users')
-    .select('*');
+  const { data, error } = await supabase.auth.admin.listUsers();
   
-  if (error) {
+  if (error || !data.users) {
     console.error("Error fetching users:", error);
     return [];
   }
   
-  return data.map(user => ({
+  return data.users.map(user => ({
     id: user.id,
-    email: user.email,
-    name: user.name,
-    isAdmin: user.is_admin,
-    imageLimit: user.image_limit,
-    videoLimit: user.video_limit
+    email: user.email || '',
+    name: user.user_metadata?.name as string | undefined,
+    isAdmin: user.user_metadata?.isAdmin as boolean | undefined,
+    imageLimit: user.user_metadata?.imageLimit as number | undefined,
+    videoLimit: user.user_metadata?.videoLimit as number | undefined
   }));
 };
 

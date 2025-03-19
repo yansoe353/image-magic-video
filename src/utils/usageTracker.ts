@@ -75,7 +75,14 @@ export const incrementVideoCount = async (): Promise<boolean> => {
   return true;
 };
 
-export const getRemainingCounts = async (): Promise<{ remainingImages: number; remainingVideos: number }> => {
+// Modified to return a concrete object instead of a Promise
+export const getRemainingCounts = (): { remainingImages: number; remainingVideos: number } => {
+  // Default values when not initialized
+  return { remainingImages: IMAGE_LIMIT, remainingVideos: VIDEO_LIMIT };
+};
+
+// Asynchronous version for when we need to wait for actual counts
+export const getRemainingCountsAsync = async (): Promise<{ remainingImages: number; remainingVideos: number }> => {
   const usage = await getApiKeyUsage();
   const { imageLimit, videoLimit } = await getUserLimits();
   

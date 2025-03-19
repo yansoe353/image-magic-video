@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +11,7 @@ import { Languages, AlertCircle } from "lucide-react";
 import { LANGUAGES, translateText, type LanguageOption } from "@/utils/translationUtils";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import { usePromptTranslation } from "@/hooks/usePromptTranslation";
-import { incrementVideoCount, getRemainingCounts, VIDEO_LIMIT } from "@/utils/usageTracker";
+import { incrementVideoCount, getRemainingCounts, getRemainingCountsAsync, VIDEO_LIMIT } from "@/utils/usageTracker";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
@@ -43,13 +42,16 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
   const [showEditor, setShowEditor] = useState(false);
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
-  const { remainingVideos } = getRemainingCounts();
-
-  // Settings state
-  const [frames, setFrames] = useState(81);
-  const [fps, setFps] = useState(16);
-  const [resolution, setResolution] = useState("720p");
-  const [numInferenceSteps, setNumInferenceSteps] = useState(30);
+  const [counts, setCounts] = useState(getRemainingCounts());
+  
+  // Update counts when component mounts
+  useEffect(() => {
+    const updateCounts = async () => {
+      const freshCounts = await getRemainingCountsAsync();
+      setCounts(freshCounts);
+    };
+    updateCounts();
+  }, []);
 
   useEffect(() => {
     if (initialImageUrl) {
@@ -69,7 +71,7 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
     }
 
     // Check usage limits
-    if (remainingVideos <= 0) {
+    if (counts.remainingVideos <= 0) {
       toast({
         title: "Usage Limit Reached",
         description: `You've reached the limit of ${VIDEO_LIMIT} video generations.`,
@@ -117,11 +119,14 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
         setVideoUrl(result.data.video.url);
         
         // Increment usage count
-        if (incrementVideoCount()) {
+        if (await incrementVideoCount()) {
           toast({
             title: "Success",
             description: "Video generated successfully!",
           });
+          // Update counts after successful generation
+          const freshCounts = await getRemainingCountsAsync();
+          setCounts(freshCounts);
         } else {
           toast({
             title: "Usage Tracking Error",
@@ -150,12 +155,12 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
         <CardContent className="p-6">
           <h2 className="text-2xl font-bold mb-4">Image to Video</h2>
           
-          {remainingVideos <= 5 && (
+          {counts.remainingVideos <= 5 && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Usage Limit Warning</AlertTitle>
               <AlertDescription>
-                You have {remainingVideos} video generation{remainingVideos === 1 ? '' : 's'} remaining.
+                You have {counts.remainingVideos} video generation{counts.remainingVideos === 1 ? '' : 's'} remaining.
               </AlertDescription>
             </Alert>
           )}
@@ -255,15 +260,15 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
             
             <Button
               onClick={generateVideo}
-              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || remainingVideos <= 0}
+              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || counts.remainingVideos <= 0}
               className="w-full"
             >
               Generate Video
             </Button>
             
-            {remainingVideos > 0 && (
+            {counts.remainingVideos > 0 && (
               <p className="text-xs text-slate-500 text-center">
-                {remainingVideos} of {VIDEO_LIMIT} video generations remaining
+                {counts.remainingVideos} of {VIDEO_LIMIT} video generations remaining
               </p>
             )}
           </div>
