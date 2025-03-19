@@ -3,6 +3,7 @@ export interface User {
   id: string;
   email: string;
   name?: string;
+  isAdmin?: boolean;
 }
 
 // Define interface for session data
@@ -19,6 +20,14 @@ const MOCK_USERS = [
     email: "user@example.com",
     password: "password123",
     name: "Demo User",
+    isAdmin: false
+  },
+  {
+    id: "admin1",
+    email: "htetnay4u@gmail.com",
+    password: "Devyan@2332",
+    name: "Admin User",
+    isAdmin: true
   }
 ];
 
@@ -40,7 +49,7 @@ const loadUsers = () => {
       console.error("Error parsing stored users:", error);
     }
   }
-  // If no stored users or error, initialize with default user
+  // If no stored users or error, initialize with default users
   saveUsers();
   return MOCK_USERS;
 };
@@ -84,6 +93,12 @@ export const getCurrentUser = (): User | null => {
   }
 };
 
+// Check if current user is an admin
+export const isAdmin = (): boolean => {
+  const user = getCurrentUser();
+  return user?.isAdmin === true;
+};
+
 // Login user
 export const loginUser = async (email: string, password: string): Promise<boolean> => {
   // Reload users to ensure we have the latest data
@@ -103,6 +118,7 @@ export const loginUser = async (email: string, password: string): Promise<boolea
       id: user.id,
       email: user.email,
       name: user.name,
+      isAdmin: user.isAdmin
     },
     token: Math.random().toString(36).substring(2, 15),
     expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 days
@@ -120,7 +136,7 @@ export const logoutUser = (): void => {
 };
 
 // Add new user
-export const addNewUser = async (email: string, password: string, name?: string): Promise<boolean> => {
+export const addNewUser = async (email: string, password: string, name?: string, isAdmin: boolean = false): Promise<boolean> => {
   // Reload users to ensure we have the latest data
   users = loadUsers();
   
@@ -141,6 +157,7 @@ export const addNewUser = async (email: string, password: string, name?: string)
     email,
     password,
     name: name || undefined,
+    isAdmin
   };
   
   // Add to users array
@@ -158,5 +175,5 @@ export const getAllUsers = (): User[] => {
   users = loadUsers();
   
   // Return users without passwords
-  return users.map(({ id, email, name }) => ({ id, email, name }));
+  return users.map(({ id, email, name, isAdmin }) => ({ id, email, name, isAdmin }));
 };
