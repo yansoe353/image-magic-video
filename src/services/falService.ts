@@ -1,5 +1,3 @@
-
-
 import { createFalClient } from "@fal-ai/client";
 import { callFalApi, uploadToFal } from "@/integrations/supabase/client";
 
@@ -23,47 +21,22 @@ interface GenerateVideoParams {
   enable_safety_checker?: boolean;
 }
 
-// Create a Fal.ai client with the API key
-// We're using a public key as this is client-side code
+// Create a Fal.ai client with the public key for client-side fallback
+// We prioritize server-side API calls but keep this as a fallback
 const falClient = createFalClient({
   credentials: "fal_live_cg8U0NmJuEJ0qTR54cntcbSEH1gzgG5mKw6dOK8FQdG2VDsrUQ"
 });
 
 // Service to handle Fal.ai operations
 export const falService = {
-  // Generate an image using direct Fal.ai API
+  // Generate an image using Fal.ai API
   async generateImage(params: GenerateImageParams) {
     try {
       console.log("Generating image with params:", params);
       
-      // Option 1: Use direct client-side API call
-      const result = await falClient.run("fast-sdxl", {
-        input: {
-          prompt: params.prompt,
-          negative_prompt: params.negative_prompt || "blurry, bad quality, distorted",
-          image_size: params.image_size || "square_hd",
-          num_inference_steps: params.num_inference_steps || 30,
-          guidance_scale: params.guidance_scale || 7.5,
-        }
-      });
-      
-      console.log("Image generation result:", result);
-      
-      // The result structure from Fal.ai fast-sdxl model
-      // Access data correctly based on API response structure
-      // Cast the result to 'any' to access the properties safely
-      const resultObj = result as any;
-      if (resultObj && resultObj.images && Array.isArray(resultObj.images) && resultObj.images.length > 0) {
-        return resultObj.images[0].url;
-      }
-      
-      throw new Error("No image URL in response");
-    } catch (error) {
-      console.error("Failed to generate image:", error);
-      
-      // Option 2: Fall back to server-side API call if client-side fails
-      console.log("Falling back to server-side API call");
+      // Option 1: Prioritize server-side API call using Supabase Edge Function
       try {
+        console.log("Attempting server-side API call");
         const result = await callFalApi("fast-sdxl", {
           method: "POST",
           body: {
@@ -83,47 +56,44 @@ export const falService = {
         
         throw new Error("No image URL in server response");
       } catch (serverError) {
-        console.error("Server-side API call also failed:", serverError);
-        throw serverError;
+        console.error("Server-side API call failed:", serverError);
+        console.log("Falling back to client-side API call");
+        
+        // Option 2: Fall back to client-side API call
+        const result = await falClient.run("fast-sdxl", {
+          input: {
+            prompt: params.prompt,
+            negative_prompt: params.negative_prompt || "blurry, bad quality, distorted",
+            image_size: params.image_size || "square_hd",
+            num_inference_steps: params.num_inference_steps || 30,
+            guidance_scale: params.guidance_scale || 7.5,
+          }
+        });
+        
+        console.log("Client-side image generation result:", result);
+        
+        // Cast the result to 'any' to access the properties safely
+        const resultObj = result as any;
+        if (resultObj && resultObj.images && Array.isArray(resultObj.images) && resultObj.images.length > 0) {
+          return resultObj.images[0].url;
+        }
+        
+        throw new Error("No image URL in client response");
       }
+    } catch (error) {
+      console.error("Failed to generate image after all attempts:", error);
+      throw error;
     }
   },
 
-  // Generate a video using direct Fal.ai API
+  // Generate a video using Fal.ai API
   async generateVideo(params: GenerateVideoParams) {
     try {
       console.log("Generating video with params:", params);
       
-      // Option 1: Use direct client-side API call
-      const result = await falClient.run("wan-i2v", {
-        input: {
-          prompt: params.prompt,
-          image_url: params.image_url,
-          num_frames: params.num_frames || 81,
-          frames_per_second: params.frames_per_second || 16,
-          resolution: params.resolution || "720p",
-          num_inference_steps: params.num_inference_steps || 30,
-          enable_safety_checker: params.enable_safety_checker !== false,
-        }
-      });
-      
-      console.log("Video generation result:", result);
-      
-      // The result structure from Fal.ai wan-i2v model
-      // Access data correctly based on API response structure
-      // Cast the result to 'any' to access the properties safely
-      const resultObj = result as any;
-      if (resultObj && resultObj.video && resultObj.video.url) {
-        return resultObj.video.url;
-      }
-      
-      throw new Error("No video URL in response");
-    } catch (error) {
-      console.error("Failed to generate video:", error);
-      
-      // Option 2: Fall back to server-side API call if client-side fails
-      console.log("Falling back to server-side API call");
+      // Option 1: Prioritize server-side API call using Supabase Edge Function
       try {
+        console.log("Attempting server-side API call");
         const result = await callFalApi("wan-i2v", {
           method: "POST",
           body: {
@@ -145,19 +115,54 @@ export const falService = {
         
         throw new Error("No video URL in server response");
       } catch (serverError) {
-        console.error("Server-side API call also failed:", serverError);
-        throw serverError;
+        console.error("Server-side API call failed:", serverError);
+        console.log("Falling back to client-side API call");
+        
+        // Option 2: Fall back to client-side API call
+        const result = await falClient.run("wan-i2v", {
+          input: {
+            prompt: params.prompt,
+            image_url: params.image_url,
+            num_frames: params.num_frames || 81,
+            frames_per_second: params.frames_per_second || 16,
+            resolution: params.resolution || "720p",
+            num_inference_steps: params.num_inference_steps || 30,
+            enable_safety_checker: params.enable_safety_checker !== false,
+          }
+        });
+        
+        console.log("Client-side video generation result:", result);
+        
+        // Cast the result to 'any' to access the properties safely
+        const resultObj = result as any;
+        if (resultObj && resultObj.video && resultObj.video.url) {
+          return resultObj.video.url;
+        }
+        
+        throw new Error("No video URL in client response");
       }
+    } catch (error) {
+      console.error("Failed to generate video after all attempts:", error);
+      throw error;
     }
   },
 
-  // Upload an image using direct Fal.ai API
+  // Upload an image using Fal.ai API
   async uploadImage(file: File) {
     try {
       console.log("Uploading image file:", file.name, file.type, file.size);
       
-      // Option 1: Direct client-side upload
+      // Option 1: Prioritize server-side upload
       try {
+        console.log("Attempting server-side upload");
+        const url = await uploadToFal(file);
+        console.log("Server-side upload result:", url);
+        return url;
+      } catch (serverError) {
+        console.error("Server-side upload failed:", serverError);
+        console.log("Falling back to client-side upload");
+        
+        // Option 2: Fall back to direct client-side upload
         // Convert file to ArrayBuffer
         const arrayBuffer = await file.arrayBuffer();
         const blob = new Blob([arrayBuffer], { type: file.type });
@@ -181,27 +186,17 @@ export const falService = {
         }
         
         const result = await response.json();
-        console.log("Upload result:", result);
+        console.log("Client-side upload result:", result);
         
         if (result && result.url) {
           return result.url;
         }
         
         throw new Error("No URL in upload response");
-      } catch (clientError) {
-        console.error("Client-side upload failed:", clientError);
-        throw clientError;
       }
-      
-      // Option 2: Fall back to server-side upload
-      console.log("Falling back to server-side upload");
-      const url = await uploadToFal(file);
-      console.log("Server-side upload result:", url);
-      return url;
     } catch (error) {
-      console.error("Upload failed:", error);
+      console.error("Upload failed after all attempts:", error);
       throw error;
     }
   },
 };
-
