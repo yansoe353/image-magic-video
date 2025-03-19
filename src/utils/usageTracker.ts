@@ -1,4 +1,5 @@
 
+import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUser } from "./authUtils";
 
 // Define constants for usage limits
@@ -14,13 +15,13 @@ export interface ApiKeyUsage {
 }
 
 // Get storage key based on user ID
-const getStorageKey = (): string => {
-  const user = getCurrentUser();
+const getStorageKey = async (): Promise<string> => {
+  const user = await getCurrentUser();
   return user ? `apiKeyUsage_${user.id}` : "apiKeyUsage";
 };
 
-export const getApiKeyUsage = (): ApiKeyUsage | null => {
-  const storageKey = getStorageKey();
+export const getApiKeyUsage = async (): Promise<ApiKeyUsage | null> => {
+  const storageKey = await getStorageKey();
   const usageData = localStorage.getItem(storageKey);
   if (!usageData) return null;
   
@@ -32,8 +33,8 @@ export const getApiKeyUsage = (): ApiKeyUsage | null => {
   }
 };
 
-export const getUserLimits = (): { imageLimit: number; videoLimit: number } => {
-  const user = getCurrentUser();
+export const getUserLimits = async (): Promise<{ imageLimit: number; videoLimit: number }> => {
+  const user = await getCurrentUser();
   if (!user) {
     return { imageLimit: IMAGE_LIMIT, videoLimit: VIDEO_LIMIT }; // Use constants
   }
@@ -44,39 +45,39 @@ export const getUserLimits = (): { imageLimit: number; videoLimit: number } => {
   };
 };
 
-export const incrementImageCount = (): boolean => {
-  const usage = getApiKeyUsage();
+export const incrementImageCount = async (): Promise<boolean> => {
+  const usage = await getApiKeyUsage();
   if (!usage) return false;
   
-  const { imageLimit } = getUserLimits();
+  const { imageLimit } = await getUserLimits();
   
   if (usage.imageCount >= imageLimit) {
     return false;
   }
   
   usage.imageCount += 1;
-  localStorage.setItem(getStorageKey(), JSON.stringify(usage));
+  localStorage.setItem(await getStorageKey(), JSON.stringify(usage));
   return true;
 };
 
-export const incrementVideoCount = (): boolean => {
-  const usage = getApiKeyUsage();
+export const incrementVideoCount = async (): Promise<boolean> => {
+  const usage = await getApiKeyUsage();
   if (!usage) return false;
   
-  const { videoLimit } = getUserLimits();
+  const { videoLimit } = await getUserLimits();
   
   if (usage.videoCount >= videoLimit) {
     return false;
   }
   
   usage.videoCount += 1;
-  localStorage.setItem(getStorageKey(), JSON.stringify(usage));
+  localStorage.setItem(await getStorageKey(), JSON.stringify(usage));
   return true;
 };
 
-export const getRemainingCounts = (): { remainingImages: number; remainingVideos: number } => {
-  const usage = getApiKeyUsage();
-  const { imageLimit, videoLimit } = getUserLimits();
+export const getRemainingCounts = async (): Promise<{ remainingImages: number; remainingVideos: number }> => {
+  const usage = await getApiKeyUsage();
+  const { imageLimit, videoLimit } = await getUserLimits();
   
   if (!usage) {
     return { remainingImages: imageLimit, remainingVideos: videoLimit };
@@ -88,9 +89,24 @@ export const getRemainingCounts = (): { remainingImages: number; remainingVideos
   };
 };
 
-export const initializeApiKeyUsage = (apiKey: string): void => {
-  const user = getCurrentUser();
-  const storageKey = getStorageKey();
+export const initializeApiKeyUsage = async (apiKey: string): Promise<void> => {
+  const user = await getCurrentUser();
+  const storageKey = await getStorageKey();
+  
+  // Store the key in Supabase if user is logged in
+  if (user) {
+    const { error } = await supabase.from('api_keys').upsert([
+      {
+        user_id: user.id,
+        key_name: 'fal_api_key',
+        key_value: apiKey
+      }
+    ], { onConflict: 'user_id,key_name' });
+    
+    if (error) {
+      console.error("Error storing API key:", error);
+    }
+  }
   
   const usage: ApiKeyUsage = {
     key: apiKey,

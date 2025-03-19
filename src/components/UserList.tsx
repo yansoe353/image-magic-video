@@ -21,29 +21,45 @@ const UserList = () => {
   const { toast } = useToast();
   const [userIsAdmin, setUserIsAdmin] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const loadUsers = () => {
-    const loadedUsers = getAllUsers();
-    setUsers(loadedUsers);
+  const loadUsers = async () => {
+    try {
+      const loadedUsers = await getAllUsers();
+      setUsers(loadedUsers);
+    } catch (error) {
+      console.error("Error loading users:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load users",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
-    // Check if user is admin
-    const adminStatus = isAdmin();
-    setUserIsAdmin(adminStatus);
+    const checkAdminAndLoadUsers = async () => {
+      // Check if user is admin
+      const adminStatus = await isAdmin();
+      setUserIsAdmin(adminStatus);
+      
+      if (!adminStatus) {
+        toast({
+          title: "Access Denied",
+          description: "You need admin privileges to view this page",
+          variant: "destructive",
+        });
+        navigate("/");
+        return;
+      }
+      
+      // Load users when component mounts (only if admin)
+      loadUsers();
+    };
     
-    if (!adminStatus) {
-      toast({
-        title: "Access Denied",
-        description: "You need admin privileges to view this page",
-        variant: "destructive",
-      });
-      navigate("/");
-      return;
-    }
-    
-    // Load users when component mounts (only if admin)
-    loadUsers();
+    checkAdminAndLoadUsers();
   }, [navigate, toast]);
 
   const handleDeleteUser = async (userId: string) => {
@@ -80,6 +96,14 @@ const UserList = () => {
       setIsDeleting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-8 px-4 text-center">
+        <p>Loading users...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8 px-4">

@@ -1,4 +1,7 @@
 
+import { supabase } from "@/integrations/supabase/client";
+import type { User } from "@supabase/supabase-js";
+
 // Define interface for user data
 export interface User {
   id: string;
@@ -16,130 +19,59 @@ export interface Session {
   expiresAt: number;
 }
 
-// Mock user database (in production, this would be a real database)
-const MOCK_USERS = [
-  {
-    id: "user1",
-    email: "user@example.com",
-    password: "password123",
-    name: "Demo User",
-    isAdmin: false,
-    imageLimit: 50,
-    videoLimit: 20
-  },
-  {
-    id: "admin1",
-    email: "htetnay4u@gmail.com",
-    password: "Devyan@2332",
-    name: "Admin User",
-    isAdmin: true,
-    imageLimit: 1000,
-    videoLimit: 500
-  }
-];
-
-// Function to save users to local storage
-const saveUsers = () => {
-  localStorage.setItem("mockUsers", JSON.stringify(MOCK_USERS));
-};
-
-// Function to load users from local storage
-const loadUsers = () => {
-  const storedUsers = localStorage.getItem("mockUsers");
-  if (storedUsers) {
-    try {
-      const parsedUsers = JSON.parse(storedUsers);
-      if (Array.isArray(parsedUsers)) {
-        return parsedUsers;
-      }
-    } catch (error) {
-      console.error("Error parsing stored users:", error);
-    }
-  }
-  // If no stored users or error, initialize with default users
-  saveUsers();
-  return MOCK_USERS;
-};
-
-// Initialize users from local storage
-let users = loadUsers();
-
 // Check if user is logged in
-export const isLoggedIn = (): boolean => {
-  const sessionStr = localStorage.getItem("userSession");
-  if (!sessionStr) return false;
-  
-  try {
-    const session = JSON.parse(sessionStr) as Session;
-    // Check if session is expired
-    if (session.expiresAt < Date.now()) {
-      // Clear expired session
-      localStorage.removeItem("userSession");
-      return false;
-    }
-    return true;
-  } catch (error) {
-    console.error("Error parsing session data:", error);
-    return false;
-  }
+export const isLoggedIn = async (): Promise<boolean> => {
+  const { data } = await supabase.auth.getSession();
+  return !!data.session;
 };
 
 // Get current user
-export const getCurrentUser = (): User | null => {
-  if (!isLoggedIn()) return null;
+export const getCurrentUser = async (): Promise<User | null> => {
+  const { data } = await supabase.auth.getUser();
   
-  try {
-    const sessionStr = localStorage.getItem("userSession");
-    if (!sessionStr) return null;
-    
-    const session = JSON.parse(sessionStr) as Session;
-    return session.user;
-  } catch (error) {
-    console.error("Error getting current user:", error);
+  if (!data.user) return null;
+  
+  // Get additional user data from users table
+  const { data: userData, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', data.user.id)
+    .single();
+  
+  if (error || !userData) {
+    console.error("Error fetching user data:", error);
     return null;
   }
+  
+  return {
+    id: userData.id,
+    email: userData.email,
+    name: userData.name,
+    isAdmin: userData.is_admin,
+    imageLimit: userData.image_limit,
+    videoLimit: userData.video_limit
+  };
 };
 
 // Check if current user is an admin
-export const isAdmin = (): boolean => {
-  const user = getCurrentUser();
+export const isAdmin = async (): Promise<boolean> => {
+  const user = await getCurrentUser();
   return user?.isAdmin === true;
 };
 
 // Login user
 export const loginUser = async (email: string, password: string): Promise<boolean> => {
-  // Reload users to ensure we have the latest data
-  users = loadUsers();
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
   
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // Find user - make sure to do case-insensitive email comparison
-  const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
-  
-  if (!user) return false;
-  
-  // Create session (valid for 7 days)
-  const session: Session = {
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      isAdmin: user.isAdmin
-    },
-    token: Math.random().toString(36).substring(2, 15),
-    expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 days
-  };
-  
-  // Save session to localStorage
-  localStorage.setItem("userSession", JSON.stringify(session));
-  
-  return true;
+  return !error;
 };
 
 // Logout user
-export const logoutUser = (): void => {
-  localStorage.removeItem("userSession");
+export const logoutUser = async (): Promise<void> => {
+  await supabase.auth.signOut();
 };
 
 // Add new user
@@ -151,36 +83,62 @@ export const addNewUser = async (
   imageLimit: number = 100, 
   videoLimit: number = 50
 ): Promise<boolean> => {
-  // Reload users to ensure we have the latest data
-  users = loadUsers();
+  // First create auth user
+  const { data, error } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { name }
+  });
   
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // Check if email already exists
-  if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+  if (error || !data.user) {
+    console.error("Error creating user:", error);
     return false;
   }
   
-  // Generate new user ID
-  const newUserId = `user${Date.now()}`;
+  // Check if the trigger already created the user
+  const { data: existingUser } = await supabase
+    .from('users')
+    .select('id')
+    .eq('id', data.user.id)
+    .single();
   
-  // Create new user
-  const newUser = {
-    id: newUserId,
-    email,
-    password,
-    name: name || undefined,
-    isAdmin,
-    imageLimit,
-    videoLimit
-  };
-  
-  // Add to users array
-  users.push(newUser);
-  
-  // Save updated users to localStorage
-  saveUsers();
+  if (!existingUser) {
+    // If not, manually create user entry
+    const { error: insertError } = await supabase
+      .from('users')
+      .insert([
+        { 
+          id: data.user.id, 
+          email, 
+          name, 
+          is_admin: isAdmin,
+          image_limit: imageLimit,
+          video_limit: videoLimit
+        }
+      ]);
+    
+    if (insertError) {
+      console.error("Error adding user data:", insertError);
+      return false;
+    }
+  } else {
+    // Update user with additional data
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ 
+        name, 
+        is_admin: isAdmin,
+        image_limit: imageLimit,
+        video_limit: videoLimit
+      })
+      .eq('id', data.user.id);
+    
+    if (updateError) {
+      console.error("Error updating user data:", updateError);
+      return false;
+    }
+  }
   
   return true;
 };
@@ -197,54 +155,40 @@ export const updateUser = async (
     videoLimit?: number;
   }
 ): Promise<boolean> => {
-  // Reload users to ensure we have the latest data
-  users = loadUsers();
+  const updates: any = {};
   
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // Find user index
-  const userIndex = users.findIndex(u => u.id === userId);
-  
-  if (userIndex === -1) {
-    return false;
-  }
-  
-  // Check if email is being changed and already exists
-  if (data.email && data.email !== users[userIndex].email) {
-    if (users.some(u => u.id !== userId && u.email.toLowerCase() === data.email!.toLowerCase())) {
+  // Update auth user if email or password changed
+  if (data.email || data.password) {
+    const authUpdates: any = {};
+    if (data.email) authUpdates.email = data.email;
+    if (data.password) authUpdates.password = data.password;
+    
+    const { error: authError } = await supabase.auth.admin.updateUserById(
+      userId,
+      authUpdates
+    );
+    
+    if (authError) {
+      console.error("Error updating auth user:", authError);
       return false;
     }
   }
   
-  // Update user data
-  users[userIndex] = {
-    ...users[userIndex],
-    ...data
-  };
+  // Update user metadata
+  if (data.name !== undefined) updates.name = data.name;
+  if (data.isAdmin !== undefined) updates.is_admin = data.isAdmin;
+  if (data.imageLimit !== undefined) updates.image_limit = data.imageLimit;
+  if (data.videoLimit !== undefined) updates.video_limit = data.videoLimit;
   
-  // Save updated users to localStorage
-  saveUsers();
-  
-  // Update current session if the user being updated is the logged-in user
-  const sessionStr = localStorage.getItem("userSession");
-  if (sessionStr) {
-    try {
-      const session = JSON.parse(sessionStr) as Session;
-      if (session.user.id === userId) {
-        // Update session with new user data
-        session.user = {
-          id: users[userIndex].id,
-          email: users[userIndex].email,
-          name: users[userIndex].name,
-          isAdmin: users[userIndex].isAdmin,
-          imageLimit: users[userIndex].imageLimit,
-          videoLimit: users[userIndex].videoLimit
-        };
-        localStorage.setItem("userSession", JSON.stringify(session));
-      }
-    } catch (error) {
-      console.error("Error updating session:", error);
+  if (Object.keys(updates).length > 0) {
+    const { error: updateError } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', userId);
+    
+    if (updateError) {
+      console.error("Error updating user data:", updateError);
+      return false;
     }
   }
   
@@ -253,41 +197,34 @@ export const updateUser = async (
 
 // Delete user
 export const deleteUser = async (userId: string): Promise<boolean> => {
-  // Reload users to ensure we have the latest data
-  users = loadUsers();
+  const { error } = await supabase.auth.admin.deleteUser(userId);
   
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // Check if user exists
-  const userIndex = users.findIndex(u => u.id === userId);
-  
-  if (userIndex === -1) {
+  if (error) {
+    console.error("Error deleting user:", error);
     return false;
   }
-  
-  // Remove user
-  users.splice(userIndex, 1);
-  
-  // Save updated users to localStorage
-  saveUsers();
   
   return true;
 };
 
 // Get all users (admin function)
-export const getAllUsers = (): User[] => {
-  // Reload users to ensure we have the latest data
-  users = loadUsers();
+export const getAllUsers = async (): Promise<User[]> => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*');
   
-  // Return users without passwords
-  return users.map(({ id, email, name, isAdmin, imageLimit, videoLimit }) => ({ 
-    id, 
-    email, 
-    name, 
-    isAdmin,
-    imageLimit,
-    videoLimit
+  if (error) {
+    console.error("Error fetching users:", error);
+    return [];
+  }
+  
+  return data.map(user => ({
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    isAdmin: user.is_admin,
+    imageLimit: user.image_limit,
+    videoLimit: user.video_limit
   }));
 };
 
