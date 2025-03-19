@@ -1,19 +1,45 @@
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import HistoryPanel from "@/components/HistoryPanel";
 import { Card } from "@/components/ui/card";
 import { isLoggedIn } from "@/utils/authUtils";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
 
 const History = () => {
   const navigate = useNavigate();
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
   
-  // Redirect to login if not logged in - Fixed: Changed useState to useEffect
+  // Redirect to login if not logged in
   useEffect(() => {
-    if (!isLoggedIn()) {
-      navigate('/login');
-    }
+    const checkAuth = async () => {
+      setIsAuthChecking(true);
+      
+      if (!isLoggedIn()) {
+        console.log("User not logged in, redirecting to login page");
+        navigate('/login');
+        return;
+      }
+      
+      try {
+        // Verify user ID from localStorage is valid
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const userData = JSON.parse(userStr);
+          console.log("Found user data in localStorage:", userData.id);
+        }
+      } catch (error) {
+        console.error("Error checking auth:", error);
+        // If there's an error with auth, better to redirect to login
+        navigate('/login');
+      } finally {
+        setIsAuthChecking(false);
+      }
+    };
+    
+    checkAuth();
   }, [navigate]);
 
   const handleSelectContent = (url: string, type: 'image' | 'video') => {
@@ -27,6 +53,15 @@ const History = () => {
       }
     });
   };
+
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+        <Loader2 className="h-12 w-12 animate-spin text-slate-400" />
+        <p className="mt-4 text-slate-600">Checking authentication...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">

@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,9 +45,29 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
     setError(null);
     
     try {
+      // Get the user ID from localStorage
+      const userStr = localStorage.getItem('user');
+      if (!userStr) {
+        setError("You need to be logged in to view your history");
+        setIsLoading(false);
+        return;
+      }
+      
+      const userData = JSON.parse(userStr);
+      const userId = userData.id;
+      
+      if (!userId) {
+        setError("User ID not found. Please log in again.");
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log("Fetching content history for user:", userId);
+      
       let query = supabase
         .from('user_content_history')
         .select('*', { count: 'exact' })
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .range((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage - 1);
       
@@ -58,7 +79,8 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
       
       if (error) throw error;
       
-      setItems(data as ContentHistoryItem[]);
+      console.log("History items fetched:", data?.length, "Total count:", count);
+      setItems(data as ContentHistoryItem[] || []);
       
       if (count) {
         setTotalPages(Math.ceil(count / itemsPerPage));
@@ -147,6 +169,11 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
                       src={item.content_url} 
                       alt={item.prompt || "Generated image"} 
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        console.error("Image failed to load:", item.content_url);
+                        const target = e.target as HTMLImageElement;
+                        target.src = "/placeholder.svg";
+                      }}
                     />
                   ) : (
                     <video 
@@ -157,6 +184,11 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
                       onMouseOut={(e) => {
                         e.currentTarget.pause();
                         e.currentTarget.currentTime = 0;
+                      }}
+                      onError={(e) => {
+                        console.error("Video failed to load:", item.content_url);
+                        const target = e.target as HTMLVideoElement;
+                        target.poster = "/placeholder.svg";
                       }}
                     />
                   )}
@@ -198,11 +230,9 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
                       <Download className="h-3 w-3" />
                     </Button>
                   </div>
-                  {item.content_url.includes('supabase') && (
-                    <p className="text-xs text-slate-500 mt-1 text-center">
-                      Stored in your cloud
-                    </p>
-                  )}
+                  <p className="text-xs text-slate-500 mt-1 text-center">
+                    Stored in your cloud
+                  </p>
                 </CardContent>
               </Card>
             ))}
