@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -145,7 +144,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           })),
           image_size: { width, height },
           guidance_scale: guidanceScale,
-          inference_steps: 30,
+          num_inference_steps: 30,
         },
       });
       
