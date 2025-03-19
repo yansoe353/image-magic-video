@@ -1,3 +1,4 @@
+
 import { createFalClient } from "@fal-ai/client";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,9 +43,9 @@ const initFalClient = async () => {
       secret_name: string;
     }
     
-    const { data, error } = await supabase.rpc<string>('get_secret', { 
+    const { data, error } = await supabase.rpc<string, GetSecretParams>('get_secret', { 
       secret_name: 'FAL_API_KEY' 
-    } as GetSecretParams);
+    });
     
     if (error || !data) {
       console.error('Failed to retrieve FAL_API_KEY:', error);
