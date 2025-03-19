@@ -38,18 +38,26 @@ serve(async (req) => {
       .eq('key_name', 'falApiKey')
       .single();
 
+    // If no key found in database, try environment variable
+    let falApiKey = '';
     if (apiKeyError) {
-      console.error('Error fetching API key:', apiKeyError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to retrieve API key', details: apiKeyError }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      console.log('No API key found in database, checking environment variable');
+      falApiKey = Deno.env.get('FAL_API_KEY') || '';
+      if (!falApiKey) {
+        console.error('Error: No Fal.ai API key found in database or environment variables');
+        return new Response(
+          JSON.stringify({ error: 'Fal.ai API key not configured' }),
+          { 
+            status: 400, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+    } else {
+      falApiKey = apiKeyData?.key_value || '';
     }
 
-    if (!apiKeyData || !apiKeyData.key_value) {
+    if (!falApiKey) {
       console.error('API key not found or empty');
       return new Response(
         JSON.stringify({ error: 'Fal.ai API key not configured or empty' }),
@@ -60,7 +68,6 @@ serve(async (req) => {
       );
     }
 
-    const falApiKey = apiKeyData.key_value;
     console.log('Successfully retrieved Fal.ai API key');
     
     // Get request data
@@ -91,11 +98,18 @@ serve(async (req) => {
       );
     }
 
-    // Prepare the base URL for different endpoints
+    // Map endpoints to appropriate Fal.ai URLs
     let falUrl;
     if (endpoint === 'upload') {
       falUrl = 'https://rest.fal.ai/storage/upload';
+    } else if (endpoint === 'fal-ai/sdxl') {
+      // For SDXL image generation
+      falUrl = 'https://rest.fal.ai/v1/fast-sdxl';
+    } else if (endpoint === 'fal-ai/i2v') {
+      // For image to video
+      falUrl = 'https://rest.fal.ai/v1/wan-i2v';
     } else {
+      // Default: pass through the endpoint directly
       falUrl = `https://rest.fal.ai/v1/${endpoint}`;
     }
 
@@ -129,7 +143,7 @@ serve(async (req) => {
       }
     } else if (params.body) {
       options.body = JSON.stringify(params.body);
-      console.log(`Request body prepared for ${endpoint}`);
+      console.log(`Request body prepared for ${endpoint}:`, params.body);
     }
 
     // Add network timeout and diagnosis

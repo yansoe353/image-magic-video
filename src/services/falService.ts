@@ -1,3 +1,4 @@
+
 import { createFalClient } from "@fal-ai/client";
 import { callFalApi, uploadToFal } from "@/integrations/supabase/client";
 
@@ -37,7 +38,7 @@ export const falService = {
       // Option 1: Prioritize server-side API call using Supabase Edge Function
       try {
         console.log("Attempting server-side API call");
-        const result = await callFalApi("fast-sdxl", {
+        const result = await callFalApi("fal-ai/sdxl", {
           method: "POST",
           body: {
             prompt: params.prompt,
@@ -60,7 +61,7 @@ export const falService = {
         console.log("Falling back to client-side API call");
         
         // Option 2: Fall back to client-side API call
-        const result = await falClient.run("fast-sdxl", {
+        const result = await falClient.run("fal-ai/sdxl", {
           input: {
             prompt: params.prompt,
             negative_prompt: params.negative_prompt || "blurry, bad quality, distorted",
@@ -94,7 +95,7 @@ export const falService = {
       // Option 1: Prioritize server-side API call using Supabase Edge Function
       try {
         console.log("Attempting server-side API call");
-        const result = await callFalApi("wan-i2v", {
+        const result = await callFalApi("fal-ai/i2v", {
           method: "POST",
           body: {
             prompt: params.prompt,
@@ -119,7 +120,7 @@ export const falService = {
         console.log("Falling back to client-side API call");
         
         // Option 2: Fall back to client-side API call
-        const result = await falClient.run("wan-i2v", {
+        const result = await falClient.run("fal-ai/i2v", {
           input: {
             prompt: params.prompt,
             image_url: params.image_url,
