@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Github, Key, Menu, X, LogOut, LogIn, Users } from "lucide-react";
+import { Github, Key, Menu, X, LogOut, LogIn, Users, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ApiKeyInput from "@/components/ApiKeyInput";
 import { fal } from "@fal-ai/client";
@@ -86,6 +86,16 @@ const Header = () => {
           >
             Examples
           </Link>
+          
+          {loggedIn && (
+            <Link 
+              to="/history" 
+              className={`font-medium flex items-center gap-1 ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
+            >
+              <History className="h-4 w-4" />
+              History
+            </Link>
+          )}
           
           {loggedIn ? (
             <>
@@ -173,6 +183,17 @@ const Header = () => {
             >
               Examples
             </Link>
+            
+            {loggedIn && (
+              <Link 
+                to="/history" 
+                className="font-medium flex items-center gap-1 text-slate-600 hover:text-brand-purple"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <History className="h-4 w-4" />
+                History
+              </Link>
+            )}
             
             {loggedIn ? (
               <>
