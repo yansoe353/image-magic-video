@@ -1,5 +1,5 @@
 
-import { createClient } from "@fal-ai/client";
+import { createFalClient } from "@fal-ai/client";
 
 // Interface for image generation parameters
 interface GenerateImageParams {
@@ -23,7 +23,7 @@ interface GenerateVideoParams {
 
 // Create a Fal.ai client with the API key
 // We're using a public key as this is client-side code
-const falClient = createClient({
+const falClient = createFalClient({
   credentials: "fal_live_cg8U0NmJuEJ0qTR54cntcbSEH1gzgG5mKw6dOK8FQdG2VDsrUQ"
 });
 
