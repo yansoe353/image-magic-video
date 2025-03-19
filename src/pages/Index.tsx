@@ -36,7 +36,7 @@ const Index = () => {
           
           {!hasApiKey && (
             <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800 text-sm">
-              Please set your Fal.ai API key using the button in the header to enable image and video generation.
+              Please set your Infinity API key using the button in the header to enable image and video generation.
             </div>
           )}
         </section>
