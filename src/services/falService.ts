@@ -1,3 +1,4 @@
+
 import { createFalClient } from "@fal-ai/client";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,10 +37,10 @@ const initFalClient = async () => {
   try {
     if (isClientInitialized) return;
     
-    // Call the RPC function without specifying type parameters
+    // Using the RPC call with type assertion
     const { data, error } = await supabase.rpc('get_secret', { 
       secret_name: 'FAL_API_KEY' 
-    });
+    } as any);
     
     if (error || !data) {
       console.error('Failed to retrieve FAL_API_KEY:', error);
