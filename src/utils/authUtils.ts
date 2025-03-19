@@ -30,15 +30,16 @@ export const getCurrentUser = async (): Promise<AppUser | null> => {
   
   if (!data.user) return null;
   
-  // For now, return basic user data from auth
-  // Once the database is properly set up, we can fetch additional user data
+  // Extract user metadata - ensure admin status is correctly identified
+  const isAdmin = data.user.user_metadata?.isAdmin === true;
+  
   return {
     id: data.user.id,
     email: data.user.email || '',
     name: data.user.user_metadata?.name,
-    isAdmin: false, // Default value until we can fetch from database
-    imageLimit: 100, // Default value
-    videoLimit: 50   // Default value
+    isAdmin: isAdmin, // Use the extracted isAdmin value
+    imageLimit: data.user.user_metadata?.imageLimit || 100, // Default value
+    videoLimit: data.user.user_metadata?.videoLimit || 50   // Default value
   };
 };
 
