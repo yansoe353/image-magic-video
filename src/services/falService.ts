@@ -1,4 +1,3 @@
-
 import { createFalClient } from "@fal-ai/client";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,11 +36,7 @@ const initFalClient = async () => {
   try {
     if (isClientInitialized) return;
     
-    // Define the parameters interface for the RPC to fix the TypeScript error
-    interface GetSecretResponse {
-      key_value: string;
-    }
-    
+    // Call the RPC function without specifying type parameters
     const { data, error } = await supabase.rpc('get_secret', { 
       secret_name: 'FAL_API_KEY' 
     });
