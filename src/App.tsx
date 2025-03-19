@@ -11,6 +11,8 @@ import Examples from "./pages/Examples";
 import Login from "./components/Login";
 import AddUser from "./components/AddUser";
 import UserList from "./components/UserList";
+import EditUser from "./components/EditUser";
+import UserLimits from "./components/UserLimits";
 import { isLoggedIn } from "./utils/authUtils";
 
 const queryClient = new QueryClient();
@@ -54,6 +56,22 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <AddUser />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/edit-user/:userId" 
+            element={
+              <ProtectedRoute>
+                <EditUser />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/user-limits/:userId" 
+            element={
+              <ProtectedRoute>
+                <UserLimits />
               </ProtectedRoute>
             } 
           />

@@ -9,9 +9,6 @@ export interface ApiKeyUsage {
   userId?: string;
 }
 
-export const IMAGE_LIMIT = 100;
-export const VIDEO_LIMIT = 50;
-
 // Get storage key based on user ID
 const getStorageKey = (): string => {
   const user = getCurrentUser();
@@ -31,11 +28,25 @@ export const getApiKeyUsage = (): ApiKeyUsage | null => {
   }
 };
 
+export const getUserLimits = (): { imageLimit: number; videoLimit: number } => {
+  const user = getCurrentUser();
+  if (!user) {
+    return { imageLimit: 100, videoLimit: 50 }; // Default limits
+  }
+  
+  return {
+    imageLimit: user.imageLimit || 100,
+    videoLimit: user.videoLimit || 50
+  };
+};
+
 export const incrementImageCount = (): boolean => {
   const usage = getApiKeyUsage();
   if (!usage) return false;
   
-  if (usage.imageCount >= IMAGE_LIMIT) {
+  const { imageLimit } = getUserLimits();
+  
+  if (usage.imageCount >= imageLimit) {
     return false;
   }
   
@@ -48,7 +59,9 @@ export const incrementVideoCount = (): boolean => {
   const usage = getApiKeyUsage();
   if (!usage) return false;
   
-  if (usage.videoCount >= VIDEO_LIMIT) {
+  const { videoLimit } = getUserLimits();
+  
+  if (usage.videoCount >= videoLimit) {
     return false;
   }
   
@@ -59,13 +72,15 @@ export const incrementVideoCount = (): boolean => {
 
 export const getRemainingCounts = (): { remainingImages: number; remainingVideos: number } => {
   const usage = getApiKeyUsage();
+  const { imageLimit, videoLimit } = getUserLimits();
+  
   if (!usage) {
-    return { remainingImages: 0, remainingVideos: 0 };
+    return { remainingImages: imageLimit, remainingVideos: videoLimit };
   }
   
   return {
-    remainingImages: Math.max(0, IMAGE_LIMIT - usage.imageCount),
-    remainingVideos: Math.max(0, VIDEO_LIMIT - usage.videoCount)
+    remainingImages: Math.max(0, imageLimit - usage.imageCount),
+    remainingVideos: Math.max(0, videoLimit - usage.videoCount)
   };
 };
 

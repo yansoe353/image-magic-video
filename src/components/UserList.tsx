@@ -1,17 +1,31 @@
 
 import { useState, useEffect } from "react";
-import { getAllUsers, User, isAdmin } from "@/utils/authUtils";
+import { getAllUsers, User, isAdmin, deleteUser } from "@/utils/authUtils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { Plus, Shield } from "lucide-react";
+import { Plus, Shield, Pencil, Trash, BarChart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const UserList = () => {
   const [users, setUsers] = useState<User[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
   const [userIsAdmin, setUserIsAdmin] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const loadUsers = () => {
+    const loadedUsers = getAllUsers();
+    setUsers(loadedUsers);
+  };
 
   useEffect(() => {
     // Check if user is admin
@@ -29,9 +43,43 @@ const UserList = () => {
     }
     
     // Load users when component mounts (only if admin)
-    const loadedUsers = getAllUsers();
-    setUsers(loadedUsers);
+    loadUsers();
   }, [navigate, toast]);
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm("Are you sure you want to delete this user?")) {
+      return;
+    }
+    
+    setIsDeleting(true);
+    
+    try {
+      const success = await deleteUser(userId);
+      
+      if (success) {
+        toast({
+          title: "Success",
+          description: "User deleted successfully",
+        });
+        loadUsers(); // Reload users after deletion
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete user",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      toast({
+        title: "Error",
+        description: "An error occurred while deleting the user",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -62,7 +110,38 @@ const UserList = () => {
               {user.isAdmin && (
                 <p className="text-xs font-medium text-amber-600 mt-1">Administrator</p>
               )}
+              <div className="mt-2">
+                <p className="text-xs font-medium">Image Limit: {user.imageLimit || 100}</p>
+                <p className="text-xs font-medium">Video Limit: {user.videoLimit || 50}</p>
+              </div>
             </CardContent>
+            <CardFooter className="flex justify-end gap-2">
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => navigate(`/user-limits/${user.id}`)}
+              >
+                <BarChart className="h-4 w-4 mr-1" />
+                Limits
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => navigate(`/edit-user/${user.id}`)}
+              >
+                <Pencil className="h-4 w-4 mr-1" />
+                Edit
+              </Button>
+              <Button 
+                size="sm" 
+                variant="destructive"
+                onClick={() => handleDeleteUser(user.id)}
+                disabled={isDeleting || user.isAdmin}
+              >
+                <Trash className="h-4 w-4 mr-1" />
+                Delete
+              </Button>
+            </CardFooter>
           </Card>
         ))}
       </div>
