@@ -1,4 +1,3 @@
-
 import { createFalClient } from "@fal-ai/client";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,10 +37,14 @@ const initFalClient = async () => {
     if (isClientInitialized) return;
     
     // Get API key from Supabase secrets using RLS policy
-    // Using 'any' type for the return to resolve the TS2345 error
-    const { data, error } = await supabase.rpc('get_secret', { 
+    // Define the parameters interface for the RPC to fix the TypeScript error
+    interface GetSecretParams {
+      secret_name: string;
+    }
+    
+    const { data, error } = await supabase.rpc<string>('get_secret', { 
       secret_name: 'FAL_API_KEY' 
-    } as any);
+    } as GetSecretParams);
     
     if (error || !data) {
       console.error('Failed to retrieve FAL_API_KEY:', error);
