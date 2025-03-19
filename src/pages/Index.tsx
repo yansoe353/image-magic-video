@@ -7,6 +7,8 @@ import ImageToVideo from "@/components/ImageToVideo";
 import Header from "@/components/Header";
 import { getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
 import { Card, CardContent } from "@/components/ui/card";
+import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface SelectedContent {
   url: string;
@@ -19,6 +21,7 @@ const Index = () => {
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState(true);
   const [usageCounts, setUsageCounts] = useState(getRemainingCounts());
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const initialize = async () => {
@@ -104,14 +107,16 @@ const Index = () => {
           <TabsContent value="playground" className="mt-0">
             <Card className="border-0 shadow-lg">
               <CardContent className="p-0">
-                <div className="aspect-video w-full">
-                  <iframe
-                    src="https://waloneai-zerocodewl.hf.space"
-                    title="WaloneAI Playground"
-                    className="w-full h-[700px] border-0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
+                <div className="w-full overflow-hidden rounded-lg">
+                  <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
+                    <iframe
+                      src="https://waloneai-zerocodewl.hf.space"
+                      title="WaloneAI Playground"
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>
