@@ -18,6 +18,7 @@ import VideoPreview from "./VideoPreview";
 import VideoEditor from "./VideoEditor";
 import { supabase } from "@/integrations/supabase/client";
 import { isLoggedIn } from "@/utils/authUtils";
+import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
 
 // Initialize fal.ai client with proper environment variable handling for browser
 try {
@@ -45,6 +46,9 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [generationLogs, setGenerationLogs] = useState<string[]>([]);
   const [showEditor, setShowEditor] = useState(false);
+  const [originalVideoUrl, setOriginalVideoUrl] = useState("");
+  const [supabaseVideoUrl, setSupabaseVideoUrl] = useState("");
+  const [isStoringVideo, setIsStoringVideo] = useState(false);
   
   const [resolution, setResolution] = useState<string>("480p");
   const [fps, setFps] = useState<number>(15);
@@ -70,17 +74,11 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
     }
   }, [initialImageUrl]);
 
-  const saveToHistory = async (videoUrl: string) => {
+  const saveToHistory = async (videoUrl: string, originalUrl: string) => {
     if (!isLoggedIn()) return;
     
     try {
-      // Get current user's ID from localStorage
-      const user = localStorage.getItem("user");
-      if (!user) return;
-      
-      const userData = JSON.parse(user);
-      const userId = userData.id;
-      
+      const userId = getUserId();
       if (!userId) {
         console.error("No user ID found");
         return;
@@ -97,7 +95,8 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
             resolution,
             fps,
             frames,
-            numInferenceSteps
+            numInferenceSteps,
+            original_url: originalUrl
           }
         });
         
@@ -164,10 +163,28 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
       });
       
       if (result.data?.video?.url) {
-        const videoUrl = result.data.video.url;
-        setVideoUrl(videoUrl);
+        const falVideoUrl = result.data.video.url;
+        setOriginalVideoUrl(falVideoUrl);
+        setVideoUrl(falVideoUrl);
         
-        await saveToHistory(videoUrl);
+        setIsStoringVideo(true);
+        try {
+          const userId = getUserId();
+          const supabaseUrl = await uploadUrlToStorage(falVideoUrl, 'video', userId);
+          setSupabaseVideoUrl(supabaseUrl);
+          
+          await saveToHistory(supabaseUrl, falVideoUrl);
+          
+          toast({
+            title: "Video Stored",
+            description: "Video uploaded to your storage",
+          });
+        } catch (uploadError) {
+          console.error("Failed to upload to Supabase:", uploadError);
+          await saveToHistory(falVideoUrl, falVideoUrl);
+        } finally {
+          setIsStoringVideo(false);
+        }
         
         if (await incrementVideoCount()) {
           toast({
@@ -339,18 +356,19 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
               )}
             </div>
             <VideoPreview
-              videoUrl={videoUrl}
-              isLoading={isLoading}
+              videoUrl={supabaseVideoUrl || videoUrl}
+              isLoading={isLoading || isStoringVideo}
               generationLogs={generationLogs}
               videoRef={videoRef}
               isPlaying={isPlaying}
               handlePlayPause={handlePlayPause}
+              isStoring={isStoringVideo}
             />
           </CardContent>
         </Card>
 
         {showEditor && videoUrl && (
-          <VideoEditor generatedVideoUrl={videoUrl} />
+          <VideoEditor generatedVideoUrl={supabaseVideoUrl || videoUrl} />
         )}
       </div>
     </div>

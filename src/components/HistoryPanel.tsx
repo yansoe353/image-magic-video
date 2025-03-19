@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,7 +15,6 @@ import {
   PaginationPrevious 
 } from "@/components/ui/pagination";
 
-// Define the content item interface
 interface ContentHistoryItem {
   id: string;
   content_type: 'image' | 'video';
@@ -46,14 +44,12 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
     setError(null);
     
     try {
-      // Build query based on active tab and pagination
       let query = supabase
         .from('user_content_history')
         .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage - 1);
       
-      // Apply content type filter if not "all"
       if (activeTab !== 'all') {
         query = query.eq('content_type', activeTab);
       }
@@ -64,7 +60,6 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
       
       setItems(data as ContentHistoryItem[]);
       
-      // Calculate total pages
       if (count) {
         setTotalPages(Math.ceil(count / itemsPerPage));
       }
@@ -203,6 +198,11 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
                       <Download className="h-3 w-3" />
                     </Button>
                   </div>
+                  {item.content_url.includes('supabase') && (
+                    <p className="text-xs text-slate-500 mt-1 text-center">
+                      Stored in your cloud
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -212,7 +212,6 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
-                  {/* Fixed: Removed the disabled prop and replaced with a conditional rendering */}
                   {currentPage === 1 ? (
                     <Button variant="outline" size="icon" disabled className="cursor-not-allowed">
                       <span className="sr-only">Go to previous page</span>
@@ -230,7 +229,6 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
                     (page >= currentPage - 1 && page <= currentPage + 1)
                   )
                   .map((page, index, array) => {
-                    // Add ellipsis
                     if (index > 0 && page > array[index - 1] + 1) {
                       return (
                         <PaginationItem key={`ellipsis-${page}`}>
@@ -252,7 +250,6 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
                   })}
                 
                 <PaginationItem>
-                  {/* Fixed: Removed the disabled prop and replaced with a conditional rendering */}
                   {currentPage === totalPages ? (
                     <Button variant="outline" size="icon" disabled className="cursor-not-allowed">
                       <span className="sr-only">Go to next page</span>

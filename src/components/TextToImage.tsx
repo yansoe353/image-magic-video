@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,12 +17,12 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { incrementImageCount, getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT } from "@/utils/usageTracker";
 import { supabase } from "@/integrations/supabase/client";
 import { isLoggedIn } from "@/utils/authUtils";
+import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
 
 interface TextToImageProps {
   onImageGenerated: (imageUrl: string) => void;
 }
 
-// Define the types of image sizes with their display values
 const IMAGE_SIZES = {
   square: "Square (1:1)",
   square_hd: "Square HD (1:1)",
@@ -33,7 +32,6 @@ const IMAGE_SIZES = {
   landscape_16_9: "Landscape (16:9)",
 };
 
-// Define the type for image size
 type ImageSizeOption = keyof typeof IMAGE_SIZES;
 type LanguageOption = keyof typeof LANGUAGES;
 
@@ -46,8 +44,10 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageOption>("en");
   const { toast } = useToast();
   const [counts, setCounts] = useState(getRemainingCounts());
-  
-  // Update counts when component mounts
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
+  const [supabaseImageUrl, setSupabaseImageUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
   useEffect(() => {
     const updateCounts = async () => {
       const freshCounts = await getRemainingCountsAsync();
@@ -86,17 +86,11 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
     }
   };
 
-  const saveToHistory = async (imageUrl: string) => {
+  const saveToHistory = async (imageUrl: string, originalUrl: string) => {
     if (!isLoggedIn()) return;
     
     try {
-      // Get current user's ID from localStorage
-      const user = localStorage.getItem("user");
-      if (!user) return;
-      
-      const userData = JSON.parse(user);
-      const userId = userData.id;
-      
+      const userId = getUserId();
       if (!userId) {
         console.error("No user ID found");
         return;
@@ -109,7 +103,10 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           content_type: 'image',
           content_url: imageUrl,
           prompt: prompt,
-          metadata: { size: imageSize }
+          metadata: { 
+            size: imageSize,
+            original_url: originalUrl 
+          }
         });
         
       if (error) {
@@ -130,7 +127,6 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       return;
     }
 
-    // Check usage limits
     if (counts.remainingImages <= 0) {
       toast({
         title: "Usage Limit Reached",
@@ -143,18 +139,15 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
     setIsLoading(true);
     
     try {
-      // If not in English, translate to English for better image generation
       let promptToUse = prompt;
       if (selectedLanguage !== "en") {
         try {
           promptToUse = await translateText(prompt, selectedLanguage, "en");
         } catch (error) {
           console.error("Failed to translate to English:", error);
-          // Continue with original prompt if translation fails
         }
       }
 
-      // Use Fal.ai API to generate image
       const result = await fal.subscribe("fal-ai/fast-sdxl", {
         input: {
           prompt: promptToUse,
@@ -166,19 +159,34 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       });
       
       if (result.data && result.data.images && result.data.images[0]) {
-        const imageUrl = result.data.images[0].url;
-        setGeneratedImage(imageUrl);
+        const falImageUrl = result.data.images[0].url;
+        setOriginalImageUrl(falImageUrl);
+        setGeneratedImage(falImageUrl);
         
-        // Save to history if user is logged in
-        await saveToHistory(imageUrl);
+        setIsUploading(true);
+        try {
+          const userId = getUserId();
+          const supabaseUrl = await uploadUrlToStorage(falImageUrl, 'image', userId);
+          setSupabaseImageUrl(supabaseUrl);
+          
+          await saveToHistory(supabaseUrl, falImageUrl);
+          
+          toast({
+            title: "Image Stored",
+            description: "Image uploaded to your storage",
+          });
+        } catch (uploadError) {
+          console.error("Failed to upload to Supabase:", uploadError);
+          await saveToHistory(falImageUrl, falImageUrl);
+        } finally {
+          setIsUploading(false);
+        }
         
-        // Increment usage count
         if (await incrementImageCount()) {
           toast({
             title: "Success",
             description: "Image generated successfully!",
           });
-          // Update counts after successful generation
           const freshCounts = await getRemainingCountsAsync();
           setCounts(freshCounts);
         } else {
@@ -205,14 +213,17 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
 
   const handleUseImage = () => {
     if (generatedImage) {
-      onImageGenerated(generatedImage);
+      const imageUrlToUse = supabaseImageUrl || generatedImage;
+      onImageGenerated(imageUrlToUse);
     }
   };
 
   const handleDownload = () => {
-    if (generatedImage) {
+    const imageUrlToDownload = supabaseImageUrl || generatedImage;
+    
+    if (imageUrlToDownload) {
       const link = document.createElement("a");
-      link.href = generatedImage;
+      link.href = imageUrlToDownload;
       link.download = "generated-image.png";
       document.body.appendChild(link);
       link.click();
@@ -326,11 +337,19 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           <h2 className="text-2xl font-bold mb-4">Generated Image</h2>
           <div className="aspect-video bg-slate-100 rounded-lg flex items-center justify-center mb-4 overflow-hidden">
             {generatedImage ? (
-              <img
-                src={generatedImage}
-                alt="Generated"
-                className="w-full h-full object-contain"
-              />
+              <div className="relative w-full h-full">
+                <img
+                  src={generatedImage}
+                  alt="Generated"
+                  className="w-full h-full object-contain"
+                />
+                {isUploading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <Loader2 className="h-8 w-8 animate-spin text-white" />
+                    <span className="ml-2 text-white">Storing...</span>
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="text-slate-400 flex flex-col items-center">
                 <ImageIcon className="h-12 w-12 mb-2" />
@@ -341,7 +360,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           <div className="flex gap-2">
             <Button 
               onClick={handleUseImage}
-              disabled={!generatedImage || isLoading} 
+              disabled={!generatedImage || isLoading || isUploading} 
               className="flex-1"
             >
               Use This Image
@@ -349,11 +368,16 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             <Button 
               variant="outline" 
               onClick={handleDownload}
-              disabled={!generatedImage || isLoading}
+              disabled={!generatedImage || isLoading || isUploading}
             >
               <Download className="h-4 w-4" />
             </Button>
           </div>
+          {supabaseImageUrl && (
+            <p className="text-xs text-slate-500 mt-2">
+              Stored in your personal cloud storage
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

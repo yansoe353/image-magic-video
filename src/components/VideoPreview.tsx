@@ -9,6 +9,7 @@ interface VideoPreviewProps {
   videoRef: React.RefObject<HTMLVideoElement>;
   isPlaying: boolean;
   handlePlayPause: () => void;
+  isStoring?: boolean;
 }
 
 const VideoPreview = ({
@@ -17,7 +18,8 @@ const VideoPreview = ({
   generationLogs,
   videoRef,
   isPlaying,
-  handlePlayPause
+  handlePlayPause,
+  isStoring = false
 }: VideoPreviewProps) => {
   const handleDownload = () => {
     if (videoUrl) {
@@ -41,7 +43,9 @@ const VideoPreview = ({
           ></div>
         </div>
         <div className="text-slate-600 text-sm mt-2 text-center">
-          {generationLogs.length > 0 && generationLogs[generationLogs.length - 1]}
+          {isStoring 
+            ? "Storing video to your personal cloud..." 
+            : (generationLogs.length > 0 && generationLogs[generationLogs.length - 1])}
         </div>
       </div>
     );
@@ -90,6 +94,11 @@ const VideoPreview = ({
           Download Video
         </Button>
       </div>
+      {videoUrl.includes('supabase') && (
+        <p className="text-xs text-slate-500 text-center">
+          Stored in your personal cloud storage
+        </p>
+      )}
     </div>
   );
 };
