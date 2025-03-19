@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,7 +15,7 @@ import { StyleModifiers, LoraOption } from "./image-generation/StyleModifiers";
 import { GuidanceScaleSlider } from "./image-generation/GuidanceScaleSlider";
 import { GeneratedImageDisplay } from "./image-generation/GeneratedImageDisplay";
 import { UsageLimits } from "./image-generation/UsageLimits";
-import { translateText } from "@/utils/translationUtils";
+import { translateText, detectLanguage } from "@/utils/translationUtils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -52,9 +51,9 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   };
 
   const toggleLora = (loraId: LoraOption) => {
-    setSelectedLoras(current => 
-      current.includes(loraId) 
-        ? current.filter(id => id !== loraId) 
+    setSelectedLoras(current =>
+      current.includes(loraId)
+        ? current.filter(id => id !== loraId)
         : [...current, loraId]
     );
   };
@@ -75,14 +74,14 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
 
     try {
       localStorage.setItem("falApiKey", apiKey);
-      
+
       // Configure fal client with the new API key
       fal.config({
         credentials: apiKey
       });
-      
+
       setIsApiKeySet(true);
-      
+
       toast({
         title: "Success",
         description: "API key saved successfully",
@@ -99,14 +98,14 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
 
   const saveToHistory = async (imageUrl: string, originalUrl: string) => {
     if (!isLoggedIn()) return;
-    
+
     try {
       const userId = await getUserId();
       if (!userId) {
         console.error("No user ID found");
         return;
       }
-      
+
       const { error } = await supabase
         .from('user_content_history')
         .insert({
@@ -114,7 +113,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           content_type: 'image',
           content_url: imageUrl,
           prompt: prompt,
-          metadata: { 
+          metadata: {
             size: imageSize,
             original_url: originalUrl,
             loras: selectedLoras,
@@ -122,7 +121,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             guidance_scale: guidanceScale
           }
         });
-        
+
       if (error) {
         console.error("Error saving to history:", error);
       } else {
@@ -162,22 +161,28 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
     }
 
     setIsLoading(true);
-    
+
     try {
       let promptToUse = prompt;
       if (prompt && prompt.length > 0) {
         try {
-          // Ensure we have English text for the AI model
-          promptToUse = await translateText(prompt, "en", "en");
+          // Detect the language of the prompt
+          const detectedLanguage = detectLanguage(prompt);
+          console.log("Detected Language:", detectedLanguage);
+
+          // Translate the prompt to English if it's not already in English
+          if (detectedLanguage !== "en") {
+            promptToUse = await translateText(prompt, detectedLanguage, "en");
+          }
         } catch (error) {
-          console.error("Failed to normalize prompt:", error);
+          console.error("Failed to translate prompt:", error);
         }
       }
 
       // Map the image size to dimensions for flux-lora
       let width = 1024;
       let height = 1024;
-      
+
       if (imageSize.includes('landscape')) {
         width = 1280;
         height = 768;
@@ -190,6 +195,11 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       fal.config({
         credentials: apiKey
       });
+
+      // Log the selected Loras and other parameters
+      console.log("Selected Loras:", selectedLoras);
+      console.log("Image Size:", { width, height });
+      console.log("Guidance Scale:", guidanceScale);
 
       // Update to use the correct properties for FluxLoraInput
       const result = await fal.subscribe("fal-ai/flux-lora", {
@@ -204,21 +214,21 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           num_inference_steps: 30,
         },
       });
-      
+
       if (result.data && result.data.images && result.data.images[0]) {
         const falImageUrl = result.data.images[0].url;
         setOriginalImageUrl(falImageUrl);
         setGeneratedImage(""); // Clear any existing URL
-        
+
         setIsUploading(true);
         try {
           const userId = await getUserId();
           const supabaseUrl = await uploadUrlToStorage(falImageUrl, 'image', userId);
           setSupabaseImageUrl(supabaseUrl);
           setGeneratedImage(supabaseUrl); // Set the Supabase URL as the image URL
-          
+
           await saveToHistory(supabaseUrl, falImageUrl);
-          
+
           toast({
             title: "Image Stored",
             description: "Image uploaded to your storage",
@@ -230,7 +240,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         } finally {
           setIsUploading(false);
         }
-        
+
         if (await incrementImageCount()) {
           toast({
             title: "Success",
@@ -269,7 +279,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
 
   const handleDownload = () => {
     const imageUrlToDownload = supabaseImageUrl || generatedImage;
-    
+
     if (imageUrlToDownload) {
       const link = document.createElement("a");
       link.href = imageUrlToDownload;
@@ -285,7 +295,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       <Card className="overflow-hidden">
         <CardContent className="p-6">
           <h2 className="text-2xl font-bold mb-4">Create an Image</h2>
-          
+
           {!isApiKeySet && (
             <Alert className="mb-4">
               <AlertTitle>API Key Required</AlertTitle>
@@ -306,9 +316,9 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
                       <Button onClick={saveApiKey}>Save Key</Button>
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
-                      <a 
-                        href="https://fal.ai/dashboard/keys" 
-                        target="_blank" 
+                      <a
+                        href="https://fal.ai/dashboard/keys"
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-500 hover:underline"
                       >
@@ -320,41 +330,41 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
               </AlertDescription>
             </Alert>
           )}
-          
-          <UsageLimits 
-            remainingImages={counts.remainingImages} 
-            imageLimit={IMAGE_LIMIT} 
+
+          <UsageLimits
+            remainingImages={counts.remainingImages}
+            imageLimit={IMAGE_LIMIT}
           />
-          
+
           <div className="space-y-4">
-            <PromptInput 
-              prompt={prompt} 
-              onPromptChange={handlePromptChange} 
+            <PromptInput
+              prompt={prompt}
+              onPromptChange={handlePromptChange}
               disabled={isLoading}
             />
-            
-            <ImageSizeSelector 
-              value={imageSize} 
-              onChange={setImageSize} 
+
+            <ImageSizeSelector
+              value={imageSize}
+              onChange={setImageSize}
               disabled={isLoading}
             />
-            
-            <GuidanceScaleSlider 
-              value={guidanceScale} 
-              onChange={setGuidanceScale} 
+
+            <GuidanceScaleSlider
+              value={guidanceScale}
+              onChange={setGuidanceScale}
               disabled={isLoading}
             />
-            
-            <StyleModifiers 
-              selectedLoras={selectedLoras} 
-              onToggleLora={toggleLora} 
+
+            <StyleModifiers
+              selectedLoras={selectedLoras}
+              onToggleLora={toggleLora}
               disabled={isLoading}
             />
-            
+
             <div className="flex items-center justify-between">
-              <Button 
-                onClick={generateImage} 
-                disabled={isLoading || !prompt.trim() || counts.remainingImages <= 0 || !isApiKeySet} 
+              <Button
+                onClick={generateImage}
+                disabled={isLoading || !prompt.trim() || counts.remainingImages <= 0 || !isApiKeySet}
                 className="w-full"
               >
                 {isLoading ? (
@@ -370,7 +380,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
                 )}
               </Button>
             </div>
-            
+
             {counts.remainingImages > 0 && (
               <p className="text-xs text-slate-500 text-center">
                 {counts.remainingImages} of {IMAGE_LIMIT} image generations remaining
@@ -382,7 +392,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
 
       <Card className="overflow-hidden">
         <CardContent className="p-6">
-          <GeneratedImageDisplay 
+          <GeneratedImageDisplay
             imageUrl={generatedImage}
             isLoading={isLoading}
             isUploading={isUploading}
