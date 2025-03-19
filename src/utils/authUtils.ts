@@ -1,9 +1,9 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
-// Define interface for user data
-export interface User {
+// Define interface for our app's user data
+export interface AppUser {
   id: string;
   email: string;
   name?: string;
@@ -14,7 +14,7 @@ export interface User {
 
 // Define interface for session data
 export interface Session {
-  user: User;
+  user: AppUser;
   token: string;
   expiresAt: number;
 }
@@ -26,7 +26,7 @@ export const isLoggedIn = async (): Promise<boolean> => {
 };
 
 // Get current user
-export const getCurrentUser = async (): Promise<User | null> => {
+export const getCurrentUser = async (): Promise<AppUser | null> => {
   const { data } = await supabase.auth.getUser();
   
   if (!data.user) return null;
@@ -208,7 +208,7 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
 };
 
 // Get all users (admin function)
-export const getAllUsers = async (): Promise<User[]> => {
+export const getAllUsers = async (): Promise<AppUser[]> => {
   const { data, error } = await supabase
     .from('users')
     .select('*');

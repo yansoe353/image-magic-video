@@ -13,17 +13,23 @@ const Index = () => {
   const [usageCounts, setUsageCounts] = useState({ remainingImages: 0, remainingVideos: 0 });
 
   useEffect(() => {
-    // Check if API key is set
-    const storedApiKey = localStorage.getItem("falApiKey");
-    setHasApiKey(!!storedApiKey);
+    // Initialize component
+    const initialize = async () => {
+      // Check if API key is set
+      const storedApiKey = localStorage.getItem("falApiKey");
+      setHasApiKey(!!storedApiKey);
+      
+      // Get current usage counts
+      const counts = await getRemainingCounts();
+      setUsageCounts(counts);
+    };
     
-    // Get current usage counts
-    const counts = getRemainingCounts();
-    setUsageCounts(counts);
+    initialize();
     
     // Set up interval to refresh usage counts
-    const interval = setInterval(() => {
-      setUsageCounts(getRemainingCounts());
+    const interval = setInterval(async () => {
+      const freshCounts = await getRemainingCounts();
+      setUsageCounts(freshCounts);
     }, 5000);
     
     return () => clearInterval(interval);

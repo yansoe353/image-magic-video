@@ -21,17 +21,21 @@ const AddUser = () => {
 
   useEffect(() => {
     // Check if current user is admin
-    const adminStatus = isAdmin();
-    setUserIsAdmin(adminStatus);
+    const checkAdmin = async () => {
+      const adminStatus = await isAdmin();
+      setUserIsAdmin(adminStatus);
+      
+      if (!adminStatus) {
+        toast({
+          title: "Access Denied",
+          description: "You need admin privileges to add users",
+          variant: "destructive",
+        });
+        navigate("/");
+      }
+    };
     
-    if (!adminStatus) {
-      toast({
-        title: "Access Denied",
-        description: "You need admin privileges to add users",
-        variant: "destructive",
-      });
-      navigate("/");
-    }
+    checkAdmin();
   }, [navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {

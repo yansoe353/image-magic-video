@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { getAllUsers, User, isAdmin, deleteUser } from "@/utils/authUtils";
+import { getAllUsers, AppUser, isAdmin, deleteUser } from "@/utils/authUtils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 
 const UserList = () => {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<AppUser[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
   const [userIsAdmin, setUserIsAdmin] = useState(false);

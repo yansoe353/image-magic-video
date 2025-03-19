@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { updateUser, isAdmin, getAllUsers, User } from "@/utils/authUtils";
+import { updateUser, isAdmin, getAllUsers, AppUser } from "@/utils/authUtils";
 import { Switch } from "@/components/ui/switch";
 
 const EditUser = () => {
@@ -17,44 +17,49 @@ const EditUser = () => {
   const [makeAdmin, setMakeAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if current user is admin
-    const adminStatus = isAdmin();
-    setUserIsAdmin(adminStatus);
-    
-    if (!adminStatus) {
-      toast({
-        title: "Access Denied",
-        description: "You need admin privileges to edit users",
-        variant: "destructive",
-      });
-      navigate("/");
-      return;
-    }
-    
-    // Load user data
-    if (userId) {
-      const users = getAllUsers();
-      const foundUser = users.find(u => u.id === userId);
+    // Check if current user is admin and load user data
+    const initialize = async () => {
+      // Check if current user is admin
+      const adminStatus = await isAdmin();
+      setUserIsAdmin(adminStatus);
       
-      if (foundUser) {
-        setUser(foundUser);
-        setEmail(foundUser.email);
-        setName(foundUser.name || "");
-        setMakeAdmin(foundUser.isAdmin || false);
-      } else {
+      if (!adminStatus) {
         toast({
-          title: "Error",
-          description: "User not found",
+          title: "Access Denied",
+          description: "You need admin privileges to edit users",
           variant: "destructive",
         });
-        navigate("/users");
+        navigate("/");
+        return;
       }
-    }
+      
+      // Load user data
+      if (userId) {
+        const users = await getAllUsers();
+        const foundUser = users.find(u => u.id === userId);
+        
+        if (foundUser) {
+          setUser(foundUser);
+          setEmail(foundUser.email);
+          setName(foundUser.name || "");
+          setMakeAdmin(foundUser.isAdmin || false);
+        } else {
+          toast({
+            title: "Error",
+            description: "User not found",
+            variant: "destructive",
+          });
+          navigate("/users");
+        }
+      }
+    };
+    
+    initialize();
   }, [userId, navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {

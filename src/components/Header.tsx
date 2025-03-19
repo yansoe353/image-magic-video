@@ -5,45 +5,56 @@ import { Button } from "@/components/ui/button";
 import ApiKeyInput from "@/components/ApiKeyInput";
 import { fal } from "@fal-ai/client";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { isLoggedIn, logoutUser, getCurrentUser } from "@/utils/authUtils";
+import { isLoggedIn, logoutUser, getCurrentUser, AppUser } from "@/utils/authUtils";
 
 const Header = () => {
   const [isApiKeySet, setIsApiKeySet] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check login status
-    setLoggedIn(isLoggedIn());
-    
-    // Check if API key is already set in localStorage
-    const storedApiKey = localStorage.getItem("falApiKey");
-    if (storedApiKey) {
-      try {
-        // Configure fal.ai client with the API key
-        fal.config({
-          credentials: storedApiKey
-        });
-        setIsApiKeySet(true);
-      } catch (error) {
-        console.error("Error configuring fal.ai client:", error);
+    // Check login status and load user data
+    const initialize = async () => {
+      const isUserLoggedIn = await isLoggedIn();
+      setLoggedIn(isUserLoggedIn);
+      
+      if (isUserLoggedIn) {
+        const user = await getCurrentUser();
+        setCurrentUser(user);
       }
-    }
+      
+      // Check if API key is already set in localStorage
+      const storedApiKey = localStorage.getItem("falApiKey");
+      if (storedApiKey) {
+        try {
+          // Configure fal.ai client with the API key
+          fal.config({
+            credentials: storedApiKey
+          });
+          setIsApiKeySet(true);
+        } catch (error) {
+          console.error("Error configuring fal.ai client:", error);
+        }
+      }
+    };
+    
+    initialize();
   }, [location.pathname]);
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
   };
 
-  const handleLogout = () => {
-    logoutUser();
+  const handleLogout = async () => {
+    await logoutUser();
     setLoggedIn(false);
+    setCurrentUser(null);
     navigate("/");
   };
 
-  const user = getCurrentUser();
   const isHomePage = location.pathname === "/";
 
   return (
@@ -79,7 +90,7 @@ const Header = () => {
           {loggedIn ? (
             <>
               <span className={`text-sm ${isHomePage ? 'text-white' : 'text-slate-600'}`}>
-                {user?.name || user?.email}
+                {currentUser?.name || currentUser?.email}
               </span>
               <ApiKeyInput onApiKeySet={setIsApiKeySet} />
               {isApiKeySet && (
@@ -167,7 +178,7 @@ const Header = () => {
               <>
                 <div className="py-2">
                   <span className="text-sm text-slate-600 block mb-2">
-                    {user?.name || user?.email}
+                    {currentUser?.name || currentUser?.email}
                   </span>
                   <ApiKeyInput onApiKeySet={setIsApiKeySet} />
                   {isApiKeySet && (
