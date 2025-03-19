@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowRight, Play } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 const formSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -127,15 +126,6 @@ const Login = () => {
                   <div className="text-center text-sm text-slate-500 mb-2">
                     Don't have an account yet?
                   </div>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => navigate("/demo-account")}
-                  >
-                    <Play className="mr-2 h-4 w-4" />
-                    Try Demo
-                  </Button>
                   <Button 
                     type="button"
                     className="w-full bg-gradient-to-r from-brand-purple to-brand-blue"
