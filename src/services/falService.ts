@@ -43,6 +43,11 @@ export const falService = {
       if (result && result.images && result.images[0]) {
         return result.images[0].url;
       }
+      
+      if (result && result.error) {
+        throw new Error(`API Error: ${result.error}`);
+      }
+      
       throw new Error("No image URL in response");
     } catch (error) {
       console.error("Failed to generate image:", error);
@@ -72,6 +77,11 @@ export const falService = {
       if (result && result.video && result.video.url) {
         return result.video.url;
       }
+      
+      if (result && result.error) {
+        throw new Error(`API Error: ${result.error}`);
+      }
+      
       throw new Error("No video URL in response");
     } catch (error) {
       console.error("Failed to generate video:", error);
@@ -82,7 +92,10 @@ export const falService = {
   // Upload an image file
   async uploadImage(file: File) {
     try {
-      return await uploadToFal(file);
+      console.log("Uploading image file:", file.name, file.type, file.size);
+      const result = await uploadToFal(file);
+      console.log("Upload result:", result);
+      return result;
     } catch (error) {
       console.error("Upload failed:", error);
       throw error;

@@ -52,7 +52,7 @@ serve(async (req) => {
     if (!apiKeyData || !apiKeyData.key_value) {
       console.error('API key not found or empty');
       return new Response(
-        JSON.stringify({ error: 'Fal.ai API key not configured or empty. Please set it in the Supabase database.' }),
+        JSON.stringify({ error: 'Fal.ai API key not configured or empty' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -140,15 +140,40 @@ serve(async (req) => {
       contentType: options.headers['Content-Type']
     }));
     
-    const response = await fetch(falUrl, options);
+    // Add a try/catch specifically for the fetch operation
+    let response;
+    try {
+      response = await fetch(falUrl, options);
+    } catch (fetchError) {
+      console.error(`Fetch error when calling Fal.ai:`, fetchError);
+      return new Response(
+        JSON.stringify({ 
+          error: `Failed to connect to Fal.ai API`, 
+          details: fetchError.message 
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+    
+    console.log(`Received response from Fal.ai with status: ${response.status}`);
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Fal.ai error (${response.status}):`, errorText);
+      let errorDetails;
+      try {
+        errorDetails = await response.text();
+        console.error(`Fal.ai error (${response.status}):`, errorDetails);
+      } catch (e) {
+        errorDetails = "Could not parse error response";
+        console.error(`Fal.ai error (${response.status}), failed to read response body:`, e);
+      }
+      
       return new Response(
         JSON.stringify({ 
           error: `Fal.ai API returned ${response.status}`, 
-          details: errorText 
+          details: errorDetails 
         }),
         { 
           status: response.status, 
@@ -157,7 +182,23 @@ serve(async (req) => {
       );
     }
     
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (jsonError) {
+      console.error('Failed to parse Fal.ai response as JSON:', jsonError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to parse Fal.ai response', 
+          details: jsonError.message
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+    
     console.log('Fal.ai response received successfully:', JSON.stringify({
       endpoint: endpoint,
       hasData: !!data,
@@ -175,7 +216,11 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in fal-ai-proxy function:', error);
     return new Response(
-      JSON.stringify({ error: error.message, stack: error.stack }),
+      JSON.stringify({ 
+        error: error.message || 'Unknown error', 
+        stack: error.stack,
+        name: error.name
+      }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
