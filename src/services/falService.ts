@@ -1,6 +1,7 @@
 
 import { createFalClient } from "@fal-ai/client";
 import { callFalApi, uploadToFal } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 // Interface for image generation parameters
 interface GenerateImageParams {
@@ -23,7 +24,6 @@ interface GenerateVideoParams {
 }
 
 // Create a Fal.ai client with the public key for client-side fallback
-// We prioritize server-side API calls but keep this as a fallback
 const falClient = createFalClient({
   credentials: "fal_live_cg8U0NmJuEJ0qTR54cntcbSEH1gzgG5mKw6dOK8FQdG2VDsrUQ"
 });
@@ -60,6 +60,8 @@ export const falService = {
         console.error("Server-side API call failed:", serverError);
         console.log("Falling back to client-side API call");
         
+        toast.error("Server API call failed, trying direct connection");
+        
         // Option 2: Fall back to client-side API call
         const result = await falClient.run("fal-ai/sdxl", {
           input: {
@@ -83,6 +85,7 @@ export const falService = {
       }
     } catch (error) {
       console.error("Failed to generate image after all attempts:", error);
+      toast.error(`Image generation failed: ${error.message || "Unknown error"}`);
       throw error;
     }
   },
@@ -119,6 +122,8 @@ export const falService = {
         console.error("Server-side API call failed:", serverError);
         console.log("Falling back to client-side API call");
         
+        toast.error("Server API call failed, trying direct connection");
+        
         // Option 2: Fall back to client-side API call
         const result = await falClient.run("fal-ai/i2v", {
           input: {
@@ -144,6 +149,7 @@ export const falService = {
       }
     } catch (error) {
       console.error("Failed to generate video after all attempts:", error);
+      toast.error(`Video generation failed: ${error.message || "Unknown error"}`);
       throw error;
     }
   },
@@ -162,6 +168,8 @@ export const falService = {
       } catch (serverError) {
         console.error("Server-side upload failed:", serverError);
         console.log("Falling back to client-side upload");
+        
+        toast.error("Server upload failed, trying direct upload");
         
         // Option 2: Fall back to direct client-side upload
         // Convert file to ArrayBuffer
@@ -197,6 +205,7 @@ export const falService = {
       }
     } catch (error) {
       console.error("Upload failed after all attempts:", error);
+      toast.error(`Upload failed: ${error.message || "Unknown error"}`);
       throw error;
     }
   },

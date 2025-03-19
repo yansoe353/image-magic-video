@@ -31,20 +31,20 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get the Fal.ai API key from the database
-    const { data: apiKeyData, error: apiKeyError } = await supabase
-      .from('api_keys')
-      .select('key_value')
-      .eq('key_name', 'falApiKey')
-      .single();
-
-    // If no key found in database, try environment variable
-    let falApiKey = '';
-    if (apiKeyError) {
-      console.log('No API key found in database, checking environment variable');
-      falApiKey = Deno.env.get('FAL_API_KEY') || '';
-      if (!falApiKey) {
-        console.error('Error: No Fal.ai API key found in database or environment variables');
+    // Get the Fal.ai API key
+    let falApiKey = Deno.env.get('FAL_API_KEY') || '';
+    
+    if (!falApiKey) {
+      // Try to get API key from database as fallback
+      console.log('No API key in environment, checking database');
+      const { data: apiKeyData, error: apiKeyError } = await supabase
+        .from('api_keys')
+        .select('key_value')
+        .eq('key_name', 'falApiKey')
+        .single();
+        
+      if (apiKeyError || !apiKeyData) {
+        console.error('No Fal.ai API key found');
         return new Response(
           JSON.stringify({ error: 'Fal.ai API key not configured' }),
           { 
@@ -53,12 +53,11 @@ serve(async (req) => {
           }
         );
       }
-    } else {
-      falApiKey = apiKeyData?.key_value || '';
+      
+      falApiKey = apiKeyData.key_value;
     }
 
     if (!falApiKey) {
-      console.error('API key not found or empty');
       return new Response(
         JSON.stringify({ error: 'Fal.ai API key not configured or empty' }),
         { 
@@ -68,8 +67,6 @@ serve(async (req) => {
       );
     }
 
-    console.log('Successfully retrieved Fal.ai API key');
-    
     // Get request data
     let requestData;
     try {
@@ -103,20 +100,17 @@ serve(async (req) => {
     if (endpoint === 'upload') {
       falUrl = 'https://rest.fal.ai/storage/upload';
     } else if (endpoint === 'fal-ai/sdxl') {
-      // For SDXL image generation
       falUrl = 'https://rest.fal.ai/v1/fast-sdxl';
     } else if (endpoint === 'fal-ai/i2v') {
-      // For image to video
       falUrl = 'https://rest.fal.ai/v1/wan-i2v';
     } else {
-      // Default: pass through the endpoint directly
       falUrl = `https://rest.fal.ai/v1/${endpoint}`;
     }
 
     console.log(`Making request to Fal.ai endpoint: ${falUrl}`);
 
-    // Prepare request options
-    const options: RequestInit = {
+    // Prepare request options with shorter timeout
+    const options = {
       method: endpoint === 'upload' ? 'POST' : params.method || 'POST',
       headers: {
         'Authorization': `Key ${falApiKey}`,
@@ -128,9 +122,7 @@ serve(async (req) => {
     if (endpoint === 'upload') {
       if (params.file) {
         const fileContent = new Uint8Array(params.file);
-        console.log(`Preparing to upload file, size: ${fileContent.length} bytes`);
         options.body = fileContent;
-        // For file uploads, don't use application/json
         options.headers['Content-Type'] = 'application/octet-stream';
       } else {
         return new Response(
@@ -143,124 +135,75 @@ serve(async (req) => {
       }
     } else if (params.body) {
       options.body = JSON.stringify(params.body);
-      console.log(`Request body prepared for ${endpoint}:`, params.body);
     }
 
-    // Add network timeout and diagnosis
+    // Add timeout to prevent function from running too long
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 second timeout (Supabase Edge Functions have 30s limit)
     options.signal = controller.signal;
-
-    // Attempt a DNS resolution check (simplified diagnosis)
-    console.log(`Attempting to diagnose connectivity to Fal.ai...`);
     
     // Make the request to Fal.ai with enhanced error handling
-    console.log(`Sending request to Fal.ai with options:`, JSON.stringify({
-      url: falUrl,
-      method: options.method,
-      hasBody: !!options.body,
-      contentType: options.headers['Content-Type']
-    }));
-    
-    // Add a try/catch specifically for the fetch operation
-    let response;
     try {
-      response = await fetch(falUrl, options);
+      const response = await fetch(falUrl, options);
       clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        let errorText = await response.text();
+        console.error(`Fal.ai error (${response.status}):`, errorText);
+        return new Response(
+          JSON.stringify({ 
+            error: `Fal.ai API returned ${response.status}`, 
+            details: errorText 
+          }),
+          { 
+            status: response.status, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+      
+      const data = await response.json();
+      
+      return new Response(
+        JSON.stringify(data),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     } catch (fetchError) {
       clearTimeout(timeoutId);
-      console.error(`Fetch error when calling Fal.ai:`, fetchError);
-      
-      // Enhanced network error diagnostics
-      let errorDetails = fetchError.message || "Unknown network error";
-      let errorStatus = 500;
+      console.error('Fetch error:', fetchError);
       
       if (fetchError.name === "AbortError") {
-        errorDetails = "Request timed out after 60 seconds";
-        errorStatus = 504; // Gateway Timeout
-      } else if (errorDetails.includes("connection refused") || errorDetails.includes("ECONNREFUSED")) {
-        errorDetails = "Connection refused - the Fal.ai service may be blocking requests from Supabase Edge Functions";
-        errorStatus = 502; // Bad Gateway
-      } else if (errorDetails.includes("getaddrinfo")) {
-        errorDetails = "DNS resolution failed - unable to resolve Fal.ai domain";
-        errorStatus = 502; // Bad Gateway
+        return new Response(
+          JSON.stringify({ 
+            error: "Request timed out", 
+            details: "The request to Fal.ai took too long and was aborted to prevent function timeout"
+          }),
+          { 
+            status: 504, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
       }
       
       return new Response(
         JSON.stringify({ 
-          error: `Failed to connect to Fal.ai API`, 
-          details: errorDetails,
-          recommendation: "Fal.ai may be restricting access from Supabase Edge Functions. Consider using a direct integration from your frontend."
+          error: 'Failed to connect to Fal.ai API', 
+          details: fetchError.message || 'Unknown network error'
         }),
         { 
-          status: errorStatus, 
+          status: 502, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
-    
-    console.log(`Received response from Fal.ai with status: ${response.status}`);
-    
-    if (!response.ok) {
-      let errorDetails;
-      try {
-        errorDetails = await response.text();
-        console.error(`Fal.ai error (${response.status}):`, errorDetails);
-      } catch (e) {
-        errorDetails = "Could not parse error response";
-        console.error(`Fal.ai error (${response.status}), failed to read response body:`, e);
-      }
-      
-      return new Response(
-        JSON.stringify({ 
-          error: `Fal.ai API returned ${response.status}`, 
-          details: errorDetails 
-        }),
-        { 
-          status: response.status, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-    
-    let data;
-    try {
-      data = await response.json();
-    } catch (jsonError) {
-      console.error('Failed to parse Fal.ai response as JSON:', jsonError);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Failed to parse Fal.ai response', 
-          details: jsonError.message
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-    
-    console.log('Fal.ai response received successfully:', JSON.stringify({
-      endpoint: endpoint,
-      hasData: !!data,
-      dataKeys: Object.keys(data)
-    }));
-
-    // Return the response
-    return new Response(
-      JSON.stringify(data),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
   } catch (error) {
     console.error('Error in fal-ai-proxy function:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Unknown error', 
-        stack: error.stack,
-        name: error.name
+        error: error.message || 'Unknown error'
       }),
       { 
         status: 500, 
