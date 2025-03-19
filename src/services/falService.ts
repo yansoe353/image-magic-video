@@ -37,13 +37,12 @@ const initFalClient = async () => {
   try {
     if (isClientInitialized) return;
     
-    // Get API key from Supabase secrets using RLS policy
     // Define the parameters interface for the RPC to fix the TypeScript error
-    interface GetSecretParams {
-      secret_name: string;
+    interface GetSecretResponse {
+      key_value: string;
     }
     
-    const { data, error } = await supabase.rpc<string, GetSecretParams>('get_secret', { 
+    const { data, error } = await supabase.rpc('get_secret', { 
       secret_name: 'FAL_API_KEY' 
     });
     
@@ -52,12 +51,13 @@ const initFalClient = async () => {
       throw new Error('Could not retrieve API key');
     }
     
-    // Store the API key for upload requests
-    falApiKey = data;
+    // Cast the data to string since we know it's a string
+    const apiKey = data as string;
+    falApiKey = apiKey;
     
     // Create new client with the retrieved key
     falClient = createFalClient({
-      credentials: data
+      credentials: apiKey
     });
     
     isClientInitialized = true;
