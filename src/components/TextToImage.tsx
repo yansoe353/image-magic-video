@@ -15,7 +15,7 @@ import { StyleModifiers, LoraOption } from "./image-generation/StyleModifiers";
 import { GuidanceScaleSlider } from "./image-generation/GuidanceScaleSlider";
 import { GeneratedImageDisplay } from "./image-generation/GeneratedImageDisplay";
 import { UsageLimits } from "./image-generation/UsageLimits";
-import { translateText, detectLanguage } from "@/utils/translationUtils";
+import { translateText } from "@/utils/translationUtils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -166,14 +166,8 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       let promptToUse = prompt;
       if (prompt && prompt.length > 0) {
         try {
-          // Detect the language of the prompt
-          const detectedLanguage = detectLanguage(prompt);
-          console.log("Detected Language:", detectedLanguage);
-
-          // Translate the prompt to English if it's not already in English
-          if (detectedLanguage !== "en") {
-            promptToUse = await translateText(prompt, detectedLanguage, "en");
-          }
+          // Translate the prompt to English
+          promptToUse = await translateText(prompt, "my", "en");
         } catch (error) {
           console.error("Failed to translate prompt:", error);
         }
