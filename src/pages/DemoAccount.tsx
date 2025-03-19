@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ArrowRight, Clock, Sparkles, FileLock } from "lucide-react";
+import { ArrowLeft, ArrowRight, Clock, Sparkles, FileLock, ImageIcon, VideoIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const DemoAccount = () => {
@@ -47,8 +47,12 @@ const DemoAccount = () => {
                 <span>Try basic video generation features</span>
               </li>
               <li className="flex items-start">
-                <Clock className="h-5 w-5 text-brand-purple mr-2 flex-shrink-0" />
-                <span>Limited to 3 video generations</span>
+                <ImageIcon className="h-5 w-5 text-brand-purple mr-2 flex-shrink-0" />
+                <span>Limited to 3 image generations</span>
+              </li>
+              <li className="flex items-start">
+                <VideoIcon className="h-5 w-5 text-brand-purple mr-2 flex-shrink-0" />
+                <span>Limited to 1 video generation</span>
               </li>
               <li className="flex items-start">
                 <FileLock className="h-5 w-5 text-brand-purple mr-2 flex-shrink-0" />
@@ -69,14 +73,32 @@ const DemoAccount = () => {
         <div className="flex flex-col justify-center space-y-6">
           <h2 className="text-2xl font-bold">Want unlimited access?</h2>
           <p className="text-slate-700">
-            Upgrade to a full account to unlock all features, including unlimited video generations, no watermarks, and priority support.
+            Upgrade to a Premium account to unlock all features, including:
           </p>
+          <ul className="space-y-2 ml-2">
+            <li className="flex items-center">
+              <ImageIcon className="h-5 w-5 text-brand-purple mr-2" />
+              <span><strong>100</strong> image generations</span>
+            </li>
+            <li className="flex items-center">
+              <VideoIcon className="h-5 w-5 text-brand-purple mr-2" />
+              <span><strong>50</strong> video generations</span>
+            </li>
+            <li className="flex items-center">
+              <span className="text-green-500 mr-2">✓</span>
+              <span>No watermarks</span>
+            </li>
+            <li className="flex items-center">
+              <span className="text-green-500 mr-2">✓</span>
+              <span>Priority support</span>
+            </li>
+          </ul>
           <Button 
             size="lg" 
             onClick={handleBuyAccount}
             className="w-fit"
           >
-            Buy Full Account
+            Buy Premium Account
           </Button>
         </div>
       </div>
@@ -97,7 +119,7 @@ const DemoAccount = () => {
           <div className="flex flex-col items-center text-center">
             <div className="w-12 h-12 bg-brand-purple text-white rounded-full flex items-center justify-center mb-4">3</div>
             <h3 className="text-lg font-semibold mb-2">Upgrade Anytime</h3>
-            <p className="text-slate-600">Love what you see? Upgrade to a full account for unlimited access.</p>
+            <p className="text-slate-600">Love what you see? Upgrade to a Premium account for unlimited access.</p>
           </div>
         </div>
       </div>
