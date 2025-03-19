@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import Home from "./pages/Home";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -14,15 +15,32 @@ import AddUser from "./components/AddUser";
 import UserList from "./components/UserList";
 import EditUser from "./components/EditUser";
 import UserLimits from "./components/UserLimits";
-import { isLoggedIn } from "./utils/authUtils";
+import { supabase } from "./integrations/supabase/client";
 
 const queryClient = new QueryClient();
 
-// Protected route component
+// Protected route component with proper loading state
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  if (!isLoggedIn()) {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getSession();
+      setIsAuthenticated(!!data.session);
+    };
+    
+    checkAuth();
+  }, []);
+  
+  if (isAuthenticated === null) {
+    // Still checking authentication
+    return null;
+  }
+  
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
+  
   return <>{children}</>;
 };
 

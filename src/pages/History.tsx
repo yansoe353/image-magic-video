@@ -4,35 +4,32 @@ import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import HistoryPanel from "@/components/HistoryPanel";
 import { Card } from "@/components/ui/card";
-import { isLoggedIn } from "@/utils/authUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
 const History = () => {
   const navigate = useNavigate();
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   
-  // Redirect to login if not logged in
+  // Check authentication status
   useEffect(() => {
     const checkAuth = async () => {
       setIsAuthChecking(true);
       
-      if (!isLoggedIn()) {
-        console.log("User not logged in, redirecting to login page");
-        navigate('/login');
-        return;
-      }
-      
       try {
-        // Verify user ID from localStorage is valid
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-          const userData = JSON.parse(userStr);
-          console.log("Found user data in localStorage:", userData.id);
+        // Use Supabase's built-in session check
+        const { data } = await supabase.auth.getSession();
+        
+        if (data.session) {
+          console.log("User is logged in with session:", data.session.user.id);
+          setIsAuthenticated(true);
+        } else {
+          console.log("No active session found, redirecting to login");
+          navigate('/login');
         }
       } catch (error) {
         console.error("Error checking auth:", error);
-        // If there's an error with auth, better to redirect to login
         navigate('/login');
       } finally {
         setIsAuthChecking(false);
@@ -73,7 +70,13 @@ const History = () => {
         </h1>
         
         <Card className="p-6">
-          <HistoryPanel onSelectContent={handleSelectContent} />
+          {isAuthenticated ? (
+            <HistoryPanel onSelectContent={handleSelectContent} />
+          ) : (
+            <div className="text-center py-12">
+              <p>You need to be logged in to view your history.</p>
+            </div>
+          )}
         </Card>
       </main>
       

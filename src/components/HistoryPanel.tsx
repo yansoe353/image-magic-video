@@ -45,16 +45,16 @@ const HistoryPanel = ({ onSelectContent }: HistoryPanelProps) => {
     setError(null);
     
     try {
-      // Get the user ID from localStorage
-      const userStr = localStorage.getItem('user');
-      if (!userStr) {
+      // Get the current user from Supabase session
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      if (!sessionData.session) {
         setError("You need to be logged in to view your history");
         setIsLoading(false);
         return;
       }
       
-      const userData = JSON.parse(userStr);
-      const userId = userData.id;
+      const userId = sessionData.session.user.id;
       
       if (!userId) {
         setError("User ID not found. Please log in again.");

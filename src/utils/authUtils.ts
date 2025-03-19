@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 // Define interface for our app's user data
@@ -18,10 +17,15 @@ export interface Session {
   expiresAt: number;
 }
 
-// Check if user is logged in
+// Check if user is logged in - now properly returns a boolean
 export const isLoggedIn = async (): Promise<boolean> => {
-  const { data } = await supabase.auth.getSession();
-  return !!data.session;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return !!data.session;
+  } catch (error) {
+    console.error("Error checking auth status:", error);
+    return false;
+  }
 };
 
 // Get current user
