@@ -12,12 +12,23 @@ export async function translateText(text: string, from: SupportedLanguage, to: S
   // Don't translate if the languages are the same
   if (from === to) return text;
   if (!text.trim()) return "";
-  
+
   try {
     const apiUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(text)}`;
     const response = await fetch(apiUrl);
+
+    if (!response.ok) {
+      throw new Error(`Translation API error: ${response.statusText}`);
+    }
+
     const data = await response.json();
-    return data[0][0][0]; // Return translated text
+
+    // Check if the response structure is as expected
+    if (data && data[0] && data[0][0] && data[0][0][0]) {
+      return data[0][0][0]; // Return translated text
+    } else {
+      throw new Error("Unexpected response structure from translation API");
+    }
   } catch (error) {
     console.error("Translation error:", error);
     return text; // Return original text if translation fails
