@@ -1,5 +1,7 @@
-
 import { useState } from "react";
+import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
+
+const ffmpeg = createFFmpeg({ log: true });
 
 export interface VideoClip {
   id: string;
@@ -43,22 +45,29 @@ export function useVideoEditor() {
     setAudioTrack(audio);
   };
 
-  // In a real implementation, this would use a video processing library or API
-  // For this demo, we'll simulate the combination process
   const combineVideos = async () => {
     if (videoClips.length === 0) return;
-    
+
     setIsProcessing(true);
-    
+
     try {
-      // This is a placeholder for actual video processing logic
-      // In a real implementation, you would send the clips to a server
-      // or use a client-side library to combine the videos
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // For demo purposes, we'll just use the URL of the first clip
-      setCombinedVideoUrl(videoClips[0].url);
-      
+      await ffmpeg.load();
+
+      for (let i = 0; i < videoClips.length; i++) {
+        const response = await fetch(videoClips[i].url);
+        const blob = await response.blob();
+        const file = new File([blob], `input${i}.mp4`, { type: 'video/mp4' });
+        ffmpeg.FS('writeFile', `input${i}.mp4`, await fetchFile(file));
+      }
+
+      const inputs = videoClips.map((_, index) => `input${index}.mp4`).join('|');
+      await ffmpeg.run('-i', `concat:${inputs}`, '-c', 'copy', 'output.mp4');
+
+      const data = ffmpeg.FS('readFile', 'output.mp4');
+      const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
+      const videoUrl = URL.createObjectURL(videoBlob);
+      setCombinedVideoUrl(videoUrl);
+
     } catch (error) {
       console.error("Failed to combine videos:", error);
     } finally {
