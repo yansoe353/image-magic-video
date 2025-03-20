@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg/dist/ffmpeg.min.js';
+import { createFFmpeg, fetchFile } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.7/dist/umd/ffmpeg.min.js';
+
 
 
 const ffmpeg = createFFmpeg({ log: true });
