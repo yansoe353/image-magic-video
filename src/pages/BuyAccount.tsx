@@ -80,7 +80,7 @@ const BuyAccount = () => {
               </li>
               <li className="flex items-start">
                 <span className="text-green-500 mr-2">✓</span>
-                <span>API access for business integration</span>
+                <span>API access for generations</span>
               </li>
             </ul>
           </CardContent>
