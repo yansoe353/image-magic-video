@@ -18,10 +18,10 @@ const Examples = () => {
     },
     {
       id: 2,
-      title: "Nature Animation",
-      description: "Peaceful forest scene with gentle wind moving through leaves and flowing water.",
-      videoUrl: "https://storage.googleapis.com/fal-serverless/fal-ai/wan-i2v-output-videos/fal_qbwu7rtgnkwwva_fal_4sn5xmrzdhkkca_fal_4sn5xmrzdhkkca.mp4",
-      prompt: "ပင်လယ်ပြင်ပေါ်ကနေ ဖြတ်သန်းပျံနေသည့် ချစ်စရာ နဂါးလေးတစ်ကောင်"
+      title: "SuperDog",
+      description: "ချစ်စရာ Superdog.",
+      videoUrl: "https://rhbpeivthnmvzhblnvya.supabase.co/storage/v1/object/public/generated_content/578029e3-a91e-4dba-a5d5-5ab22f8c2d2b/videos/adbe7061-edca-4388-88c9-4e035fdb1a0f.mp4",
+      prompt: "ချစ်စရလုပ်ပြနေသည့်နေသည့် superdog"
     },
     {
       id: 3,
