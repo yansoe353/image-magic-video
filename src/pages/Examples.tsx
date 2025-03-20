@@ -25,10 +25,10 @@ const Examples = () => {
     },
     {
       id: 3,
-      title: "Portrait Animation",
-      description: "Subtly animated portrait with realistic facial movements and expressions.",
-      videoUrl: "https://storage.googleapis.com/fal-serverless/fal-ai/wan-i2v-output-videos/fal_qbxnpxvmdh6xj6_fal_4sn5xmrzdhkkca_fal_4sn5xmrzdhkkca.mp4",
-      prompt: "Portrait of a person with subtle facial movements, blinking eyes, slight smile, photorealistic"
+      title: "ချစ်စရာ စားဖိုမှုး ကြောင်လေး"
+      description: "Cute Chef Cat",
+      videoUrl: "https://rhbpeivthnmvzhblnvya.supabase.co/storage/v1/object/public/generated_content/578029e3-a91e-4dba-a5d5-5ab22f8c2d2b/videos/4cfc8b89-165c-43e3-9921-4e8cd49494bd.mp4",
+      prompt: "မီးဖိုချောင်ထဲမှာ ဟင်းချက်နေသည့် chef cat, detail, realistic"
     }
   ];
 
