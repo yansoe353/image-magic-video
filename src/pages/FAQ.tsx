@@ -20,6 +20,10 @@ const FAQ = () => {
       answer: "Our AI analyzes your image and text prompt to understand the scene, then generates natural motion and animations based on your specifications. The technology uses deep learning to create realistic movement while preserving the quality and style of your original image."
     },
     {
+      question: "What's the difference between Playground and Pro image generation?",
+      answer: "Playground image generation allows you to experiment with AI image creation, but these images are not saved to your cloud storage. Pro image generation produces higher quality results that are automatically saved to your cloud storage for future use. Pro images also offer better quality and are optimized for easier generation with more consistent results."
+    },
+    {
       question: "What are the benefits of a Premium Account?",
       answer: "A Premium Account provides full access to all features, unlimited playground image generation, 100 Pro image generations, 20 video generations, priority support, no watermarks, and API access for integrating our technology into your own applications."
     },
