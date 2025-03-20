@@ -14,7 +14,7 @@ const Examples = () => {
       title: "ပင်လယ်နဂါး",
       description: "ပင်လယ်နဂါး Animation.",
       videoUrl: "http://yannaingsoe.com/video/dragon.mp4",
-      prompt: "A stunning cityscape with moving cars and changing lights from day to night, cinematic quality, detailed, realistic"
+      prompt: "ပင်လယ်ပြင်ပေါ်ကနေ ဖြတ်သန်းပျံနေသည့် ချစ်စရာ နဂါးလေးတစ်ကောင်"
     },
     {
       id: 2,
