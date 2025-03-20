@@ -27,40 +27,44 @@ const LANGUAGES = {
   th: "Thai"
 };
 
-type LanguageOption = {
-  value: SupportedLanguage;
-  label: string;
-};
+type LanguageOption = keyof typeof LANGUAGES;
 
-const TextToImage = () => {
+interface TextToImageProps {
+  onImageGenerated: (imageUrl: string) => void;
+}
+
+const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [prompt, setPrompt] = useState("");
-  const [imageSize, setImageSize] = useState<ImageSizeOption>("512x512");
-  const [guidanceScale, setGuidanceScale] = useState(7);
-  const [selectedLoras, setSelectedLoras] = useState<LoraOption[]>([]);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [counts, setCounts] = useState({ remainingImages: 0 });
-  const [apiKey, setApiKey] = useState("");
-  const [isApiKeySet, setIsApiKeySet] = useState(false);
+  const [imageSize, setImageSize] = useState<ImageSizeOption>("square_hd");
   const { toast } = useToast();
+  const [counts, setCounts] = useState(getRemainingCounts());
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
+  const [supabaseImageUrl, setSupabaseImageUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedLoras, setSelectedLoras] = useState<LoraOption[]>([]);
+  const [guidanceScale, setGuidanceScale] = useState(9);
+  const [apiKey, setApiKey] = useState<string>(localStorage.getItem("falApiKey") || "");
+  const [isApiKeySet, setIsApiKeySet] = useState<boolean>(!!localStorage.getItem("falApiKey"));
 
   useEffect(() => {
-    const fetchCounts = async () => {
-      const counts = await getRemainingCountsAsync();
-      setCounts(counts);
+    const updateCounts = async () => {
+      const freshCounts = await getRemainingCountsAsync();
+      setCounts(freshCounts);
     };
-
-    fetchCounts();
+    updateCounts();
   }, []);
 
   const handlePromptChange = (newPrompt: string) => {
     setPrompt(newPrompt);
   };
 
-  const toggleLora = (lora: LoraOption) => {
-    setSelectedLoras((prevLoras) =>
-      prevLoras.includes(lora) ? prevLoras.filter((l) => l !== lora) : [...prevLoras, lora]
+  const toggleLora = (loraId: LoraOption) => {
+    setSelectedLoras(current =>
+      current.includes(loraId)
+        ? current.filter(id => id !== loraId)
+        : [...current, loraId]
     );
   };
 
@@ -69,102 +73,282 @@ const TextToImage = () => {
   };
 
   const saveApiKey = () => {
-    localStorage.setItem("apiKey", apiKey);
-    setIsApiKeySet(true);
-    toast({
-      title: "API Key Saved",
-      description: "Your API key has been saved successfully.",
-    });
+    if (!apiKey.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid API key",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      localStorage.setItem("falApiKey", apiKey);
+
+      // Configure fal client with the new API key
+      fal.config({
+        credentials: apiKey
+      });
+
+      setIsApiKeySet(true);
+
+      toast({
+        title: "Success",
+        description: "API key saved successfully",
+      });
+    } catch (error) {
+      console.error("Failed to save API key:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save API key",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const saveToHistory = async (imageUrl: string, originalUrl: string) => {
+    if (!isLoggedIn()) return;
+
+    try {
+      const userId = await getUserId();
+      if (!userId) {
+        console.error("No user ID found");
+        return;
+      }
+
+      const { error } = await supabase
+        .from('user_content_history')
+        .insert({
+          user_id: userId,
+          content_type: 'image',
+          content_url: imageUrl,
+          prompt: prompt,
+          metadata: {
+            size: imageSize,
+            original_url: originalUrl,
+            loras: selectedLoras,
+            model: "flux-lora",
+            guidance_scale: guidanceScale
+          }
+        });
+
+      if (error) {
+        console.error("Error saving to history:", error);
+      } else {
+        console.log("Successfully saved image to history");
+      }
+    } catch (err) {
+      console.error("Failed to save to history:", err);
+    }
   };
 
   const generateImage = async () => {
+    if (!prompt.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a prompt first",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!isApiKeySet) {
       toast({
         title: "API Key Required",
-        description: "Please enter your API key to generate images.",
+        description: "Please set your FAL.AI API key first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (counts.remainingImages <= 0) {
+      toast({
+        title: "Usage Limit Reached",
+        description: `You've reached the limit of ${IMAGE_LIMIT} image generations.`,
+        variant: "destructive",
       });
       return;
     }
 
     setIsLoading(true);
+
     try {
-      const response = await fal.generateImage({
-        prompt,
-        imageSize,
-        guidanceScale,
-        loras: selectedLoras.map((lora) => lora.value),
+      let promptToUse = prompt;
+      if (prompt && prompt.length > 0) {
+        try {
+          // Translate the prompt to English if it's not already in English
+          const detectedLanguage = await detectLanguage(prompt);
+          if (detectedLanguage !== "en") {
+            promptToUse = await translateText(prompt, detectedLanguage, "en");
+          }
+        } catch (error) {
+          console.error("Failed to translate prompt:", error);
+        }
+      }
+
+      // Map the image size to dimensions for flux-lora
+      let width = 1024;
+      let height = 1024;
+
+      if (imageSize.includes('landscape')) {
+        width = 1280;
+        height = 768;
+      } else if (imageSize.includes('portrait')) {
+        width = 768;
+        height = 1280;
+      }
+
+      // Configure fal client with the user's API key
+      fal.config({
+        credentials: apiKey
       });
-      setGeneratedImage(response.imageUrl);
-      incrementImageCount();
-      setCounts((prevCounts) => ({
-        ...prevCounts,
-        remainingImages: prevCounts.remainingImages - 1,
-      }));
+
+      // Log the selected Loras and other parameters
+      console.log("Selected Loras:", selectedLoras);
+      console.log("Image Size:", { width, height });
+      console.log("Guidance Scale:", guidanceScale);
+
+      // Update to use the correct properties for FluxLoraInput
+      const result = await fal.subscribe("fal-ai/flux-lora", {
+        input: {
+          prompt: promptToUse,
+          loras: selectedLoras.map(lora => ({
+            path: lora,
+            strength: 0.8
+          })),
+          image_size: { width, height },
+          guidance_scale: guidanceScale,
+          num_inference_steps: 30,
+        },
+      });
+
+      if (result.data && result.data.images && result.data.images[0]) {
+        const falImageUrl = result.data.images[0].url;
+        setOriginalImageUrl(falImageUrl);
+        setGeneratedImage(""); // Clear any existing URL
+
+        setIsUploading(true);
+        try {
+          const userId = await getUserId();
+          const supabaseUrl = await uploadUrlToStorage(falImageUrl, 'image', userId);
+          setSupabaseImageUrl(supabaseUrl);
+          setGeneratedImage(supabaseUrl); // Set the Supabase URL as the image URL
+
+          await saveToHistory(supabaseUrl, falImageUrl);
+
+          toast({
+            title: "Image Stored",
+            description: "Image uploaded to your storage",
+          });
+        } catch (uploadError) {
+          console.error("Failed to upload to Supabase:", uploadError);
+          setGeneratedImage(falImageUrl);
+          await saveToHistory(falImageUrl, falImageUrl);
+        } finally {
+          setIsUploading(false);
+        }
+
+        if (await incrementImageCount()) {
+          toast({
+            title: "Success",
+            description: "Image generated successfully!",
+          });
+          const freshCounts = await getRemainingCountsAsync();
+          setCounts(freshCounts);
+        } else {
+          toast({
+            title: "Usage Limit Reached",
+            description: "You've reached your image generation limit.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        throw new Error("No image URL in response");
+      }
     } catch (error) {
+      console.error("Failed to generate image:", error);
       toast({
-        title: "Image Generation Failed",
-        description: "There was an error generating the image. Please try again.",
+        title: "Error",
+        description: "Failed to generate image. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleUseImage = async () => {
-    if (!generatedImage) return;
-
-    setIsUploading(true);
-    try {
-      const userId = await getUserId();
-      const url = await uploadUrlToStorage(generatedImage, userId);
-      toast({
-        title: "Image Uploaded",
-        description: "Your generated image has been uploaded successfully.",
-      });
-    } catch (error) {
-      toast({
-        title: "Image Upload Failed",
-        description: "There was an error uploading the image. Please try again.",
-      });
-    } finally {
-      setIsUploading(false);
+  const handleUseImage = () => {
+    if (generatedImage) {
+      const imageUrlToUse = supabaseImageUrl || generatedImage;
+      onImageGenerated(imageUrlToUse);
     }
   };
 
   const handleDownload = () => {
-    if (generatedImage) {
+    const imageUrlToDownload = supabaseImageUrl || generatedImage;
+
+    if (imageUrlToDownload) {
       const link = document.createElement("a");
-      link.href = generatedImage;
-      link.download = "generated_image.png";
+      link.href = imageUrlToDownload;
+      link.download = "generated-image.png";
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     }
   };
 
+  // Helper function to detect the language of the prompt
+  async function detectLanguage(text: string): Promise<SupportedLanguage> {
+    try {
+      const apiUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
+      const response = await fetch(apiUrl);
+
+      if (!response.ok) {
+        throw new Error(`Language detection API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Check if the response structure is as expected
+      if (data && data[2]) {
+        return data[2]; // Return detected language code
+      } else {
+        throw new Error("Unexpected response structure from language detection API");
+      }
+    } catch (error) {
+      console.error("Language detection error:", error);
+      return "en"; // Default to English if detection fails
+    }
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="grid gap-8 md:grid-cols-2">
       <Card className="overflow-hidden">
         <CardContent className="p-6">
+          <h2 className="text-2xl font-bold mb-4">Create an Image</h2>
+
           {!isApiKeySet && (
-            <Alert variant="warning">
+            <Alert className="mb-4">
               <AlertTitle>API Key Required</AlertTitle>
               <AlertDescription>
-                <div className="space-y-2">
+                <div className="space-y-4 mt-2">
+                  <p>Please enter your FAL.AI API key to generate images.</p>
                   <div>
-                    <Label htmlFor="apiKey">Enter your API key to generate images</Label>
+                    <Label htmlFor="apiKey">FAL.AI API Key</Label>
                     <div className="flex gap-2 mt-1">
                       <Input
                         id="apiKey"
                         type="password"
                         value={apiKey}
                         onChange={handleApiKeyChange}
-                        placeholder="Enter your Infinity API key"
+                        placeholder="Enter your FAL.AI API key"
                         className="flex-1"
                       />
                       <Button onClick={saveApiKey}>Save Key</Button>
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
                       <a
-                        href="https://m.me/infinitytechmyanmar"
+                        href="https://fal.ai/dashboard/keys"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-500 hover:underline"
@@ -202,7 +386,11 @@ const TextToImage = () => {
               disabled={isLoading}
             />
 
-            
+            <StyleModifiers
+              selectedLoras={selectedLoras}
+              onToggleLora={toggleLora}
+              disabled={isLoading}
+            />
 
             <div className="flex items-center justify-between">
               <Button
