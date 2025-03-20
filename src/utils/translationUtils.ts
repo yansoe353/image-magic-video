@@ -1,4 +1,3 @@
-
 type SupportedLanguage = "en" | "my" | "th";
 
 export const LANGUAGES = {
