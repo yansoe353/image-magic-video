@@ -15,7 +15,6 @@ import { incrementVideoCount, getRemainingCounts, getRemainingCountsAsync, VIDEO
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
-import VideoEditor from "./VideoEditor";
 import { supabase } from "@/integrations/supabase/client";
 import { isLoggedIn } from "@/utils/authUtils";
 import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
@@ -45,7 +44,6 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [generationLogs, setGenerationLogs] = useState<string[]>([]);
-  const [showEditor, setShowEditor] = useState(false);
   const [originalVideoUrl, setOriginalVideoUrl] = useState("");
   const [supabaseVideoUrl, setSupabaseVideoUrl] = useState("");
   const [isStoringVideo, setIsStoringVideo] = useState(false);
@@ -351,11 +349,8 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">Video Preview</h2>
               {videoUrl && (
-                <Button
-                  variant="outline"
-                  onClick={() => setShowEditor(!showEditor)}
-                >
-                  {showEditor ? "Hide Editor" : "Edit Video"}
+                <Button variant="outline" disabled>
+                  Edit Video (Coming Soon)
                 </Button>
               )}
             </div>
@@ -370,10 +365,6 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
             />
           </CardContent>
         </Card>
-
-        {showEditor && videoUrl && (
-          <VideoEditor generatedVideoUrl={supabaseVideoUrl || videoUrl} />
-        )}
       </div>
     </div>
   );
