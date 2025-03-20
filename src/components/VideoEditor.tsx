@@ -1,26 +1,31 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Film } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useVideoEditor } from "@/hooks/useVideoEditor";
+import { useVideoEditor, type VideoClip } from "@/hooks/useVideoEditor";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import VideoClipsList from "./VideoClipsList";
 import AudioSelector from "./AudioSelector";
 import VideoPreview from "./VideoPreview";
 
-const VideoEditor = ({ generatedVideoUrl }) => {
-  const {
-    videoClips,
-    audioTrack,
-    combinedVideoUrl,
-    isProcessing,
-    addVideoClip,
-    removeVideoClip,
-    reorderVideoClips,
-    setAudio,
-    combineVideos,
-  } = useVideoEditor();
+interface VideoEditorProps {
+  generatedVideoUrl: string | null;
+}
 
+const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
+  const { 
+    videoClips, 
+    audioTrack, 
+    combinedVideoUrl, 
+    isProcessing,
+    addVideoClip, 
+    removeVideoClip, 
+    reorderVideoClips, 
+    setAudio,
+    combineVideos 
+  } = useVideoEditor();
+  
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
 
@@ -34,14 +39,14 @@ const VideoEditor = ({ generatedVideoUrl }) => {
       return;
     }
 
-    const newClip = {
+    const newClip: VideoClip = {
       id: Date.now().toString(),
       url: generatedVideoUrl,
       name: `Clip ${videoClips.length + 1}`,
     };
 
     addVideoClip(newClip);
-
+    
     toast({
       title: "Video added",
       description: "Video clip added to the editor."
@@ -59,7 +64,7 @@ const VideoEditor = ({ generatedVideoUrl }) => {
     }
 
     await combineVideos();
-
+    
     toast({
       title: "Videos combined",
       description: "Video clips have been combined successfully."
@@ -70,11 +75,12 @@ const VideoEditor = ({ generatedVideoUrl }) => {
     <Card className="overflow-hidden">
       <CardContent className="p-6">
         <h2 className="text-2xl font-bold mb-4">Video Editor</h2>
+        
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-medium">Video Clips</h3>
-            <Button
-              variant="outline"
+            <Button 
+              variant="outline" 
               onClick={handleAddGeneratedVideo}
               disabled={!generatedVideoUrl}
               className="flex items-center"
@@ -83,17 +89,20 @@ const VideoEditor = ({ generatedVideoUrl }) => {
               Add Current Video
             </Button>
           </div>
-          <VideoClipsList
+          
+          <VideoClipsList 
             clips={videoClips}
             onRemoveClip={removeVideoClip}
             onReorderClips={reorderVideoClips}
           />
-          <AudioSelector
+          
+          <AudioSelector 
             audioTrack={audioTrack}
             onSetAudio={setAudio}
           />
-          <Button
-            onClick={handleCombineVideos}
+          
+          <Button 
+            onClick={handleCombineVideos} 
             disabled={isProcessing || videoClips.length === 0}
             className="w-full"
           >
@@ -106,10 +115,11 @@ const VideoEditor = ({ generatedVideoUrl }) => {
               'Combine Videos'
             )}
           </Button>
+          
           {combinedVideoUrl && (
             <div className="mt-4">
               <h3 className="text-lg font-medium mb-2">Preview</h3>
-              <VideoPreview
+              <VideoPreview 
                 videoUrl={combinedVideoUrl}
                 isLoading={false}
                 generationLogs={[]}
