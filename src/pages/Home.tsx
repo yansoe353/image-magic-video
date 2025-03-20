@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Brain, Sparkles, Video, Image, Shield, Play, Eye, Film } from "lucide-react";
+import { ArrowRight, Brain, Sparkles, Video, Image, Shield, Play, Eye, Film, HelpCircle } from "lucide-react";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -150,6 +150,28 @@ const Home = () => {
         </div>
       </section>
 
+      {/* FAQ Section */}
+      <section className="py-16 px-4 bg-slate-100">
+        <div className="container mx-auto max-w-6xl text-center">
+          <div className="inline-block p-3 bg-brand-purple/10 rounded-full mb-4">
+            <HelpCircle className="h-6 w-6 text-brand-purple" />
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+            Frequently Asked Questions
+          </h2>
+          <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-8">
+            Find answers to common questions about our platform and services
+          </p>
+          <Button 
+            onClick={() => navigate("/faq")}
+            variant="outline"
+            className="border-brand-purple text-brand-purple hover:bg-brand-purple/10"
+          >
+            View All FAQs
+          </Button>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 px-4 bg-gradient-to-br from-slate-800 to-slate-900 text-white">
         <div className="container mx-auto max-w-6xl text-center">
@@ -194,6 +216,7 @@ const Home = () => {
             <div className="flex gap-8">
               <a href="#" className="text-slate-400 hover:text-white transition-colors">Privacy</a>
               <a href="#" className="text-slate-400 hover:text-white transition-colors">Terms</a>
+              <a onClick={() => navigate("/faq")} className="text-slate-400 hover:text-white transition-colors cursor-pointer">FAQ</a>
               <a href="#" className="text-slate-400 hover:text-white transition-colors">Contact</a>
             </div>
           </div>

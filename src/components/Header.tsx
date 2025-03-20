@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Menu, X, LogOut, LogIn, Users, History, Key } from "lucide-react";
+import { Menu, X, LogOut, LogIn, Users, History, Key, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ApiKeyInput from "@/components/ApiKeyInput";
 import ApiKeyDialog from "@/components/api-key/ApiKeyDialog";
@@ -87,6 +87,12 @@ const Header = () => {
             className={`font-medium ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
           >
             Examples
+          </Link>
+          <Link 
+            to="/faq" 
+            className={`font-medium ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
+          >
+            FAQ
           </Link>
           
           {loggedIn && (
@@ -182,6 +188,13 @@ const Header = () => {
               onClick={() => setMobileMenuOpen(false)}
             >
               Examples
+            </Link>
+            <Link 
+              to="/faq" 
+              className="font-medium text-slate-600 hover:text-brand-purple"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              FAQ
             </Link>
             
             {loggedIn && (

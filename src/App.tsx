@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,6 +17,7 @@ import EditUser from "./components/EditUser";
 import UserLimits from "./components/UserLimits";
 import { supabase } from "./integrations/supabase/client";
 import BuyAccount from "./pages/BuyAccount";
+import FAQ from "./pages/FAQ";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +56,7 @@ const App = () => (
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/buy-account" element={<BuyAccount />} />
+          <Route path="/faq" element={<FAQ />} />
           <Route 
             path="/create" 
             element={
