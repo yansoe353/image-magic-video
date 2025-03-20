@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { fal } from "@fal-ai/client";
@@ -69,15 +68,15 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
 
     try {
       localStorage.setItem("falApiKey", apiKey);
-      
+
       // Configure fal client with the new API key
       fal.config({
         credentials: apiKey
       });
-      
+
       onApiKeySet(true);
       setApiKeyDialogOpen(false);
-      
+
       toast({
         title: "Success",
         description: "API key saved successfully",
@@ -90,6 +89,16 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
         variant: "destructive",
       });
     }
+  };
+
+  const resetApiKey = () => {
+    localStorage.removeItem("falApiKey");
+    setApiKey("");
+    onApiKeySet(false);
+    toast({
+      title: "Success",
+      description: "API key reset successfully",
+    });
   };
 
   return (
@@ -117,9 +126,9 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
                 placeholder="Enter your Infinity API key"
               />
               <p className="text-xs text-slate-500">
-                <a 
-                  href="https://m.me/infinitytechmyanmar" 
-                  target="_blank" 
+                <a
+                  href="https://m.me/infinitytechmyanmar"
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-500 hover:underline"
                 >
@@ -131,16 +140,17 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setApiKeyDialogOpen(false)}>Cancel</Button>
             <Button onClick={saveApiKey}>Save API Key</Button>
+            <Button variant="destructive" onClick={resetApiKey}>Reset API Key</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <ApiKeyDialog 
+      <ApiKeyDialog
         open={open}
         setOpen={setOpen}
       />
 
-      <InvalidApiKeyAlert 
+      <InvalidApiKeyAlert
         open={invalidKeyAlert}
         setOpen={setInvalidKeyAlert}
       />
