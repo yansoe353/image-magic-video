@@ -13,7 +13,7 @@ const Examples = () => {
       id: 1,
       title: "ပင်လယ်နဂါး",
       description: "ပင်လယ်နဂါး Animation.",
-      videoUrl: "http://yannaingsoe.com/video/dragon.mp4",
+      videoUrl: "https://yannaingsoe.com/video/dragon.mp4",
       prompt: "ပင်လယ်ပြင်ပေါ်ကနေ ဖြတ်သန်းပျံနေသည့် ချစ်စရာ နဂါးလေးတစ်ကောင်"
     },
     {
