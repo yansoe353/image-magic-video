@@ -3,12 +3,16 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
+import { useState, useEffect } from "react";
+import { useLanguage } from "@/utils/translationUtils";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 const Examples = () => {
   const navigate = useNavigate();
-
-  // Example video data
-  const examples = [
+  const { language, translate } = useLanguage();
+  
+  // Original example video data
+  const originalExamples = [
     {
       id: 1,
       title: "ပင်လယ်နဂါး",
@@ -32,26 +36,70 @@ const Examples = () => {
     }
   ];
 
+  // Translated texts state
+  const [pageTitle, setPageTitle] = useState("Video Examples");
+  const [pageDescription, setPageDescription] = useState("Explore what YoteShin AI can create with these example videos");
+  const [backButton, setBackButton] = useState("Back");
+  const [promptLabel, setPromptLabel] = useState("Prompt:");
+  const [tryPromptButton, setTryPromptButton] = useState("Try this prompt");
+  const [footerText, setFooterText] = useState(`© ${new Date().getFullYear()} YoteShin AI. All rights reserved.`);
+  
+  // Translated examples state
+  const [examples, setExamples] = useState(originalExamples);
+
+  // Handle translations when language changes
+  useEffect(() => {
+    async function translateContent() {
+      // Page content translations
+      setPageTitle(await translate("Video Examples"));
+      setPageDescription(await translate("Explore what YoteShin AI can create with these example videos"));
+      setBackButton(await translate("Back"));
+      setPromptLabel(await translate("Prompt:"));
+      setTryPromptButton(await translate("Try this prompt"));
+      setFooterText(await translate(`© ${new Date().getFullYear()} YoteShin AI. All rights reserved.`));
+      
+      // Examples translations (if not in Myanmar/English)
+      if (language !== 'my') {
+        const translatedExamples = await Promise.all(
+          originalExamples.map(async (example) => ({
+            ...example,
+            title: await translate(example.title, 'my'),
+            description: await translate(example.description, 'my'),
+            // Don't translate the prompt as it needs to work with the AI model
+          }))
+        );
+        setExamples(translatedExamples);
+      } else {
+        setExamples(originalExamples);
+      }
+    }
+    
+    translateContent();
+  }, [language, translate]);
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
       <Header />
       
       <main className="flex-1 container max-w-5xl py-8 px-4 md:px-6 mt-16">
-        <div className="mb-8">
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate(-1)}
-            className="mb-4"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-          <h1 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-brand-purple to-brand-blue">
-            Video Examples
-          </h1>
-          <p className="text-slate-600 mt-2">
-            Explore what YoteShin AI can create with these example videos
-          </p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate(-1)}
+              className="mb-4"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              {backButton}
+            </Button>
+            <h1 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-brand-purple to-brand-blue">
+              {pageTitle}
+            </h1>
+            <p className="text-slate-600 mt-2">
+              {pageDescription}
+            </p>
+          </div>
+          <LanguageSwitcher />
         </div>
 
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
@@ -68,13 +116,13 @@ const Examples = () => {
                 <h3 className="font-semibold text-lg mb-1">{example.title}</h3>
                 <p className="text-slate-600 text-sm mb-3 flex-1">{example.description}</p>
                 <div className="bg-slate-50 p-2 rounded-md text-xs text-slate-700 font-mono">
-                  <span className="font-medium">Prompt:</span> {example.prompt}
+                  <span className="font-medium">{promptLabel}</span> {example.prompt}
                 </div>
                 <Button 
                   className="mt-4 w-full bg-gradient-to-r from-brand-purple to-brand-blue hover:opacity-90 transition-opacity"
                   onClick={() => navigate('/create', { state: { prompt: example.prompt } })}
                 >
-                  Try this prompt
+                  {tryPromptButton}
                 </Button>
               </div>
             </div>
@@ -84,7 +132,7 @@ const Examples = () => {
       
       <footer className="py-6 border-t border-slate-200 bg-white">
         <div className="container text-center text-slate-500 max-w-6xl mx-auto">
-          <p>© {new Date().getFullYear()} YoteShin AI. All rights reserved.</p>
+          <p>{footerText}</p>
         </div>
       </footer>
     </div>
