@@ -25,7 +25,7 @@ const Examples = () => {
     },
     {
       id: 3,
-      title: "ချစ်စရာ စားဖိုမှုး ကြောင်လေး"
+      title: "ချစ်စရာ စားဖိုမှုး ကြောင်လေး",
       description: "Cute Chef Cat",
       videoUrl: "https://rhbpeivthnmvzhblnvya.supabase.co/storage/v1/object/public/generated_content/578029e3-a91e-4dba-a5d5-5ab22f8c2d2b/videos/4cfc8b89-165c-43e3-9921-4e8cd49494bd.mp4",
       prompt: "မီးဖိုချောင်ထဲမှာ ဟင်းချက်နေသည့် chef cat, detail, realistic"
