@@ -102,9 +102,9 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
       <Dialog open={apiKeyDialogOpen} onOpenChange={setApiKeyDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Set Your FAL.AI API Key</DialogTitle>
+            <DialogTitle>Set Your Infinity API Key</DialogTitle>
             <DialogDescription>
-              Enter your FAL.AI API key to generate images and videos.
+              Enter your Infinity API key to generate images and videos.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -114,16 +114,16 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
                 type="password"
                 value={apiKey}
                 onChange={handleApiKeyChange}
-                placeholder="Enter your FAL.AI API key"
+                placeholder="Enter your Infinity API key"
               />
               <p className="text-xs text-slate-500">
                 <a 
-                  href="https://fal.ai/dashboard/keys" 
+                  href="https://m.me/infinitytechmyanmar" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-blue-500 hover:underline"
                 >
-                  Get your API key from FAL.AI
+                  Get your API key from Infinity Tech
                 </a>
               </p>
             </div>
