@@ -27,7 +27,130 @@ const LANGUAGES = {
   th: "Thai"
 };
 
-type LanguageOption = ထည့်ရန်</Label>
+type LanguageOption = {
+  value: SupportedLanguage;
+  label: string;
+};
+
+const TextToImage = () => {
+  const [prompt, setPrompt] = useState("");
+  const [imageSize, setImageSize] = useState<ImageSizeOption>("512x512");
+  const [guidanceScale, setGuidanceScale] = useState(7);
+  const [selectedLoras, setSelectedLoras] = useState<LoraOption[]>([]);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [counts, setCounts] = useState({ remainingImages: 0 });
+  const [apiKey, setApiKey] = useState("");
+  const [isApiKeySet, setIsApiKeySet] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      const counts = await getRemainingCountsAsync();
+      setCounts(counts);
+    };
+
+    fetchCounts();
+  }, []);
+
+  const handlePromptChange = (newPrompt: string) => {
+    setPrompt(newPrompt);
+  };
+
+  const toggleLora = (lora: LoraOption) => {
+    setSelectedLoras((prevLoras) =>
+      prevLoras.includes(lora) ? prevLoras.filter((l) => l !== lora) : [...prevLoras, lora]
+    );
+  };
+
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setApiKey(e.target.value);
+  };
+
+  const saveApiKey = () => {
+    localStorage.setItem("apiKey", apiKey);
+    setIsApiKeySet(true);
+    toast({
+      title: "API Key Saved",
+      description: "Your API key has been saved successfully.",
+    });
+  };
+
+  const generateImage = async () => {
+    if (!isApiKeySet) {
+      toast({
+        title: "API Key Required",
+        description: "Please enter your API key to generate images.",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fal.generateImage({
+        prompt,
+        imageSize,
+        guidanceScale,
+        loras: selectedLoras.map((lora) => lora.value),
+      });
+      setGeneratedImage(response.imageUrl);
+      incrementImageCount();
+      setCounts((prevCounts) => ({
+        ...prevCounts,
+        remainingImages: prevCounts.remainingImages - 1,
+      }));
+    } catch (error) {
+      toast({
+        title: "Image Generation Failed",
+        description: "There was an error generating the image. Please try again.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUseImage = async () => {
+    if (!generatedImage) return;
+
+    setIsUploading(true);
+    try {
+      const userId = await getUserId();
+      const url = await uploadUrlToStorage(generatedImage, userId);
+      toast({
+        title: "Image Uploaded",
+        description: "Your generated image has been uploaded successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Image Upload Failed",
+        description: "There was an error uploading the image. Please try again.",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDownload = () => {
+    if (generatedImage) {
+      const link = document.createElement("a");
+      link.href = generatedImage;
+      link.download = "generated_image.png";
+      link.click();
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card className="overflow-hidden">
+        <CardContent className="p-6">
+          {!isApiKeySet && (
+            <Alert variant="warning">
+              <AlertTitle>API Key Required</AlertTitle>
+              <AlertDescription>
+                <div className="space-y-2">
+                  <div>
+                    <Label htmlFor="apiKey">Enter your API key to generate images</Label>
                     <div className="flex gap-2 mt-1">
                       <Input
                         id="apiKey"
