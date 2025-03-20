@@ -155,7 +155,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
     if (!isApiKeySet) {
       toast({
         title: "API Key Required",
-        description: "Please set your FAL.AI API key first",
+        description: "Please set your Infinity API key first",
         variant: "destructive",
       });
       return;
@@ -332,23 +332,23 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
               <AlertTitle>API Key Required</AlertTitle>
               <AlertDescription>
                 <div className="space-y-4 mt-2">
-                  <p>Please enter your FAL.AI API key to generate images.</p>
+                  <p>Please enter your Infinity API key to generate images.</p>
                   <div>
-                    <Label htmlFor="apiKey">FAL.AI API Key</Label>
+                    <Label htmlFor="apiKey">Infinity API Key</Label>
                     <div className="flex gap-2 mt-1">
                       <Input
                         id="apiKey"
                         type="password"
                         value={apiKey}
                         onChange={handleApiKeyChange}
-                        placeholder="Enter your FAL.AI API key"
+                        placeholder="Enter your Infinity API key"
                         className="flex-1"
                       />
                       <Button onClick={saveApiKey}>Save Key</Button>
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
                       <a
-                        href="https://fal.ai/dashboard/keys"
+                        href="https://m.me/infinitytechmyanmar"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-500 hover:underline"
