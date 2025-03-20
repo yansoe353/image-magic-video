@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { fal } from "@fal-ai/client";
@@ -16,7 +15,25 @@ interface ApiKeyInputProps {
 }
 
 const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
+  const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [invalidKeyAlert, setInvalidKeyAlert] = useState(false);
+
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setApiKey(e.target.value);
+  };
+
+  const saveApiKey = () => {
+    // Save API key logic here
+    onApiKeySet(true);
+    setApiKeyDialogOpen(false);
+  };
+
+  return (
+    <>
+      <Button onClick={() => setApiKeyDialogOpen(true)}>
+        Set API Key
       </Button>
 
       <Dialog open={apiKeyDialogOpen} onOpenChange={setApiKeyDialogOpen}>
@@ -37,9 +54,9 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
                 placeholder="Enter your FAL.AI API key"
               />
               <p className="text-xs text-slate-500">
-                <a 
-                  href="https://fal.ai/dashboard/keys" 
-                  target="_blank" 
+                <a
+                  href="https://fal.ai/dashboard/keys"
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-500 hover:underline"
                 >
@@ -55,12 +72,12 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
         </DialogContent>
       </Dialog>
 
-      <ApiKeyDialog 
+      <ApiKeyDialog
         open={open}
         setOpen={setOpen}
       />
 
-      <InvalidApiKeyAlert 
+      <InvalidApiKeyAlert
         open={invalidKeyAlert}
         setOpen={setInvalidKeyAlert}
       />
