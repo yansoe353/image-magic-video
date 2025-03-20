@@ -1,4 +1,3 @@
-
 type SupportedLanguage = "en" | "my" | "th";
 
 export const LANGUAGES = {
@@ -34,49 +33,4 @@ export async function translateText(text: string, from: SupportedLanguage, to: S
     console.error("Translation error:", error);
     return text; // Return original text if translation fails
   }
-}
-
-// Create a context to manage language across the app
-import { createContext, useContext, useState, ReactNode } from 'react';
-
-interface LanguageContextType {
-  language: LanguageOption;
-  setLanguage: (language: LanguageOption) => void;
-  translate: (text: string, from?: LanguageOption) => Promise<string>;
-}
-
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
-
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<LanguageOption>(() => {
-    // Try to get language from localStorage or default to English
-    const savedLanguage = localStorage.getItem('preferredLanguage');
-    return (savedLanguage as LanguageOption) || 'en';
-  });
-
-  // Update localStorage when language changes
-  const changeLanguage = (newLanguage: LanguageOption) => {
-    setLanguage(newLanguage);
-    localStorage.setItem('preferredLanguage', newLanguage);
-  };
-
-  // Translate text from source language to current language
-  const translate = async (text: string, from: LanguageOption = 'en'): Promise<string> => {
-    if (from === language) return text;
-    return translateText(text, from, language);
-  };
-
-  return (
-    <LanguageContext.Provider value={{ language, setLanguage: changeLanguage, translate }}>
-      {children}
-    </LanguageContext.Provider>
-  );
-}
-
-export function useLanguage() {
-  const context = useContext(LanguageContext);
-  if (context === undefined) {
-    throw new Error('useLanguage must be used within a LanguageProvider');
-  }
-  return context;
 }
