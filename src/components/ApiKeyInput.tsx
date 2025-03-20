@@ -16,7 +16,7 @@ interface ApiKeyInputProps {
 }
 
 const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
-  const [open, setOpen] = useState(falsထည့်ရန်
+  const [open, setOpen] = useState(false)
       </Button>
 
       <Dialog open={apiKeyDialogOpen} onOpenChange={setApiKeyDialogOpen}>
