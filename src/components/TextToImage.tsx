@@ -348,7 +348,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
                       <a
-                        href="https://fal.ai/dashboard/keys"
+                        href="https://m.me/infinitytechmyanmar"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-500 hover:underline"
