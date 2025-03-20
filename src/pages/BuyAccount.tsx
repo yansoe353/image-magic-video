@@ -59,8 +59,12 @@ const BuyAccount = () => {
                 <span>Full access to all features</span>
               </li>
               <li className="flex items-start">
+                <span className="text-green-500 mr-2">✓</span>
+                <span>Unlimited Image Generation in Playground</span>
+              </li>
+              <li className="flex items-start">
                 <ImageIcon className="h-5 w-5 text-brand-purple mr-2 flex-shrink-0" />
-                <span><strong>100</strong> image generations</span>
+                <span><strong>100</strong> Pro image generations</span>
               </li>
               <li className="flex items-start">
                 <VideoIcon className="h-5 w-5 text-brand-purple mr-2 flex-shrink-0" />
