@@ -386,11 +386,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
               disabled={isLoading}
             />
 
-            <StyleModifiers
-              selectedLoras={selectedLoras}
-              onToggleLora={toggleLora}
-              disabled={isLoading}
-            />
+          
 
             <div className="flex items-center justify-between">
               <Button
