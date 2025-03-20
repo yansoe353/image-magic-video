@@ -19,6 +19,16 @@ import { translateText } from "@/utils/translationUtils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+type SupportedLanguage = "en" | "my" | "th";
+
+const LANGUAGES = {
+  en: "English",
+  my: "Myanmar",
+  th: "Thai"
+};
+
+type LanguageOption = keyof typeof LANGUAGES;
+
 interface TextToImageProps {
   onImageGenerated: (imageUrl: string) => void;
 }
@@ -166,8 +176,11 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       let promptToUse = prompt;
       if (prompt && prompt.length > 0) {
         try {
-          // Translate the prompt to English
-          promptToUse = await translateText(prompt, "my", "en");
+          // Translate the prompt to English if it's not already in English
+          const detectedLanguage = await detectLanguage(prompt);
+          if (detectedLanguage !== "en") {
+            promptToUse = await translateText(prompt, detectedLanguage, "en");
+          }
         } catch (error) {
           console.error("Failed to translate prompt:", error);
         }
@@ -283,6 +296,30 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       document.body.removeChild(link);
     }
   };
+
+  // Helper function to detect the language of the prompt
+  async function detectLanguage(text: string): Promise<SupportedLanguage> {
+    try {
+      const apiUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
+      const response = await fetch(apiUrl);
+
+      if (!response.ok) {
+        throw new Error(`Language detection API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Check if the response structure is as expected
+      if (data && data[2]) {
+        return data[2]; // Return detected language code
+      } else {
+        throw new Error("Unexpected response structure from language detection API");
+      }
+    } catch (error) {
+      console.error("Language detection error:", error);
+      return "en"; // Default to English if detection fails
+    }
+  }
 
   return (
     <div className="grid gap-8 md:grid-cols-2">
