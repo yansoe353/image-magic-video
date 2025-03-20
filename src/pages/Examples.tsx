@@ -11,9 +11,9 @@ const Examples = () => {
   const examples = [
     {
       id: 1,
-      title: "Cityscape Transformation",
-      description: "Day to night transition of a modern cityscape with moving lights and traffic flow.",
-      videoUrl: "https://storage.googleapis.com/fal-serverless/fal-ai/wan-i2v-output-videos/fal_qbmgwcwh34mxbw_fal_4sn5xmrzdhkkca_fal_4sn5xmrzdhkkca.mp4",
+      title: "ပင်လယ်နဂါး",
+      description: "ပင်လယ်နဂါး Animation.",
+      videoUrl: "http://yannaingsoe.com/video/dragon.mp4",
       prompt: "A stunning cityscape with moving cars and changing lights from day to night, cinematic quality, detailed, realistic"
     },
     {
@@ -21,7 +21,7 @@ const Examples = () => {
       title: "Nature Animation",
       description: "Peaceful forest scene with gentle wind moving through leaves and flowing water.",
       videoUrl: "https://storage.googleapis.com/fal-serverless/fal-ai/wan-i2v-output-videos/fal_qbwu7rtgnkwwva_fal_4sn5xmrzdhkkca_fal_4sn5xmrzdhkkca.mp4",
-      prompt: "Serene forest with trees swaying in the breeze, sunlight filtering through branches, small creek with flowing water"
+      prompt: "ပင်လယ်ပြင်ပေါ်ကနေ ဖြတ်သန်းပျံနေသည့် ချစ်စရာ နဂါးလေးတစ်ကောင်"
     },
     {
       id: 3,
