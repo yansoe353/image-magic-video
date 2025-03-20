@@ -332,7 +332,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
               <AlertTitle>API Key Required</AlertTitle>
               <AlertDescription>
                 <div className="space-y-4 mt-2">
-                  <p>Please enter your Infinity API key to generate images.</p>
+                  <p>ပုံတွေ ဗွီဒီယိုတွေ ထုတ်ဖို့ Infinity Tech မှဝယ်ယူထားသည့် Infinity API Key ထည့်ရပါမယ်</p>
                   <div>
                     <Label htmlFor="apiKey">Infinity API Key</Label>
                     <div className="flex gap-2 mt-1">
