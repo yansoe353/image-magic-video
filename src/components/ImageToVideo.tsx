@@ -216,6 +216,11 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
     }
   };
 
+  const handleEditVideo = () => {
+    // Implement your edit video logic here
+    console.log("Edit Video button clicked");
+  };
+
   return (
     <div className="grid gap-8 md:grid-cols-2">
       <Card className="overflow-hidden">
@@ -349,8 +354,8 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">Video Preview</h2>
               {videoUrl && (
-                <Button variant="outline" disabled>
-                  Edit Video (Coming Soon)
+                <Button variant="outline" onClick={handleEditVideo}>
+                  Edit Video
                 </Button>
               )}
             </div>
