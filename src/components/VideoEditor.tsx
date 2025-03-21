@@ -8,6 +8,7 @@ import { useVideoControls } from "@/hooks/useVideoControls";
 import VideoClipsList from "./VideoClipsList";
 import AudioSelector from "./AudioSelector";
 import VideoPreview from "./VideoPreview";
+import { Progress } from "@/components/ui/progress";
 
 interface VideoEditorProps {
   generatedVideoUrl: string | null;
@@ -19,6 +20,7 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
     audioTrack, 
     combinedVideoUrl, 
     isProcessing,
+    progressPercent,
     addVideoClip, 
     removeVideoClip, 
     reorderVideoClips, 
@@ -115,6 +117,18 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
               'Combine Videos'
             )}
           </Button>
+          
+          {isProcessing && (
+            <div className="mt-2">
+              <Progress value={progressPercent} className="h-2" />
+              <p className="text-xs text-center mt-1 text-gray-500">
+                {progressPercent < 50 ? "Preparing video files..." : 
+                 progressPercent < 80 ? "Combining videos..." : 
+                 progressPercent < 90 ? "Processing audio..." : 
+                 "Finalizing video..."}
+              </p>
+            </div>
+          )}
           
           {combinedVideoUrl && (
             <div className="mt-4">
