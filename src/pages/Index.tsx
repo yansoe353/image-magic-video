@@ -9,6 +9,7 @@ import { getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT }
 import { Card, CardContent } from "@/components/ui/card";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { AIAssistant } from "@/components/AIAssistant";
 
 interface SelectedContent {
   url: string;
@@ -156,6 +157,9 @@ const Index = () => {
           <p>© {new Date().getFullYear()} YoteShin AI. All rights reserved.</p>
         </div>
       </footer>
+      
+      {/* AI Assistant - only shown on the create page */}
+      <AIAssistant />
     </div>
   );
 };

@@ -8,7 +8,9 @@ import { useVideoControls } from "@/hooks/useVideoControls";
 import VideoClipsList from "./VideoClipsList";
 import AudioSelector from "./AudioSelector";
 import VideoPreview from "./VideoPreview";
+import VideoUploader from "./VideoUploader";
 import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 
 interface VideoEditorProps {
   generatedVideoUrl: string | null;
@@ -96,6 +98,13 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
             clips={videoClips}
             onRemoveClip={removeVideoClip}
             onReorderClips={reorderVideoClips}
+          />
+          
+          <Separator />
+          
+          <VideoUploader 
+            onVideoUploaded={addVideoClip} 
+            disabled={isProcessing}
           />
           
           <AudioSelector 
