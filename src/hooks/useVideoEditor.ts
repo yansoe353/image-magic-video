@@ -104,8 +104,9 @@ export function useVideoEditor() {
       
       // Handle audio track if provided
       if (audioTrack) {
-        // Save the combined video as temporary
-        ffmpeg.FS('rename', 'output.mp4', 'temp_output.mp4');
+        // Instead of using rename, we'll read the output file, then write it back with a different name
+        const tempOutputData = ffmpeg.FS('readFile', 'output.mp4');
+        ffmpeg.FS('writeFile', 'temp_output.mp4', tempOutputData);
         
         // Fetch the audio file
         const audioResponse = await fetch(audioTrack.url);
@@ -121,20 +122,27 @@ export function useVideoEditor() {
           '-map', '0:v',
           '-map', '1:a',
           '-shortest',
-          'output.mp4'
+          'output_with_audio.mp4'
         );
+        
+        // Read the output with audio
+        const data = ffmpeg.FS('readFile', 'output_with_audio.mp4');
+        
+        // Create a blob URL from the processed video
+        const blob = new Blob([data.buffer], { type: 'video/mp4' });
+        const url = URL.createObjectURL(blob);
+        
+        setCombinedVideoUrl(url);
+      } else {
+        // Read the output file without audio
+        const data = ffmpeg.FS('readFile', 'output.mp4');
+        
+        // Create a blob URL from the processed video
+        const blob = new Blob([data.buffer], { type: 'video/mp4' });
+        const url = URL.createObjectURL(blob);
+        
+        setCombinedVideoUrl(url);
       }
-      
-      setProgressPercent(90);
-      
-      // Read the output file
-      const data = ffmpeg.FS('readFile', 'output.mp4');
-      
-      // Create a blob URL from the processed video
-      const blob = new Blob([data.buffer], { type: 'video/mp4' });
-      const url = URL.createObjectURL(blob);
-      
-      setCombinedVideoUrl(url);
       
       // Clean up files
       videoClips.forEach((_, index) => {
@@ -151,6 +159,7 @@ export function useVideoEditor() {
         if (audioTrack) {
           ffmpeg.FS('unlink', 'temp_output.mp4');
           ffmpeg.FS('unlink', 'audio.mp3');
+          ffmpeg.FS('unlink', 'output_with_audio.mp4');
         }
       } catch (e) {
         console.log('Error during cleanup:', e);
