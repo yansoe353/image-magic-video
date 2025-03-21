@@ -2,10 +2,12 @@
 import { useState } from "react";
 
 interface GeminiAPIOptions {
-  apiKey?: string;
   temperature?: number;
   maxOutputTokens?: number;
 }
+
+// Hardcoded API key (provided by the application)
+const GEMINI_API_KEY = "AIzaSyBAJJLHI8kwwmNJwfuTInH2KYIGs9Nnhbc";
 
 export function useGeminiAPI(options: GeminiAPIOptions = {}) {
   const [isLoading, setIsLoading] = useState(false);
@@ -13,14 +15,9 @@ export function useGeminiAPI(options: GeminiAPIOptions = {}) {
 
   const generateResponse = async (prompt: string): Promise<string> => {
     const {
-      apiKey = localStorage.getItem("GEMINI_API_KEY"),
       temperature = 0.7,
       maxOutputTokens = 1024,
     } = options;
-
-    if (!apiKey) {
-      throw new Error("Gemini API key is not set. Please set it in the settings.");
-    }
 
     setIsLoading(true);
     setError(null);
@@ -32,7 +29,7 @@ export function useGeminiAPI(options: GeminiAPIOptions = {}) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-goog-api-key": apiKey,
+            "x-goog-api-key": GEMINI_API_KEY,
           },
           body: JSON.stringify({
             contents: [

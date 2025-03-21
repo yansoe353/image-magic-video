@@ -12,18 +12,9 @@ import {
   DrawerFooter,
   DrawerTrigger,
 } from "@/components/ui/drawer";
-import { Bot, User, Loader2, SendHorizontal, Settings } from "lucide-react";
+import { Bot, User, Loader2, SendHorizontal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 
 interface Message {
   id: string;
@@ -41,13 +32,11 @@ export function AIAssistant() {
     },
   ]);
   const [input, setInput] = useState("");
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem("GEMINI_API_KEY") || "");
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   
-  const { generateResponse, isLoading } = useGeminiAPI({ apiKey });
+  const { generateResponse, isLoading } = useGeminiAPI();
 
   // Scroll to bottom of messages when new ones are added
   useEffect(() => {
@@ -56,16 +45,6 @@ export function AIAssistant() {
 
   const handleSendMessage = async () => {
     if (!input.trim()) return;
-
-    if (!apiKey) {
-      toast({
-        title: "API Key Required",
-        description: "Please set your Gemini API key in settings",
-        variant: "destructive",
-      });
-      setIsSettingsOpen(true);
-      return;
-    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -115,15 +94,6 @@ Keep responses concise, practical, and helpful for creative work.
     }
   };
 
-  const saveApiKey = () => {
-    localStorage.setItem("GEMINI_API_KEY", apiKey);
-    setIsSettingsOpen(false);
-    toast({
-      title: "API Key Saved",
-      description: "Your Gemini API key has been saved",
-    });
-  };
-
   return (
     <>
       <Drawer open={isOpen} onOpenChange={setIsOpen}>
@@ -142,44 +112,6 @@ Keep responses concise, practical, and helpful for creative work.
               <Bot className="h-5 w-5" />
               <span>AI Assistant</span>
             </DrawerTitle>
-            <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Settings className="h-5 w-5" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>AI Assistant Settings</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="api-key">Gemini API Key</Label>
-                    <Input
-                      id="api-key"
-                      type="password"
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      placeholder="Enter your Gemini API key"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Get your API key from{" "}
-                      <a 
-                        href="https://aistudio.google.com/app/apikey" 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary underline"
-                      >
-                        Google AI Studio
-                      </a>
-                    </p>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button onClick={saveApiKey}>Save</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
           </DrawerHeader>
           
           <ScrollArea className="flex-1 p-4 h-[calc(85vh-160px)] sm:h-[calc(70vh-160px)]">
