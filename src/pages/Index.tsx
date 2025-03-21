@@ -90,10 +90,11 @@ const Index = () => {
           className="w-full"
           onValueChange={(value) => setActiveTab(value)}
         >
-          <TabsList className="grid w-full grid-cols-3 mb-8">
+          <TabsList className="grid w-full grid-cols-4 mb-8">
             <TabsTrigger value="text-to-image">Text to Image</TabsTrigger>
             <TabsTrigger value="image-to-video">Image to Video</TabsTrigger>
-            <TabsTrigger value="playground">Playground</TabsTrigger>
+            <TabsTrigger value="image-playground">Image Playground</TabsTrigger>
+            <TabsTrigger value="video-playground">Video Playground</TabsTrigger>
           </TabsList>
           
           <TabsContent value="text-to-image" className="mt-0">
@@ -104,14 +105,32 @@ const Index = () => {
             <ImageToVideo initialImageUrl={generatedImageUrl} />
           </TabsContent>
           
-          <TabsContent value="playground" className="mt-0">
+          <TabsContent value="image-playground" className="mt-0">
             <Card className="border-0 shadow-lg">
               <CardContent className="p-0">
                 <div className="w-full overflow-hidden rounded-lg">
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
                     <iframe
                       src="https://waloneai-zerocodewl.hf.space"
-                      title="WaloneAI Playground"
+                      title="Image Playground"
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="video-playground" className="mt-0">
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-0">
+                <div className="w-full overflow-hidden rounded-lg">
+                  <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
+                    <iframe
+                      src="https://alibaba-pai-easyanimate.hf.space"
+                      title="Video Playground"
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
