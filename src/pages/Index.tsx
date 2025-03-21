@@ -90,11 +90,19 @@ const Index = () => {
           className="w-full"
           onValueChange={(value) => setActiveTab(value)}
         >
-          <TabsList className="grid w-full grid-cols-4 mb-8">
-            <TabsTrigger value="text-to-image">Text to Image</TabsTrigger>
-            <TabsTrigger value="image-to-video">Image to Video</TabsTrigger>
-            <TabsTrigger value="image-playground">Image Playground</TabsTrigger>
-            <TabsTrigger value="video-playground">Video Playground</TabsTrigger>
+          <TabsList className={`grid w-full ${isMobile ? 'grid-cols-2 gap-2' : 'grid-cols-4'} mb-8`}>
+            <TabsTrigger value="text-to-image" className={`${isMobile ? 'text-xs py-1 px-1' : ''}`}>
+              {isMobile ? "Text→Image" : "Text to Image"}
+            </TabsTrigger>
+            <TabsTrigger value="image-to-video" className={`${isMobile ? 'text-xs py-1 px-1' : ''}`}>
+              {isMobile ? "Image→Video" : "Image to Video"}
+            </TabsTrigger>
+            <TabsTrigger value="image-playground" className={`${isMobile ? 'text-xs py-1 px-1' : ''}`}>
+              {isMobile ? "Image Play" : "Image Playground"}
+            </TabsTrigger>
+            <TabsTrigger value="video-playground" className={`${isMobile ? 'text-xs py-1 px-1' : ''}`}>
+              {isMobile ? "Video Play" : "Video Playground"}
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="text-to-image" className="mt-0">
