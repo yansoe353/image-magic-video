@@ -8,6 +8,9 @@ import { Plus, Shield, Pencil, Trash, BarChart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
+// Get the Supabase URL from our environment configuration
+const SUPABASE_URL = "https://rhbpeivthnmvzhblnvya.supabase.co";
+
 const UserList = () => {
   const [users, setUsers] = useState<AppUser[]>([]);
   const navigate = useNavigate();
@@ -62,9 +65,9 @@ const UserList = () => {
         const token = sessionData.session.access_token;
         
         try {
-          // Use the Supabase Management API directly
+          // Use the Supabase Management API directly with the constant URL
           // Note: This will only work if proper permissions are set
-          const response = await fetch(`${supabase.supabaseUrl}/auth/v1/admin/users`, {
+          const response = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${token}`,
