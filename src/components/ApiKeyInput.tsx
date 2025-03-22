@@ -19,8 +19,8 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Hardcoded FAL API key
-  const falApiKey = "fal-YneSFqPk.x6QQRD2WhLWR4J2Z72e6u39I3IlQ2YPO";
+  // Correct format for FAL API key - using key_id:key_secret format
+  const falApiKey = "key_YneSFqPk:x6QQRD2WhLWR4J2Z72e6u39I3IlQ2YPO";
 
   useEffect(() => {
     // Initialize with the hardcoded API key
