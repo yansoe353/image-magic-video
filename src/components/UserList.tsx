@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { AppUser, isAdmin } from "@/utils/authUtils";
+import { AppUser, isAdmin, getCurrentUser } from "@/utils/authUtils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -18,7 +18,24 @@ const UserList = () => {
 
   const loadUsers = async () => {
     try {
-      const { data, error } = await supabase.auth.admin.listUsers();
+      // Since we can't use admin API, we need to get users from database instead
+      // First get the current user to confirm admin status
+      const currentUser = await getCurrentUser();
+      if (!currentUser || !currentUser.isAdmin) {
+        toast({
+          title: "Access Denied",
+          description: "You need admin privileges to view this page",
+          variant: "destructive",
+        });
+        navigate("/");
+        return;
+      }
+      
+      // Now get all users (this will need proper DB tables and RLS policies)
+      const { data, error } = await supabase
+        .from('user_content_history')
+        .select('user_id')
+        .distinct();
       
       if (error) {
         console.error("Error listing users:", error);
@@ -30,17 +47,33 @@ const UserList = () => {
         return;
       }
       
-      if (data && data.users) {
-        const formattedUsers: AppUser[] = data.users.map(user => ({
-          id: user.id,
-          email: user.email || '',
-          name: user.user_metadata?.name || 'Unnamed User',
-          isAdmin: user.user_metadata?.isAdmin === true,
-          imageLimit: user.user_metadata?.imageLimit || 5,
-          videoLimit: user.user_metadata?.videoLimit || 0
-        }));
+      // For each unique user ID, get their details
+      if (data) {
+        const userPromises = data.map(async (item) => {
+          const { data: userData, error: userError } = await supabase.auth.getUser();
+          
+          if (userError || !userData.user) {
+            return null;
+          }
+          
+          return {
+            id: userData.user.id,
+            email: userData.user.email || '',
+            name: userData.user.user_metadata?.name || 'Unnamed User',
+            isAdmin: userData.user.user_metadata?.isAdmin === true,
+            imageLimit: userData.user.user_metadata?.imageLimit || 5,
+            videoLimit: userData.user.user_metadata?.videoLimit || 0
+          };
+        });
         
-        setUsers(formattedUsers);
+        const users = (await Promise.all(userPromises)).filter(Boolean) as AppUser[];
+        
+        // Add the current user if not already in the list
+        if (!users.some(u => u.id === currentUser.id)) {
+          users.push(currentUser);
+        }
+        
+        setUsers(users);
       }
     } catch (error) {
       console.error("Error loading users:", error);
@@ -85,21 +118,12 @@ const UserList = () => {
     setIsDeleting(true);
     
     try {
-      const { error } = await supabase.auth.admin.deleteUser(userId);
-      
-      if (!error) {
-        toast({
-          title: "Success",
-          description: "User deleted successfully",
-        });
-        loadUsers(); // Reload users after deletion
-      } else {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to delete user",
-          variant: "destructive",
-        });
-      }
+      // Since we don't have admin access, we can't directly delete users
+      toast({
+        title: "Error",
+        description: "User deletion requires admin access in Supabase dashboard",
+        variant: "destructive",
+      });
     } catch (error) {
       console.error("Error deleting user:", error);
       toast({

@@ -8,9 +8,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
 import { IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
+import { addNewUser } from "@/utils/authUtils";
 
 const AddUser = () => {
   const [email, setEmail] = useState("");
@@ -40,30 +40,16 @@ const AddUser = () => {
     setIsLoading(true);
     
     try {
-      const { data, error } = await supabase.auth.admin.createUser({
-        email: email,
-        password: password,
-        email_confirm: true,
-        user_metadata: {
-          name: name,
-          isAdmin: isAdmin,
-          imageLimit: imageLimit,
-          videoLimit: videoLimit
-        }
-      });
+      const success = await addNewUser(
+        email,
+        password,
+        name,
+        isAdmin,
+        imageLimit,
+        videoLimit
+      );
       
-      if (error) {
-        console.error("Error creating user:", error);
-        setError(error.message || "Failed to create account. Email may already be in use.");
-        toast({
-          title: "Error",
-          description: error.message || "Failed to create account. Email may already be in use.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      if (data.user) {
+      if (success) {
         toast({
           title: "Success",
           description: "User account created successfully",
@@ -77,6 +63,13 @@ const AddUser = () => {
         setVideoLimit(VIDEO_LIMIT);
         // Navigate to users list
         navigate("/users");
+      } else {
+        setError("Failed to create account. Email may already be in use.");
+        toast({
+          title: "Error",
+          description: "Failed to create account. Email may already be in use.",
+          variant: "destructive",
+        });
       }
     } catch (error: any) {
       console.error("Error creating user:", error);
