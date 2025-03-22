@@ -5,20 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { addNewUser } from "@/utils/authUtils";
 import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
-import { addNewUser } from "@/utils/authUtils";
 
 const AddUser = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [imageLimit, setImageLimit] = useState(IMAGE_LIMIT);
-  const [videoLimit, setVideoLimit] = useState(VIDEO_LIMIT);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -40,29 +35,19 @@ const AddUser = () => {
     setIsLoading(true);
     
     try {
-      const success = await addNewUser(
-        email,
-        password,
-        name,
-        isAdmin,
-        imageLimit,
-        videoLimit
-      );
+      const success = await addNewUser(email, password, name);
       
       if (success) {
         toast({
           title: "Success",
-          description: "User account created successfully",
+          description: "Your account has been created. Please check your email for verification.",
         });
         // Clear form
         setEmail("");
         setPassword("");
         setName("");
-        setIsAdmin(false);
-        setImageLimit(IMAGE_LIMIT);
-        setVideoLimit(VIDEO_LIMIT);
-        // Navigate to users list
-        navigate("/users");
+        // Navigate to login
+        navigate("/login");
       } else {
         setError("Failed to create account. Email may already be in use.");
         toast({
@@ -71,12 +56,12 @@ const AddUser = () => {
           variant: "destructive",
         });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error creating user:", error);
-      setError("An error occurred while creating the account: " + (error.message || error));
+      setError("An error occurred while creating your account");
       toast({
         title: "Error",
-        description: "An error occurred while creating the account",
+        description: "An error occurred while creating your account",
         variant: "destructive",
       });
     } finally {
@@ -88,9 +73,9 @@ const AddUser = () => {
     <div className="flex justify-center items-center py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Create a New User</CardTitle>
+          <CardTitle className="text-2xl font-bold">Create an Account</CardTitle>
           <CardDescription>
-            Add a new user to the system
+            Enter your information to create a new account
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -107,7 +92,7 @@ const AddUser = () => {
                 <Input
                   id="name"
                   type="text"
-                  placeholder="Enter user's name"
+                  placeholder="Enter your name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
@@ -117,7 +102,7 @@ const AddUser = () => {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="Enter user's email"
+                  placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -128,44 +113,11 @@ const AddUser = () => {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Enter user's password"
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="imageLimit">Image Generation Limit</Label>
-                <Input
-                  id="imageLimit"
-                  type="number"
-                  min="0"
-                  value={imageLimit}
-                  onChange={(e) => setImageLimit(parseInt(e.target.value) || 0)}
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="videoLimit">Video Generation Limit</Label>
-                <Input
-                  id="videoLimit"
-                  type="number"
-                  min="0"
-                  value={videoLimit}
-                  onChange={(e) => setVideoLimit(parseInt(e.target.value) || 0)}
-                  required
-                />
-              </div>
-              
-              <div className="flex items-center space-x-2 pt-2">
-                <Switch
-                  id="admin-mode"
-                  checked={isAdmin}
-                  onCheckedChange={setIsAdmin}
-                />
-                <Label htmlFor="admin-mode" className="cursor-pointer">Administrator</Label>
               </div>
             </div>
             <CardFooter className="flex justify-end pt-6 pb-0 px-0">
@@ -173,12 +125,12 @@ const AddUser = () => {
                 type="button" 
                 variant="outline" 
                 className="mr-2"
-                onClick={() => navigate("/users")}
+                onClick={() => navigate(-1)}
               >
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Creating..." : "Create User"}
+                {isLoading ? "Creating..." : "Create Account"}
               </Button>
             </CardFooter>
           </form>

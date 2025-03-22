@@ -1,15 +1,19 @@
 
 import { useState, useEffect } from "react";
-import { AppUser, isAdmin, getCurrentUser } from "@/utils/authUtils";
+import { getAllUsers, AppUser, isAdmin, deleteUser } from "@/utils/authUtils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { Plus, Shield, Pencil, Trash, BarChart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-
-// Get the Supabase URL from our environment configuration
-const SUPABASE_URL = "https://rhbpeivthnmvzhblnvya.supabase.co";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const UserList = () => {
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -21,84 +25,8 @@ const UserList = () => {
 
   const loadUsers = async () => {
     try {
-      // First get the current user to confirm admin status
-      const currentUser = await getCurrentUser();
-      if (!currentUser || !currentUser.isAdmin) {
-        toast({
-          title: "Access Denied",
-          description: "You need admin privileges to view this page",
-          variant: "destructive",
-        });
-        navigate("/");
-        return;
-      }
-      
-      // Since we can't reliably use the admin API from the client,
-      // we'll use a combination of methods to get as many users as possible
-      
-      // First try to get users from user_content_history to find user IDs
-      const { data: historyData, error: historyError } = await supabase
-        .from('user_content_history')
-        .select('user_id');
-      
-      let userIds: string[] = [];
-      
-      if (!historyError && historyData) {
-        // Get unique user IDs from history
-        userIds = Array.from(new Set(historyData.map(item => item.user_id)));
-      }
-      
-      // Always add the current user's ID
-      if (currentUser && !userIds.includes(currentUser.id)) {
-        userIds.push(currentUser.id);
-      }
-      
-      // For every user ID we have, try to get their user metadata
-      const usersList: AppUser[] = [];
-      
-      // Add the current user first (we have complete info)
-      usersList.push(currentUser);
-      
-      // Try to get basic session info
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData.session) {
-        const token = sessionData.session.access_token;
-        
-        try {
-          // Use the Supabase Management API directly with the constant URL
-          // Note: This will only work if proper permissions are set
-          const response = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'apikey': token
-            }
-          });
-          
-          if (response.ok) {
-            const userData = await response.json();
-            if (userData && userData.users && Array.isArray(userData.users)) {
-              const mappedUsers = userData.users.map(user => ({
-                id: user.id,
-                email: user.email || '',
-                name: user.user_metadata?.name || 'Unnamed User',
-                isAdmin: user.user_metadata?.isAdmin === true,
-                imageLimit: user.user_metadata?.imageLimit || 5,
-                videoLimit: user.user_metadata?.videoLimit || 0
-              }));
-              
-              setUsers(mappedUsers);
-              setIsLoading(false);
-              return;
-            }
-          }
-        } catch (error) {
-          console.log("Error fetching with direct API call:", error);
-        }
-      }
-      
-      // If we reach here, admin API didn't work, so we just use the usersList we built
-      setUsers(usersList);
+      const loadedUsers = await getAllUsers();
+      setUsers(loadedUsers);
     } catch (error) {
       console.error("Error loading users:", error);
       toast({
@@ -142,12 +70,21 @@ const UserList = () => {
     setIsDeleting(true);
     
     try {
-      // Since we don't have admin access, we can't directly delete users
-      toast({
-        title: "Error",
-        description: "User deletion requires admin access in Supabase dashboard",
-        variant: "destructive",
-      });
+      const success = await deleteUser(userId);
+      
+      if (success) {
+        toast({
+          title: "Success",
+          description: "User deleted successfully",
+        });
+        loadUsers(); // Reload users after deletion
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete user",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error("Error deleting user:", error);
       toast({
@@ -198,8 +135,8 @@ const UserList = () => {
                 <p className="text-xs font-medium text-amber-600 mt-1">Administrator</p>
               )}
               <div className="mt-2">
-                <p className="text-xs font-medium">Image Limit: {user.imageLimit || 5}</p>
-                <p className="text-xs font-medium">Video Limit: {user.videoLimit || 0}</p>
+                <p className="text-xs font-medium">Image Limit: {user.imageLimit || 100}</p>
+                <p className="text-xs font-medium">Video Limit: {user.videoLimit || 50}</p>
               </div>
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
