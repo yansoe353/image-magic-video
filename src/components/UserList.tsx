@@ -32,10 +32,11 @@ const UserList = () => {
       }
       
       // Now get all users (this will need proper DB tables and RLS policies)
+      // Using select() instead of distinct()
       const { data, error } = await supabase
         .from('user_content_history')
         .select('user_id')
-        .distinct();
+        .order('user_id');
       
       if (error) {
         console.error("Error listing users:", error);
@@ -47,9 +48,12 @@ const UserList = () => {
         return;
       }
       
+      // Get unique user IDs
+      const uniqueUserIds = Array.from(new Set(data.map(item => item.user_id)));
+      
       // For each unique user ID, get their details
-      if (data) {
-        const userPromises = data.map(async (item) => {
+      if (uniqueUserIds.length > 0) {
+        const userPromises = uniqueUserIds.map(async (userId) => {
           const { data: userData, error: userError } = await supabase.auth.getUser();
           
           if (userError || !userData.user) {
