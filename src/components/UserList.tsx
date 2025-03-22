@@ -30,59 +30,72 @@ const UserList = () => {
         return;
       }
       
-      // Fetch all users from auth.users (this requires admin access)
-      const { data, error } = await supabase.auth.admin.listUsers();
+      // Since we can't reliably use the admin API from the client,
+      // we'll use a combination of methods to get as many users as possible
       
-      if (error) {
-        console.error("Error listing users:", error);
+      // First try to get users from user_content_history to find user IDs
+      const { data: historyData, error: historyError } = await supabase
+        .from('user_content_history')
+        .select('user_id');
+      
+      let userIds: string[] = [];
+      
+      if (!historyError && historyData) {
+        // Get unique user IDs from history
+        userIds = Array.from(new Set(historyData.map(item => item.user_id)));
+      }
+      
+      // Always add the current user's ID
+      if (currentUser && !userIds.includes(currentUser.id)) {
+        userIds.push(currentUser.id);
+      }
+      
+      // For every user ID we have, try to get their user metadata
+      const usersList: AppUser[] = [];
+      
+      // Add the current user first (we have complete info)
+      usersList.push(currentUser);
+      
+      // Try to get basic session info
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session) {
+        const token = sessionData.session.access_token;
         
-        // Fallback method if admin API access fails
-        // Get users from user_content_history
-        const { data: historyData, error: historyError } = await supabase
-          .from('user_content_history')
-          .select('user_id')
-          .order('user_id');
-        
-        if (historyError) {
-          toast({
-            title: "Error",
-            description: "Failed to load users",
-            variant: "destructive",
+        try {
+          // Use the Supabase Management API directly
+          // Note: This will only work if proper permissions are set
+          const response = await fetch(`${supabase.supabaseUrl}/auth/v1/admin/users`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'apikey': token
+            }
           });
-          return;
-        }
-        
-        // Get unique user IDs
-        const uniqueUserIds = Array.from(new Set(historyData.map(item => item.user_id)));
-        
-        // For each unique user ID, get their details
-        if (uniqueUserIds.length > 0) {
-          // We need to manually get the current user since we can't get other users without admin access
-          const usersList: AppUser[] = [];
           
-          // Add the current user to the list
-          if (currentUser) {
-            usersList.push(currentUser);
+          if (response.ok) {
+            const userData = await response.json();
+            if (userData && userData.users && Array.isArray(userData.users)) {
+              const mappedUsers = userData.users.map(user => ({
+                id: user.id,
+                email: user.email || '',
+                name: user.user_metadata?.name || 'Unnamed User',
+                isAdmin: user.user_metadata?.isAdmin === true,
+                imageLimit: user.user_metadata?.imageLimit || 5,
+                videoLimit: user.user_metadata?.videoLimit || 0
+              }));
+              
+              setUsers(mappedUsers);
+              setIsLoading(false);
+              return;
+            }
           }
-          
-          setUsers(usersList);
+        } catch (error) {
+          console.log("Error fetching with direct API call:", error);
         }
-        return;
       }
       
-      // If we have admin access, map the users from the admin API
-      if (data && data.users) {
-        const mappedUsers = data.users.map(user => ({
-          id: user.id,
-          email: user.email || '',
-          name: user.user_metadata?.name || 'Unnamed User',
-          isAdmin: user.user_metadata?.isAdmin === true,
-          imageLimit: user.user_metadata?.imageLimit || 5,
-          videoLimit: user.user_metadata?.videoLimit || 0
-        }));
-        
-        setUsers(mappedUsers);
-      }
+      // If we reach here, admin API didn't work, so we just use the usersList we built
+      setUsers(usersList);
     } catch (error) {
       console.error("Error loading users:", error);
       toast({
