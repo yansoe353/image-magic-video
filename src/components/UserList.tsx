@@ -1,19 +1,12 @@
 
 import { useState, useEffect } from "react";
-import { getAllUsers, AppUser, isAdmin, deleteUser } from "@/utils/authUtils";
+import { AppUser, isAdmin } from "@/utils/authUtils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { Plus, Shield, Pencil, Trash, BarChart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
 
 const UserList = () => {
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -25,8 +18,30 @@ const UserList = () => {
 
   const loadUsers = async () => {
     try {
-      const loadedUsers = await getAllUsers();
-      setUsers(loadedUsers);
+      const { data, error } = await supabase.auth.admin.listUsers();
+      
+      if (error) {
+        console.error("Error listing users:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load users",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (data && data.users) {
+        const formattedUsers: AppUser[] = data.users.map(user => ({
+          id: user.id,
+          email: user.email || '',
+          name: user.user_metadata?.name || 'Unnamed User',
+          isAdmin: user.user_metadata?.isAdmin === true,
+          imageLimit: user.user_metadata?.imageLimit || 5,
+          videoLimit: user.user_metadata?.videoLimit || 0
+        }));
+        
+        setUsers(formattedUsers);
+      }
     } catch (error) {
       console.error("Error loading users:", error);
       toast({
@@ -70,9 +85,9 @@ const UserList = () => {
     setIsDeleting(true);
     
     try {
-      const success = await deleteUser(userId);
+      const { error } = await supabase.auth.admin.deleteUser(userId);
       
-      if (success) {
+      if (!error) {
         toast({
           title: "Success",
           description: "User deleted successfully",
@@ -81,7 +96,7 @@ const UserList = () => {
       } else {
         toast({
           title: "Error",
-          description: "Failed to delete user",
+          description: error.message || "Failed to delete user",
           variant: "destructive",
         });
       }
@@ -135,8 +150,8 @@ const UserList = () => {
                 <p className="text-xs font-medium text-amber-600 mt-1">Administrator</p>
               )}
               <div className="mt-2">
-                <p className="text-xs font-medium">Image Limit: {user.imageLimit || 100}</p>
-                <p className="text-xs font-medium">Video Limit: {user.videoLimit || 50}</p>
+                <p className="text-xs font-medium">Image Limit: {user.imageLimit || 5}</p>
+                <p className="text-xs font-medium">Video Limit: {user.videoLimit || 0}</p>
               </div>
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
