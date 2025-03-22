@@ -19,7 +19,7 @@ import { UsageLimits } from "./image-generation/UsageLimits";
 import { translateText } from "@/utils/translationUtils";
 
 // Correct format for FAL API key - using key_id:key_secret format
-const falApiKey = "key_YneSFqPk:x6QQRD2WhLWR4J2Z72e6u39I3IlQ2YPO";
+const falApiKey = "key_29c0be08-1302-44e1-a48a-d43096d6a6bb:ddd15111c9411ac661261375819bbd93";
 
 // Initialize fal.ai client
 fal.config({
