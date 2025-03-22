@@ -18,7 +18,6 @@ const UserList = () => {
 
   const loadUsers = async () => {
     try {
-      // Since we can't use admin API, we need to get users from database instead
       // First get the current user to confirm admin status
       const currentUser = await getCurrentUser();
       if (!currentUser || !currentUser.isAdmin) {
@@ -31,53 +30,58 @@ const UserList = () => {
         return;
       }
       
-      // Now get all users (this will need proper DB tables and RLS policies)
-      // Using select() instead of distinct()
-      const { data, error } = await supabase
-        .from('user_content_history')
-        .select('user_id')
-        .order('user_id');
+      // Fetch all users from auth.users (this requires admin access)
+      const { data, error } = await supabase.auth.admin.listUsers();
       
       if (error) {
         console.error("Error listing users:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load users",
-          variant: "destructive",
-        });
+        
+        // Fallback method if admin API access fails
+        // Get users from user_content_history
+        const { data: historyData, error: historyError } = await supabase
+          .from('user_content_history')
+          .select('user_id')
+          .order('user_id');
+        
+        if (historyError) {
+          toast({
+            title: "Error",
+            description: "Failed to load users",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        // Get unique user IDs
+        const uniqueUserIds = Array.from(new Set(historyData.map(item => item.user_id)));
+        
+        // For each unique user ID, get their details
+        if (uniqueUserIds.length > 0) {
+          // We need to manually get the current user since we can't get other users without admin access
+          const usersList: AppUser[] = [];
+          
+          // Add the current user to the list
+          if (currentUser) {
+            usersList.push(currentUser);
+          }
+          
+          setUsers(usersList);
+        }
         return;
       }
       
-      // Get unique user IDs
-      const uniqueUserIds = Array.from(new Set(data.map(item => item.user_id)));
-      
-      // For each unique user ID, get their details
-      if (uniqueUserIds.length > 0) {
-        const userPromises = uniqueUserIds.map(async (userId) => {
-          const { data: userData, error: userError } = await supabase.auth.getUser();
-          
-          if (userError || !userData.user) {
-            return null;
-          }
-          
-          return {
-            id: userData.user.id,
-            email: userData.user.email || '',
-            name: userData.user.user_metadata?.name || 'Unnamed User',
-            isAdmin: userData.user.user_metadata?.isAdmin === true,
-            imageLimit: userData.user.user_metadata?.imageLimit || 5,
-            videoLimit: userData.user.user_metadata?.videoLimit || 0
-          };
-        });
+      // If we have admin access, map the users from the admin API
+      if (data && data.users) {
+        const mappedUsers = data.users.map(user => ({
+          id: user.id,
+          email: user.email || '',
+          name: user.user_metadata?.name || 'Unnamed User',
+          isAdmin: user.user_metadata?.isAdmin === true,
+          imageLimit: user.user_metadata?.imageLimit || 5,
+          videoLimit: user.user_metadata?.videoLimit || 0
+        }));
         
-        const users = (await Promise.all(userPromises)).filter(Boolean) as AppUser[];
-        
-        // Add the current user if not already in the list
-        if (!users.some(u => u.id === currentUser.id)) {
-          users.push(currentUser);
-        }
-        
-        setUsers(users);
+        setUsers(mappedUsers);
       }
     } catch (error) {
       console.error("Error loading users:", error);
