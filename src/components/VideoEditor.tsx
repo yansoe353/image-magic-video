@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Film, AlertTriangle } from "lucide-react";
+import { Loader2, Film, AlertTriangle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useVideoEditor, type VideoClip } from "@/hooks/useVideoEditor";
 import { useVideoControls } from "@/hooks/useVideoControls";
@@ -11,7 +11,7 @@ import VideoPreview from "./VideoPreview";
 import VideoUploader from "./VideoUploader";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface VideoEditorProps {
   generatedVideoUrl: string | null;
@@ -77,9 +77,19 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
       <CardContent className="p-6">
         <h2 className="text-2xl font-bold mb-4">Video Editor</h2>
         
+        <Alert variant="warning" className="mb-4">
+          <Info className="h-4 w-4" />
+          <AlertTitle>Browser-based editing</AlertTitle>
+          <AlertDescription>
+            This editor runs entirely in your browser. For advanced features like combining multiple videos, 
+            consider upgrading to our cloud-based editor.
+          </AlertDescription>
+        </Alert>
+        
         {error && (
           <Alert variant="destructive" className="mb-4">
-            <AlertTriangle className="h-4 w-4 mr-2" />
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Processing Limitation</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -126,8 +136,10 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Processing...
               </>
+            ) : videoClips.length > 1 ? (
+              'Preview First Video'
             ) : (
-              'Combine Videos'
+              'Preview Video'
             )}
           </Button>
           
@@ -155,6 +167,16 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
                 handlePlayPause={handlePlayPause}
               />
             </div>
+          )}
+          
+          {videoClips.length > 1 && !isProcessing && (
+            <Alert variant="info" className="mt-2">
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Multi-clip editing showing preview of first clip. For full editing capabilities, 
+                try our cloud-based editor (coming soon).
+              </AlertDescription>
+            </Alert>
           )}
         </div>
       </CardContent>

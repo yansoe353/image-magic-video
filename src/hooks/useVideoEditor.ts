@@ -58,16 +58,20 @@ export function useVideoEditor() {
   };
 
   const combineVideos = async () => {
-    if (videoClips.length === 0) return;
+    if (videoClips.length === 0) {
+      toast({
+        title: "No videos to process",
+        description: "Please add at least one video clip before combining.",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setIsProcessing(true);
     setProgressPercent(0);
     setError(null);
     
     try {
-      // For browser compatibility issues, we'll use a simple approach for now
-      // that just concatenates videos in the UI without using ffmpeg
-      
       setProgressPercent(20);
       
       // If there's only one video clip, just use that URL directly
@@ -84,9 +88,6 @@ export function useVideoEditor() {
       }
       
       // For multiple clips, we'll just use the first one for now
-      // In a production app, you would integrate with a server-side
-      // video processing service
-      
       setProgressPercent(50);
       
       // Simulate processing
@@ -94,9 +95,11 @@ export function useVideoEditor() {
         setProgressPercent(90);
         setCombinedVideoUrl(videoClips[0].url);
         
+        setError("Multiple video combination is currently limited to browser capabilities. Only displaying the first video.");
+        
         toast({
-          title: "Processing limitation",
-          description: "Multiple video combination requires server-side processing. Currently showing the first video.",
+          title: "Browser Limitation",
+          description: "Advanced video editing requires our cloud service. Currently showing only the first clip.",
           variant: "destructive"
         });
         
@@ -106,10 +109,10 @@ export function useVideoEditor() {
       
     } catch (error) {
       console.error("Failed to combine videos:", error);
-      setError("Video processing failed. Browser compatibility issue detected.");
+      setError("Video processing failed due to browser compatibility limitations.");
       toast({
         title: "Processing Error",
-        description: "Unable to process videos in this browser. Try using Chrome or Edge.",
+        description: "Unable to process videos in this browser. Try using Chrome or Edge for better compatibility.",
         variant: "destructive"
       });
     } finally {
