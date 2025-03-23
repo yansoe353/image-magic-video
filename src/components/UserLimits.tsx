@@ -6,13 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { setUserLimits, isAdmin, getAllUsers, AppUser } from "@/utils/authUtils";
+import { setUserLimits, isAdmin, getCurrentUser, AppUser } from "@/utils/authUtils";
 import { BarChart } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const UserLimits = () => {
   const { userId } = useParams<{ userId: string }>();
-  const [imageLimit, setImageLimit] = useState<number>(100);
-  const [videoLimit, setVideoLimit] = useState<number>(20);
+  const [imageLimit, setImageLimit] = useState<number>(5);
+  const [videoLimit, setVideoLimit] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
   const [user, setUser] = useState<AppUser | null>(null);
@@ -38,17 +39,36 @@ const UserLimits = () => {
       
       // Load user data
       if (userId) {
-        const users = await getAllUsers();
-        const foundUser = users.find(u => u.id === userId);
-        
-        if (foundUser) {
-          setUser(foundUser);
-          setImageLimit(foundUser.imageLimit || 100);
-          setVideoLimit(foundUser.videoLimit || 20);
-        } else {
+        try {
+          const { data: userData, error } = await supabase.auth.admin.getUserById(userId);
+          
+          if (error || !userData?.user) {
+            toast({
+              title: "Error",
+              description: "User not found",
+              variant: "destructive",
+            });
+            navigate("/users");
+            return;
+          }
+          
+          const userDetails: AppUser = {
+            id: userData.user.id,
+            email: userData.user.email || '',
+            name: userData.user.user_metadata?.name,
+            isAdmin: userData.user.user_metadata?.isAdmin === true,
+            imageLimit: userData.user.user_metadata?.imageLimit || 5,
+            videoLimit: userData.user.user_metadata?.videoLimit || 0
+          };
+          
+          setUser(userDetails);
+          setImageLimit(userDetails.imageLimit || 5);
+          setVideoLimit(userDetails.videoLimit || 0);
+        } catch (error) {
+          console.error("Error fetching user:", error);
           toast({
             title: "Error",
-            description: "User not found",
+            description: "Failed to load user data",
             variant: "destructive",
           });
           navigate("/users");

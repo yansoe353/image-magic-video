@@ -10,7 +10,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AIAssistant } from "@/components/AIAssistant";
-import VideoEditor from "@/components/VideoEditor";
 
 interface SelectedContent {
   url: string;
@@ -21,7 +20,6 @@ const Index = () => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<string>("text-to-image");
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
-  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState(true);
   const [usageCounts, setUsageCounts] = useState(getRemainingCounts());
   const isMobile = useIsMobile();
@@ -38,9 +36,6 @@ const Index = () => {
         if (selectedContent.type === 'image') {
           setGeneratedImageUrl(selectedContent.url);
           setActiveTab("image-to-video");
-        } else if (selectedContent.type === 'video') {
-          setGeneratedVideoUrl(selectedContent.url);
-          setActiveTab("video-editor");
         }
       }
     };
@@ -58,15 +53,6 @@ const Index = () => {
   const handleImageGenerated = (imageUrl: string) => {
     setGeneratedImageUrl(imageUrl);
     setActiveTab("image-to-video");
-  };
-
-  const handleVideoGenerated = (videoUrl: string) => {
-    setGeneratedVideoUrl(videoUrl);
-  };
-
-  const handleSwitchToEditor = (videoUrl: string) => {
-    setGeneratedVideoUrl(videoUrl);
-    setActiveTab("video-editor");
   };
 
   return (
@@ -105,15 +91,12 @@ const Index = () => {
           className="w-full"
           onValueChange={(value) => setActiveTab(value)}
         >
-          <TabsList className={`grid w-full ${isMobile ? 'grid-cols-2 gap-1' : 'grid-cols-5'} mb-8`}>
+          <TabsList className={`grid w-full ${isMobile ? 'grid-cols-2 gap-2' : 'grid-cols-4'} mb-8`}>
             <TabsTrigger value="text-to-image" className={`${isMobile ? 'text-xs py-1 px-1' : ''}`}>
               {isMobile ? "Text→Image" : "Text to Image"}
             </TabsTrigger>
             <TabsTrigger value="image-to-video" className={`${isMobile ? 'text-xs py-1 px-1' : ''}`}>
               {isMobile ? "Image→Video" : "Image to Video"}
-            </TabsTrigger>
-            <TabsTrigger value="video-editor" className={`${isMobile ? 'text-xs py-1 px-1' : ''}`}>
-              {isMobile ? "Video Edit" : "Video Editor"}
             </TabsTrigger>
             <TabsTrigger value="image-playground" className={`${isMobile ? 'text-xs py-1 px-1' : ''}`}>
               {isMobile ? "Image Play" : "Image Playground"}
@@ -128,15 +111,7 @@ const Index = () => {
           </TabsContent>
           
           <TabsContent value="image-to-video" className="mt-0">
-            <ImageToVideo 
-              initialImageUrl={generatedImageUrl}
-              onVideoGenerated={handleVideoGenerated}
-              onSwitchToEditor={handleSwitchToEditor}
-            />
-          </TabsContent>
-          
-          <TabsContent value="video-editor" className="mt-0">
-            <VideoEditor generatedVideoUrl={generatedVideoUrl} />
+            <ImageToVideo initialImageUrl={generatedImageUrl} />
           </TabsContent>
           
           <TabsContent value="image-playground" className="mt-0">
