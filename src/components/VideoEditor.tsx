@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Film } from "lucide-react";
+import { Loader2, Film, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useVideoEditor, type VideoClip } from "@/hooks/useVideoEditor";
 import { useVideoControls } from "@/hooks/useVideoControls";
@@ -11,6 +11,7 @@ import VideoPreview from "./VideoPreview";
 import VideoUploader from "./VideoUploader";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface VideoEditorProps {
   generatedVideoUrl: string | null;
@@ -23,6 +24,7 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
     combinedVideoUrl, 
     isProcessing,
     progressPercent,
+    error,
     addVideoClip, 
     removeVideoClip, 
     reorderVideoClips, 
@@ -68,17 +70,19 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
     }
 
     await combineVideos();
-    
-    toast({
-      title: "Videos combined",
-      description: "Video clips have been combined successfully."
-    });
   };
 
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-6">
         <h2 className="text-2xl font-bold mb-4">Video Editor</h2>
+        
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         
         <div className="space-y-6">
           <div className="flex justify-between items-center">
@@ -132,9 +136,9 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
               <Progress value={progressPercent} className="h-2" />
               <p className="text-xs text-center mt-1 text-gray-500">
                 {progressPercent < 50 ? "Preparing video files..." : 
-                 progressPercent < 80 ? "Combining videos..." : 
-                 progressPercent < 90 ? "Processing audio..." : 
-                 "Finalizing video..."}
+                 progressPercent < 80 ? "Processing video..." : 
+                 progressPercent < 90 ? "Finalizing..." : 
+                 "Almost ready..."}
               </p>
             </div>
           )}
