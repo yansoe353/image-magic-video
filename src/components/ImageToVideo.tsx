@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +16,7 @@ import { incrementVideoCount, getRemainingCounts, getRemainingCountsAsync, VIDEO
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
+import VideoEditor from "./VideoEditor";
 import { supabase } from "@/integrations/supabase/client";
 import { isLoggedIn } from "@/utils/authUtils";
 import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
@@ -47,6 +49,7 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
   const [originalVideoUrl, setOriginalVideoUrl] = useState("");
   const [supabaseVideoUrl, setSupabaseVideoUrl] = useState("");
   const [isStoringVideo, setIsStoringVideo] = useState(false);
+  const [showVideoEditor, setShowVideoEditor] = useState(false);
 
   const [duration, setDuration] = useState<string>("5");
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
@@ -217,8 +220,9 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
   };
 
   const handleEditVideo = () => {
-    // Implement your edit video logic here
     console.log("Edit Video button clicked");
+    // Show the VideoEditor component
+    setShowVideoEditor(true);
   };
 
   return (
@@ -349,27 +353,40 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
       </Card>
 
       <div className="space-y-8">
-        <Card className="overflow-hidden">
-          <CardContent className="p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">Video Preview</h2>
-              {videoUrl && (
-                <Button variant="outline" onClick={handleEditVideo}>
-                  Edit Video
-                </Button>
-              )}
-            </div>
-            <VideoPreview
-              videoUrl={supabaseVideoUrl || videoUrl}
-              isLoading={isLoading || isStoringVideo}
-              generationLogs={generationLogs}
-              videoRef={videoRef}
-              isPlaying={isPlaying}
-              handlePlayPause={handlePlayPause}
-              isStoring={isStoringVideo}
-            />
-          </CardContent>
-        </Card>
+        {!showVideoEditor ? (
+          <Card className="overflow-hidden">
+            <CardContent className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">Video Preview</h2>
+                {videoUrl && (
+                  <Button variant="outline" onClick={handleEditVideo}>
+                    Edit Video
+                  </Button>
+                )}
+              </div>
+              <VideoPreview
+                videoUrl={supabaseVideoUrl || videoUrl}
+                isLoading={isLoading || isStoringVideo}
+                generationLogs={generationLogs}
+                videoRef={videoRef}
+                isPlaying={isPlaying}
+                handlePlayPause={handlePlayPause}
+                isStoring={isStoringVideo}
+              />
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowVideoEditor(false)}
+              className="mb-4"
+            >
+              Back to Preview
+            </Button>
+            <VideoEditor generatedVideoUrl={supabaseVideoUrl || videoUrl} />
+          </>
+        )}
       </div>
     </div>
   );
