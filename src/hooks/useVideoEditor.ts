@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { getUserId } from "@/utils/storageUtils";
 
 export interface VideoClip {
   id: string;
@@ -72,8 +74,6 @@ export function useVideoEditor() {
     setError(null);
     
     try {
-      setProgressPercent(20);
-      
       // If there's only one video clip, just use that URL directly
       if (videoClips.length === 1) {
         setProgressPercent(90);
@@ -87,32 +87,44 @@ export function useVideoEditor() {
         return;
       }
       
-      // For multiple clips, we'll just use the first one for now
-      setProgressPercent(50);
+      // For multiple clips, use the server-side processing
+      setProgressPercent(20);
       
-      // Simulate processing
-      setTimeout(() => {
-        setProgressPercent(90);
-        setCombinedVideoUrl(videoClips[0].url);
-        
-        setError("Multiple video combination is currently limited to browser capabilities. Only displaying the first video.");
-        
-        toast({
-          title: "Browser Limitation",
-          description: "Advanced video editing requires our cloud service. Currently showing only the first clip.",
-          variant: "destructive"
-        });
-        
-        setProgressPercent(100);
-        setIsProcessing(false);
-      }, 2000);
+      // Get current user ID if available
+      const userId = await getUserId();
+      
+      // Prepare video URLs for the server
+      const videoUrls = videoClips.map(clip => clip.url);
+      
+      setProgressPercent(40);
+      
+      // Call our Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke('combine-videos', {
+        body: { videoUrls, userId }
+      });
+      
+      if (error) {
+        throw new Error(`Server processing failed: ${error.message}`);
+      }
+      
+      setProgressPercent(80);
+      
+      // Set the combined video URL from the server response
+      setCombinedVideoUrl(data.url);
+      
+      toast({
+        title: "Videos Combined",
+        description: "Your videos have been processed on our server.",
+      });
+      
+      setProgressPercent(100);
       
     } catch (error) {
       console.error("Failed to combine videos:", error);
-      setError("Video processing failed due to browser compatibility limitations.");
+      setError("Video processing failed on the server. Please try again later.");
       toast({
         title: "Processing Error",
-        description: "Unable to process videos in this browser. Try using Chrome or Edge for better compatibility.",
+        description: "Server-side video processing encountered an error. Please try again.",
         variant: "destructive"
       });
     } finally {

@@ -77,19 +77,19 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
       <CardContent className="p-6">
         <h2 className="text-2xl font-bold mb-4">Video Editor</h2>
         
-        <Alert variant="warning" className="mb-4">
+        <Alert className="mb-4">
           <Info className="h-4 w-4" />
-          <AlertTitle>Browser-based editing</AlertTitle>
+          <AlertTitle>Cloud-based editing</AlertTitle>
           <AlertDescription>
-            This editor runs entirely in your browser. For advanced features like combining multiple videos, 
-            consider upgrading to our cloud-based editor.
+            This editor now uses our cloud service for combining multiple videos. 
+            The processing happens on our servers for optimal results.
           </AlertDescription>
         </Alert>
         
         {error && (
           <Alert variant="destructive" className="mb-4">
             <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Processing Limitation</AlertTitle>
+            <AlertTitle>Processing Error</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -134,10 +134,10 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
             {isProcessing ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Processing...
+                Processing on server...
               </>
             ) : videoClips.length > 1 ? (
-              'Preview First Video'
+              'Combine Videos on Server'
             ) : (
               'Preview Video'
             )}
@@ -147,9 +147,9 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
             <div className="mt-2">
               <Progress value={progressPercent} className="h-2" />
               <p className="text-xs text-center mt-1 text-gray-500">
-                {progressPercent < 50 ? "Preparing video files..." : 
-                 progressPercent < 80 ? "Processing video..." : 
-                 progressPercent < 90 ? "Finalizing..." : 
+                {progressPercent < 50 ? "Uploading videos to server..." : 
+                 progressPercent < 80 ? "Server processing videos..." : 
+                 progressPercent < 90 ? "Finalizing combined video..." : 
                  "Almost ready..."}
               </p>
             </div>
@@ -169,12 +169,12 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
             </div>
           )}
           
-          {videoClips.length > 1 && !isProcessing && (
-            <Alert variant="info" className="mt-2">
+          {videoClips.length > 1 && !isProcessing && !combinedVideoUrl && (
+            <Alert className="mt-2">
               <Info className="h-4 w-4" />
               <AlertDescription>
-                Multi-clip editing showing preview of first clip. For full editing capabilities, 
-                try our cloud-based editor (coming soon).
+                Click "Combine Videos on Server" to process your clips on our cloud servers.
+                This allows for advanced editing capabilities beyond what browsers can do.
               </AlertDescription>
             </Alert>
           )}
