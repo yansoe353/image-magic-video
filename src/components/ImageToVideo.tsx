@@ -34,9 +34,10 @@ try {
 interface ImageToVideoProps {
   initialImageUrl?: string | null;
   onVideoGenerated?: (videoUrl: string) => void;
+  onSwitchToEditor?: (videoUrl: string) => void;
 }
 
-const ImageToVideo = ({ initialImageUrl, onVideoGenerated }: ImageToVideoProps) => {
+const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: ImageToVideoProps) => {
   const { prompt, setPrompt, selectedLanguage, isTranslating, handleLanguageChange } =
     usePromptTranslation("A stylish woman walks down a Tokyo street filled with warm glowing neon and animated city signage.");
   const [imageUrl, setImageUrl] = useState("");
@@ -359,7 +360,10 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated }: ImageToVideoProps) 
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">Video Preview</h2>
               {videoUrl && (
-                <Button variant="outline" onClick={() => setActiveTab && setActiveTab("video-editor")}>
+                <Button 
+                  variant="outline" 
+                  onClick={() => onSwitchToEditor && onSwitchToEditor(videoUrl)}
+                >
                   Edit in Video Editor
                 </Button>
               )}

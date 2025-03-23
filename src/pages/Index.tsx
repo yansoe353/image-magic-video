@@ -64,6 +64,11 @@ const Index = () => {
     setGeneratedVideoUrl(videoUrl);
   };
 
+  const handleSwitchToEditor = (videoUrl: string) => {
+    setGeneratedVideoUrl(videoUrl);
+    setActiveTab("video-editor");
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
       <Header />
@@ -126,6 +131,7 @@ const Index = () => {
             <ImageToVideo 
               initialImageUrl={generatedImageUrl}
               onVideoGenerated={handleVideoGenerated}
+              onSwitchToEditor={handleSwitchToEditor}
             />
           </TabsContent>
           
