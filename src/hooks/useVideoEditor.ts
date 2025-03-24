@@ -1,6 +1,8 @@
 
 import { useState } from "react";
-import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
+import { supabase } from "@/integrations/supabase/client";
+import { getUserId } from "@/utils/storageUtils";
+import { useToast } from "@/hooks/use-toast";
 
 export interface VideoClip {
   id: string;
@@ -17,24 +19,19 @@ export interface AudioTrack {
   name: string;
 }
 
-// Create FFmpeg instance outside the hook to ensure it's only created once
-const ffmpeg = createFFmpeg({ 
-  log: true,
-  corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
-});
-
-// Flag to track if ffmpeg is loaded
-let ffmpegLoaded = false;
-
 export function useVideoEditor() {
   const [videoClips, setVideoClips] = useState<VideoClip[]>([]);
   const [audioTrack, setAudioTrack] = useState<AudioTrack | null>(null);
   const [combinedVideoUrl, setCombinedVideoUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progressPercent, setProgressPercent] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const addVideoClip = (clip: VideoClip) => {
     setVideoClips((prev) => [...prev, clip]);
+    // Clear any previous errors when adding new clips
+    setError(null);
   };
 
   const removeVideoClip = (clipId: string) => {
@@ -55,120 +52,68 @@ export function useVideoEditor() {
   };
 
   const combineVideos = async () => {
-    if (videoClips.length === 0) return;
+    if (videoClips.length === 0) {
+      setError("No video clips to combine.");
+      return;
+    }
     
     setIsProcessing(true);
     setProgressPercent(0);
+    setError(null);
     
     try {
-      // Load FFmpeg if not already loaded
-      if (!ffmpegLoaded) {
-        await ffmpeg.load();
-        ffmpegLoaded = true;
+      // Animate progress to simulate work happening
+      const progressInterval = setInterval(() => {
+        setProgressPercent(prev => {
+          const newValue = prev + 5;
+          return newValue < 90 ? newValue : prev;
+        });
+      }, 500);
+      
+      // Get current user ID for the request
+      const userId = await getUserId();
+      
+      if (!userId) {
+        throw new Error("User not authenticated");
       }
       
-      // Create a list file for concatenation
-      let fileContent = '';
+      // Prepare video URLs for the server
+      const videoUrls = videoClips.map(clip => clip.url);
+      const audioUrl = audioTrack?.url || null;
       
-      // Download and write each clip to FFmpeg's virtual file system
-      for (let i = 0; i < videoClips.length; i++) {
-        setProgressPercent(Math.floor((i / videoClips.length) * 50));
-        
-        // Fetch the video file
-        const response = await fetch(videoClips[i].url);
-        const arrayBuffer = await response.arrayBuffer();
-        
-        // Write to FFmpeg filesystem
-        const inputFileName = `input${i}.mp4`;
-        ffmpeg.FS('writeFile', inputFileName, new Uint8Array(arrayBuffer));
-        
-        // Add to the concat list
-        fileContent += `file ${inputFileName}\n`;
-      }
-      
-      // Write the concat list file
-      ffmpeg.FS('writeFile', 'concat_list.txt', new TextEncoder().encode(fileContent));
-      
-      setProgressPercent(50);
-      
-      // Combine videos using the concat demuxer
-      await ffmpeg.run(
-        '-f', 'concat',
-        '-safe', '0',
-        '-i', 'concat_list.txt',
-        '-c', 'copy',
-        'output.mp4'
-      );
-      
-      setProgressPercent(80);
-      
-      // Handle audio track if provided
-      if (audioTrack) {
-        // Instead of using rename, we'll read the output file, then write it back with a different name
-        const tempOutputData = ffmpeg.FS('readFile', 'output.mp4');
-        ffmpeg.FS('writeFile', 'temp_output.mp4', tempOutputData);
-        
-        // Fetch the audio file
-        const audioResponse = await fetch(audioTrack.url);
-        const audioArrayBuffer = await audioResponse.arrayBuffer();
-        
-        // Write audio to FFmpeg filesystem
-        ffmpeg.FS('writeFile', 'audio.mp3', new Uint8Array(audioArrayBuffer));
-        
-        // Add audio to the video
-        await ffmpeg.run(
-          '-i', 'temp_output.mp4',
-          '-i', 'audio.mp3',
-          '-map', '0:v',
-          '-map', '1:a',
-          '-shortest',
-          'output_with_audio.mp4'
-        );
-        
-        // Read the output with audio
-        const data = ffmpeg.FS('readFile', 'output_with_audio.mp4');
-        
-        // Create a blob URL from the processed video
-        const blob = new Blob([data.buffer], { type: 'video/mp4' });
-        const url = URL.createObjectURL(blob);
-        
-        setCombinedVideoUrl(url);
-      } else {
-        // Read the output file without audio
-        const data = ffmpeg.FS('readFile', 'output.mp4');
-        
-        // Create a blob URL from the processed video
-        const blob = new Blob([data.buffer], { type: 'video/mp4' });
-        const url = URL.createObjectURL(blob);
-        
-        setCombinedVideoUrl(url);
-      }
-      
-      // Clean up files
-      videoClips.forEach((_, index) => {
-        try {
-          ffmpeg.FS('unlink', `input${index}.mp4`);
-        } catch (e) {
-          console.log(`Could not unlink input${index}.mp4:`, e);
+      // Call the Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke('combine-videos', {
+        body: { 
+          videoUrls, 
+          audioUrl, 
+          userId 
         }
       });
       
-      try {
-        ffmpeg.FS('unlink', 'concat_list.txt');
-        ffmpeg.FS('unlink', 'output.mp4');
-        if (audioTrack) {
-          ffmpeg.FS('unlink', 'temp_output.mp4');
-          ffmpeg.FS('unlink', 'audio.mp3');
-          ffmpeg.FS('unlink', 'output_with_audio.mp4');
-        }
-      } catch (e) {
-        console.log('Error during cleanup:', e);
+      clearInterval(progressInterval);
+      
+      if (error) {
+        throw new Error(`Error calling edge function: ${error.message}`);
       }
       
+      // Set the combined video URL from the response
+      setCombinedVideoUrl(data.combinedVideoUrl);
+      setProgressPercent(100);
+      
+      // Display notification about server-side processing if needed
+      if (videoClips.length > 1 && data.message) {
+        toast({
+          title: "Processing Update",
+          description: data.message
+        });
+      }
+      
+      return true;
     } catch (error) {
       console.error("Failed to combine videos:", error);
+      setError(error instanceof Error ? error.message : "Failed to combine videos");
+      return false;
     } finally {
-      setProgressPercent(100);
       setIsProcessing(false);
     }
   };
@@ -179,6 +124,7 @@ export function useVideoEditor() {
     combinedVideoUrl,
     isProcessing,
     progressPercent,
+    error,
     addVideoClip,
     removeVideoClip,
     reorderVideoClips,
