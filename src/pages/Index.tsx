@@ -10,7 +10,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AIAssistant } from "@/components/AIAssistant";
-import VideoEditor from "@/components/VideoEditor";
 
 interface SelectedContent {
   url: string;
@@ -64,11 +63,6 @@ const Index = () => {
     setGeneratedVideoUrl(videoUrl);
   };
 
-  const handleSwitchToEditor = (videoUrl: string) => {
-    setGeneratedVideoUrl(videoUrl);
-    setActiveTab("video-editor");
-  };
-
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
       <Header />
@@ -105,20 +99,20 @@ const Index = () => {
           className="w-full"
           onValueChange={(value) => setActiveTab(value)}
         >
-          <TabsList className={`grid w-full ${isMobile ? 'grid-cols-2 gap-1' : 'grid-cols-5'} mb-8`}>
-            <TabsTrigger value="text-to-image" className={`${isMobile ? 'text-xs py-1 px-1' : ''}`}>
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-1 mb-8">
+            <TabsTrigger value="text-to-image" className="text-xs md:text-sm py-1.5 px-1 md:px-3">
               {isMobile ? "Text→Image" : "Text to Image"}
             </TabsTrigger>
-            <TabsTrigger value="image-to-video" className={`${isMobile ? 'text-xs py-1 px-1' : ''}`}>
+            <TabsTrigger value="image-to-video" className="text-xs md:text-sm py-1.5 px-1 md:px-3">
               {isMobile ? "Image→Video" : "Image to Video"}
             </TabsTrigger>
-            <TabsTrigger value="video-editor" className={`${isMobile ? 'text-xs py-1 px-1' : ''}`}>
+            <TabsTrigger value="video-editor" className="text-xs md:text-sm py-1.5 px-1 md:px-3">
               {isMobile ? "Video Edit" : "Video Editor"}
             </TabsTrigger>
-            <TabsTrigger value="image-playground" className={`${isMobile ? 'text-xs py-1 px-1' : ''}`}>
+            <TabsTrigger value="image-playground" className="text-xs md:text-sm py-1.5 px-1 md:px-3">
               {isMobile ? "Image Play" : "Image Playground"}
             </TabsTrigger>
-            <TabsTrigger value="video-playground" className={`${isMobile ? 'text-xs py-1 px-1' : ''}`}>
+            <TabsTrigger value="video-playground" className="text-xs md:text-sm py-1.5 px-1 md:px-3">
               {isMobile ? "Video Play" : "Video Playground"}
             </TabsTrigger>
           </TabsList>
@@ -131,12 +125,26 @@ const Index = () => {
             <ImageToVideo 
               initialImageUrl={generatedImageUrl}
               onVideoGenerated={handleVideoGenerated}
-              onSwitchToEditor={handleSwitchToEditor}
+              onSwitchToEditor={() => setActiveTab("video-editor")}
             />
           </TabsContent>
           
           <TabsContent value="video-editor" className="mt-0">
-            <VideoEditor generatedVideoUrl={generatedVideoUrl} />
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-0">
+                <div className="w-full overflow-hidden rounded-lg">
+                  <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
+                    <iframe
+                      src="https://www.veed.io/embed/new"
+                      title="Video Editor"
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
           
           <TabsContent value="image-playground" className="mt-0">
