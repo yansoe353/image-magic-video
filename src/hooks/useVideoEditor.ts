@@ -54,7 +54,7 @@ export function useVideoEditor() {
   const combineVideos = async () => {
     if (videoClips.length === 0) {
       setError("No video clips to combine.");
-      return;
+      return false;
     }
     
     setIsProcessing(true);
@@ -65,10 +65,10 @@ export function useVideoEditor() {
       // Animate progress to simulate work happening
       const progressInterval = setInterval(() => {
         setProgressPercent(prev => {
-          const newValue = prev + 5;
-          return newValue < 90 ? newValue : prev;
+          const newValue = prev + 2;
+          return newValue < 85 ? newValue : prev;
         });
-      }, 500);
+      }, 800);
       
       // Get current user ID for the request
       const userId = await getUserId();
@@ -82,7 +82,7 @@ export function useVideoEditor() {
       const audioUrl = audioTrack?.url || null;
       
       // Call the Supabase Edge Function
-      const { data, error } = await supabase.functions.invoke('combine-videos', {
+      const { data, error: functionError } = await supabase.functions.invoke('combine-videos', {
         body: { 
           videoUrls, 
           audioUrl, 
@@ -92,18 +92,22 @@ export function useVideoEditor() {
       
       clearInterval(progressInterval);
       
-      if (error) {
-        throw new Error(`Error calling edge function: ${error.message}`);
+      if (functionError) {
+        throw new Error(`Error calling edge function: ${functionError.message}`);
+      }
+      
+      if (data.error) {
+        throw new Error(`Server processing error: ${data.error}`);
       }
       
       // Set the combined video URL from the response
       setCombinedVideoUrl(data.combinedVideoUrl);
       setProgressPercent(100);
       
-      // Display notification about server-side processing if needed
-      if (videoClips.length > 1 && data.message) {
+      // Display notification about server-side processing status
+      if (data.message) {
         toast({
-          title: "Processing Update",
+          title: "Processing Complete",
           description: data.message
         });
       }
@@ -112,6 +116,7 @@ export function useVideoEditor() {
     } catch (error) {
       console.error("Failed to combine videos:", error);
       setError(error instanceof Error ? error.message : "Failed to combine videos");
+      setProgressPercent(0);
       return false;
     } finally {
       setIsProcessing(false);
