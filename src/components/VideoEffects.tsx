@@ -1,4 +1,3 @@
-
 import { useState, useRef, ChangeEvent } from "react";
 import { Loader2, Upload, RefreshCw, Video, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import VideoPreview from "./VideoPreview";
-import { * as fal } from "@fal-ai/client";
+import fal from "@fal-ai/client"; // Corrected import statement
 
 // Setup fal.ai client
 fal.config({
@@ -102,7 +101,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
     setProgressPercent(10);
     setProcessingTime(null);
     setOutputVideoUrl(null);
-    
+
     const startTime = Date.now();
 
     try {
@@ -110,13 +109,13 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
       const response = await fetch(inputVideoUrl);
       const blob = await response.blob();
       const file = new File([blob], "video.mp4", { type: "video/mp4" });
-      
+
       setProgressPercent(30);
-      
+
       // Create a FormData object to send the video
       const formData = new FormData();
       formData.append("video", file);
-      
+
       // Submit the video to fal.ai for processing
       const result = await fal.subscribe("fal-ai/wan-effects", {
         input: {
@@ -131,13 +130,13 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
           }
         },
       });
-      
+
       setProgressPercent(95);
-      
+
       // Calculate processing time
       const endTime = Date.now();
       setProcessingTime((endTime - startTime) / 1000);
-      
+
       // Get the output video URL
       if (result.video) {
         setOutputVideoUrl(result.video);
@@ -149,7 +148,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
       } else {
         throw new Error("No output video received");
       }
-      
+
       setProgressPercent(100);
     } catch (error) {
       console.error("Error applying effect:", error);
@@ -167,13 +166,13 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
     <Card className="overflow-hidden">
       <CardContent className="p-6">
         <h2 className="text-2xl font-bold mb-4">AI Video Effects</h2>
-        
+
         <div className="mb-6 space-y-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <Label htmlFor="effect-select">Select Effect Style</Label>
-              <Select 
-                value={selectedEffect} 
+              <Select
+                value={selectedEffect}
                 onValueChange={setSelectedEffect}
                 disabled={isProcessing}
               >
@@ -189,7 +188,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="flex-1 flex flex-col justify-end">
               <Button
                 onClick={handleClickUpload}
@@ -209,7 +208,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
               />
             </div>
           </div>
-          
+
           <Button
             onClick={applyEffect}
             disabled={!inputVideoUrl || isProcessing}
@@ -227,19 +226,19 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
               </>
             )}
           </Button>
-          
+
           {isProcessing && (
             <div>
               <Progress value={progressPercent} className="h-2" />
               <p className="text-xs text-center mt-1 text-gray-500">
-                {progressPercent < 30 ? "Preparing video..." : 
-                 progressPercent < 50 ? "Sending to AI model..." : 
-                 progressPercent < 90 ? "Applying effect - this may take a few minutes..." : 
+                {progressPercent < 30 ? "Preparing video..." :
+                 progressPercent < 50 ? "Sending to AI model..." :
+                 progressPercent < 90 ? "Applying effect - this may take a few minutes..." :
                  "Finalizing..."}
               </p>
             </div>
           )}
-          
+
           {inputVideoUrl && (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
               <TabsList className="grid w-full grid-cols-2">
@@ -252,7 +251,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
                   Output Video
                 </TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="input" className="mt-2">
                 <VideoPreview
                   videoUrl={inputVideoUrl}
@@ -263,7 +262,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
                   handlePlayPause={handleInputPlayPause}
                 />
               </TabsContent>
-              
+
               <TabsContent value="output" className="mt-2">
                 {outputVideoUrl ? (
                   <>
@@ -290,7 +289,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
               </TabsContent>
             </Tabs>
           )}
-          
+
           {!inputVideoUrl && (
             <Alert>
               <AlertDescription>
