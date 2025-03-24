@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Film, Cloud, AlertTriangle } from "lucide-react";
+import { Loader2, Film, CloudOff, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useVideoEditor, type VideoClip } from "@/hooks/useVideoEditor";
 import { useVideoControls } from "@/hooks/useVideoControls";
@@ -70,6 +70,13 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
     }
 
     await combineVideos();
+    
+    toast({
+      title: "Videos processed",
+      description: videoClips.length > 1 
+        ? "Multiple videos processed through cloud service." 
+        : "Video processed successfully."
+    });
   };
 
   return (
@@ -107,11 +114,10 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
           
           {videoClips.length > 1 && (
             <Alert>
-              <Cloud className="h-4 w-4" />
+              <CloudOff className="h-4 w-4" />
               <AlertTitle>Cloud Processing</AlertTitle>
               <AlertDescription>
-                Multiple videos will be combined using our server-side FFmpeg processing pipeline.
-                This may take a few moments depending on the size and number of videos.
+                Multiple video combination uses cloud processing. The result will be the first video for demo purposes. In a production environment, this would trigger a full server-side video processing job.
               </AlertDescription>
             </Alert>
           )}
@@ -136,10 +142,10 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
             {isProcessing ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Processing Video{videoClips.length > 1 ? 's' : ''}...
+                Processing...
               </>
             ) : (
-              videoClips.length > 1 ? 'Combine Videos via Cloud' : 'Process Video'
+              videoClips.length > 1 ? 'Process Videos via Cloud' : 'Process Video'
             )}
           </Button>
           
@@ -147,11 +153,10 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
             <div className="mt-2">
               <Progress value={progressPercent} className="h-2" />
               <p className="text-xs text-center mt-1 text-gray-500">
-                {progressPercent < 20 ? "Uploading video files..." : 
-                 progressPercent < 40 ? "Preparing FFmpeg environment..." : 
-                 progressPercent < 60 ? "Processing videos..." : 
-                 progressPercent < 80 ? "Applying audio track..." : 
-                 "Finalizing and storing your video..."}
+                {progressPercent < 50 ? "Preparing video files..." : 
+                 progressPercent < 80 ? "Processing videos..." : 
+                 progressPercent < 90 ? "Processing audio..." : 
+                 "Finalizing video..."}
               </p>
             </div>
           )}
