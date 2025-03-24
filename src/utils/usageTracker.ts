@@ -1,10 +1,9 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUser } from "./authUtils";
 
 // Define constants for usage limits
-export const IMAGE_LIMIT = 5; // Changed from 100 to 5
-export const VIDEO_LIMIT = 0; // Changed from 20 to 0
+export const IMAGE_LIMIT = 100;
+export const VIDEO_LIMIT = 20;
 
 // Define interface for usage tracking
 export interface ApiKeyUsage {

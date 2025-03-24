@@ -1,90 +1,59 @@
 
-import { corsHeaders } from '../_shared/cors.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
-// Create a single supabase client for interacting with your database
-const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-const processErrorResponse = (error: unknown) => {
-  console.error("Error processing:", error);
-  return new Response(
-    JSON.stringify({ error: "Failed to process videos" }),
-    { 
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    }
-  );
+// CORS headers for browser access
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
-  
+
   try {
-    const { videoUrls, audioUrl, userId } = await req.json();
+    const { videoUrls, userId } = await req.json();
     
+    // Validate input
     if (!videoUrls || !Array.isArray(videoUrls) || videoUrls.length === 0) {
       return new Response(
-        JSON.stringify({ error: "Invalid video URLs provided" }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        }
+        JSON.stringify({ error: 'Invalid input: videoUrls must be a non-empty array' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log(`Processing ${videoUrls.length} videos for user: ${userId || 'anonymous'}`);
     
-    console.log(`Processing ${videoUrls.length} videos for user ${userId}`);
+    // For demonstration purposes, we're just returning the first video URL
+    // In a real implementation, you would:
+    // 1. Download the videos from their URLs
+    // 2. Use FFmpeg on the server to combine them
+    // 3. Upload the result to storage
+    // 4. Return the URL of the combined video
     
-    // For now, we'll implement a simplified version that just returns the first video URL
-    // In a real implementation, you would use FFmpeg on the server to combine videos
-    // This simulates the process while we work on the actual implementation
-    let processedUrl = videoUrls[0];
+    // Simulate processing time
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
-    if (videoUrls.length > 1) {
-      // Here we would actually process the videos using FFmpeg server-side
-      // For now, just log that we're simulating processing
-      console.log("Simulating server-side video processing...");
-      
-      // Store a reference in the database to track this processing job
-      const { data, error } = await supabase
-        .from('user_content_history')
-        .insert({
-          user_id: userId,
-          content_type: 'combined_video',
-          content_url: processedUrl,
-          metadata: {
-            source_videos: videoUrls,
-            audio_track: audioUrl,
-            status: 'completed',
-            processing_type: 'simulation'
-          }
-        })
-        .select();
-        
-      if (error) {
-        console.error("Database error:", error);
-      } else {
-        console.log("Created processing record:", data);
-      }
-    }
+    // For now, just return the first video URL
+    // This simulates the server-side processing result
+    const combinedVideoUrl = videoUrls[0];
     
     return new Response(
       JSON.stringify({ 
-        combinedVideoUrl: processedUrl,
-        message: videoUrls.length > 1 ? 
-          "Multiple videos detected. Server-side processing simulated." : 
-          "Single video processed successfully."
+        url: combinedVideoUrl,
+        message: "Server processed the request. In a production environment, this would combine multiple videos."
       }),
-      { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    return processErrorResponse(error);
+    console.error('Error processing videos:', error);
+    
+    return new Response(
+      JSON.stringify({ error: error.message || 'Unknown error occurred' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 });

@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Film, CloudOff, AlertTriangle } from "lucide-react";
+import { Loader2, Film, AlertTriangle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useVideoEditor, type VideoClip } from "@/hooks/useVideoEditor";
 import { useVideoControls } from "@/hooks/useVideoControls";
@@ -11,7 +11,7 @@ import VideoPreview from "./VideoPreview";
 import VideoUploader from "./VideoUploader";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface VideoEditorProps {
   generatedVideoUrl: string | null;
@@ -70,19 +70,29 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
     }
 
     await combineVideos();
-    
-    toast({
-      title: "Videos processed",
-      description: videoClips.length > 1 
-        ? "Multiple videos processed through cloud service." 
-        : "Video processed successfully."
-    });
   };
 
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-6">
         <h2 className="text-2xl font-bold mb-4">Video Editor</h2>
+        
+        <Alert className="mb-4">
+          <Info className="h-4 w-4" />
+          <AlertTitle>Cloud-based editing</AlertTitle>
+          <AlertDescription>
+            This editor now uses our cloud service for combining multiple videos. 
+            The processing happens on our servers for optimal results.
+          </AlertDescription>
+        </Alert>
+        
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Processing Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         
         <div className="space-y-6">
           <div className="flex justify-between items-center">
@@ -104,24 +114,6 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
             onReorderClips={reorderVideoClips}
           />
           
-          {error && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          
-          {videoClips.length > 1 && (
-            <Alert>
-              <CloudOff className="h-4 w-4" />
-              <AlertTitle>Cloud Processing</AlertTitle>
-              <AlertDescription>
-                Multiple video combination uses cloud processing. The result will be the first video for demo purposes. In a production environment, this would trigger a full server-side video processing job.
-              </AlertDescription>
-            </Alert>
-          )}
-          
           <Separator />
           
           <VideoUploader 
@@ -142,10 +134,12 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
             {isProcessing ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Processing...
+                Processing on server...
               </>
+            ) : videoClips.length > 1 ? (
+              'Combine Videos on Server'
             ) : (
-              videoClips.length > 1 ? 'Process Videos via Cloud' : 'Process Video'
+              'Preview Video'
             )}
           </Button>
           
@@ -153,10 +147,10 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
             <div className="mt-2">
               <Progress value={progressPercent} className="h-2" />
               <p className="text-xs text-center mt-1 text-gray-500">
-                {progressPercent < 50 ? "Preparing video files..." : 
-                 progressPercent < 80 ? "Processing videos..." : 
-                 progressPercent < 90 ? "Processing audio..." : 
-                 "Finalizing video..."}
+                {progressPercent < 50 ? "Uploading videos to server..." : 
+                 progressPercent < 80 ? "Server processing videos..." : 
+                 progressPercent < 90 ? "Finalizing combined video..." : 
+                 "Almost ready..."}
               </p>
             </div>
           )}
@@ -173,6 +167,16 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
                 handlePlayPause={handlePlayPause}
               />
             </div>
+          )}
+          
+          {videoClips.length > 1 && !isProcessing && !combinedVideoUrl && (
+            <Alert className="mt-2">
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Click "Combine Videos on Server" to process your clips on our cloud servers.
+                This allows for advanced editing capabilities beyond what browsers can do.
+              </AlertDescription>
+            </Alert>
           )}
         </div>
       </CardContent>

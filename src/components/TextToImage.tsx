@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,16 +16,18 @@ import { GuidanceScaleSlider } from "./image-generation/GuidanceScaleSlider";
 import { GeneratedImageDisplay } from "./image-generation/GeneratedImageDisplay";
 import { UsageLimits } from "./image-generation/UsageLimits";
 import { translateText } from "@/utils/translationUtils";
-
-// Correct format for FAL API key - using key_id:key_secret format
-const falApiKey = "key_29c0be08-1302-44e1-a48a-d43096d6a6bb:ddd15111c9411ac661261375819bbd93";
-
-// Initialize fal.ai client
-fal.config({
-  credentials: falApiKey
-});
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type SupportedLanguage = "en" | "my" | "th";
+
+const LANGUAGES = {
+  en: "English",
+  my: "Myanmar",
+  th: "Thai"
+};
+
+type LanguageOption = keyof typeof LANGUAGES;
 
 interface TextToImageProps {
   onImageGenerated: (imageUrl: string) => void;
@@ -44,6 +45,8 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedLoras, setSelectedLoras] = useState<LoraOption[]>([]);
   const [guidanceScale, setGuidanceScale] = useState(9);
+  const [apiKey, setApiKey] = useState<string>(localStorage.getItem("falApiKey") || "");
+  const [isApiKeySet, setIsApiKeySet] = useState<boolean>(!!localStorage.getItem("falApiKey"));
 
   useEffect(() => {
     const updateCounts = async () => {
@@ -63,6 +66,44 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         ? current.filter(id => id !== loraId)
         : [...current, loraId]
     );
+  };
+
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setApiKey(e.target.value);
+  };
+
+  const saveApiKey = () => {
+    if (!apiKey.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid API key",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      localStorage.setItem("falApiKey", apiKey);
+
+      // Configure fal client with the new API key
+      fal.config({
+        credentials: apiKey
+      });
+
+      setIsApiKeySet(true);
+
+      toast({
+        title: "Success",
+        description: "API key saved successfully",
+      });
+    } catch (error) {
+      console.error("Failed to save API key:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save API key",
+        variant: "destructive",
+      });
+    }
   };
 
   const saveToHistory = async (imageUrl: string, originalUrl: string) => {
@@ -111,6 +152,15 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       return;
     }
 
+    if (!isApiKeySet) {
+      toast({
+        title: "API Key Required",
+        description: "Please set your FAL.AI API key first",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (counts.remainingImages <= 0) {
       toast({
         title: "Usage Limit Reached",
@@ -147,6 +197,11 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         width = 768;
         height = 1280;
       }
+
+      // Configure fal client with the user's API key
+      fal.config({
+        credentials: apiKey
+      });
 
       // Log the selected Loras and other parameters
       console.log("Selected Loras:", selectedLoras);
@@ -272,6 +327,41 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         <CardContent className="p-6">
           <h2 className="text-2xl font-bold mb-4">Create an Image</h2>
 
+          {!isApiKeySet && (
+            <Alert className="mb-4">
+              <AlertTitle>API Key Required</AlertTitle>
+              <AlertDescription>
+                <div className="space-y-4 mt-2">
+                  <p>ပုံတွေ ဗွီဒီယိုတွေ ထုတ်ဖို့ Infinity Tech မှဝယ်ယူထားသည့် Infinity API Key ထည့်ရပါမယ်</p>
+                  <div>
+                    <Label htmlFor="apiKey">Infinity API Key</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        id="apiKey"
+                        type="password"
+                        value={apiKey}
+                        onChange={handleApiKeyChange}
+                        placeholder="Enter your Infinity API key"
+                        className="flex-1"
+                      />
+                      <Button onClick={saveApiKey}>Save Key</Button>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      <a
+                        href="https://m.me/infinitytechmyanmar"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:underline"
+                      >
+                        Get your key here
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <UsageLimits
             remainingImages={counts.remainingImages}
             imageLimit={IMAGE_LIMIT}
@@ -296,10 +386,12 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
               disabled={isLoading}
             />
 
+          
+
             <div className="flex items-center justify-between">
               <Button
                 onClick={generateImage}
-                disabled={isLoading || !prompt.trim() || counts.remainingImages <= 0}
+                disabled={isLoading || !prompt.trim() || counts.remainingImages <= 0 || !isApiKeySet}
                 className="w-full"
               >
                 {isLoading ? (

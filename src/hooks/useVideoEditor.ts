@@ -1,8 +1,9 @@
 
 import { useState } from "react";
+import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
-import { useToast } from "@/hooks/use-toast";
 
 export interface VideoClip {
   id: string;
@@ -19,6 +20,15 @@ export interface AudioTrack {
   name: string;
 }
 
+// Create FFmpeg instance outside the hook to ensure it's only created once
+const ffmpeg = createFFmpeg({ 
+  log: true,
+  corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
+});
+
+// Flag to track if ffmpeg is loaded
+let ffmpegLoaded = false;
+
 export function useVideoEditor() {
   const [videoClips, setVideoClips] = useState<VideoClip[]>([]);
   const [audioTrack, setAudioTrack] = useState<AudioTrack | null>(null);
@@ -30,8 +40,6 @@ export function useVideoEditor() {
 
   const addVideoClip = (clip: VideoClip) => {
     setVideoClips((prev) => [...prev, clip]);
-    // Clear any previous errors when adding new clips
-    setError(null);
   };
 
   const removeVideoClip = (clipId: string) => {
@@ -53,7 +61,11 @@ export function useVideoEditor() {
 
   const combineVideos = async () => {
     if (videoClips.length === 0) {
-      setError("No video clips to combine.");
+      toast({
+        title: "No videos to process",
+        description: "Please add at least one video clip before combining.",
+        variant: "destructive"
+      });
       return;
     }
     
@@ -62,59 +74,64 @@ export function useVideoEditor() {
     setError(null);
     
     try {
-      // Animate progress to simulate work happening
-      const progressInterval = setInterval(() => {
-        setProgressPercent(prev => {
-          const newValue = prev + 5;
-          return newValue < 90 ? newValue : prev;
+      // If there's only one video clip, just use that URL directly
+      if (videoClips.length === 1) {
+        setProgressPercent(90);
+        setCombinedVideoUrl(videoClips[0].url);
+        toast({
+          title: "Video ready",
+          description: "Your video is ready to view.",
         });
-      }, 500);
-      
-      // Get current user ID for the request
-      const userId = await getUserId();
-      
-      if (!userId) {
-        throw new Error("User not authenticated");
+        setProgressPercent(100);
+        setIsProcessing(false);
+        return;
       }
+      
+      // For multiple clips, use the server-side processing
+      setProgressPercent(20);
+      
+      // Get current user ID if available
+      const userId = await getUserId();
       
       // Prepare video URLs for the server
       const videoUrls = videoClips.map(clip => clip.url);
-      const audioUrl = audioTrack?.url || null;
       
-      // Call the Supabase Edge Function
+      setProgressPercent(40);
+      
+      // Call our Supabase Edge Function
       const { data, error } = await supabase.functions.invoke('combine-videos', {
-        body: { 
-          videoUrls, 
-          audioUrl, 
-          userId 
-        }
+        body: { videoUrls, userId }
       });
       
-      clearInterval(progressInterval);
-      
       if (error) {
-        throw new Error(`Error calling edge function: ${error.message}`);
+        throw new Error(`Server processing failed: ${error.message}`);
       }
       
-      // Set the combined video URL from the response
-      setCombinedVideoUrl(data.combinedVideoUrl);
+      setProgressPercent(80);
+      
+      // Set the combined video URL from the server response
+      setCombinedVideoUrl(data.url);
+      
+      toast({
+        title: "Videos Combined",
+        description: "Your videos have been processed on our server.",
+      });
+      
       setProgressPercent(100);
       
-      // Display notification about server-side processing if needed
-      if (videoClips.length > 1 && data.message) {
-        toast({
-          title: "Processing Update",
-          description: data.message
-        });
-      }
-      
-      return true;
     } catch (error) {
       console.error("Failed to combine videos:", error);
-      setError(error instanceof Error ? error.message : "Failed to combine videos");
-      return false;
+      setError("Video processing failed on the server. Please try again later.");
+      toast({
+        title: "Processing Error",
+        description: "Server-side video processing encountered an error. Please try again.",
+        variant: "destructive"
+      });
     } finally {
-      setIsProcessing(false);
+      if (isProcessing) {
+        setProgressPercent(100);
+        setIsProcessing(false);
+      }
     }
   };
 

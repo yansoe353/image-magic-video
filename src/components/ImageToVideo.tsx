@@ -33,9 +33,11 @@ try {
 
 interface ImageToVideoProps {
   initialImageUrl?: string | null;
+  onVideoGenerated?: (videoUrl: string) => void;
+  onSwitchToEditor?: (videoUrl: string) => void;
 }
 
-const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
+const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: ImageToVideoProps) => {
   const { prompt, setPrompt, selectedLanguage, isTranslating, handleLanguageChange } =
     usePromptTranslation("A stylish woman walks down a Tokyo street filled with warm glowing neon and animated city signage.");
   const [imageUrl, setImageUrl] = useState("");
@@ -175,6 +177,10 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
 
           await saveToHistory(supabaseUrl, falVideoUrl);
 
+          if (onVideoGenerated) {
+            onVideoGenerated(supabaseUrl);
+          }
+
           toast({
             title: "Video Stored",
             description: "Video uploaded to your storage",
@@ -182,6 +188,11 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
         } catch (uploadError) {
           console.error("Failed to upload to Supabase:", uploadError);
           setVideoUrl(falVideoUrl);
+          
+          if (onVideoGenerated) {
+            onVideoGenerated(falVideoUrl);
+          }
+          
           await saveToHistory(falVideoUrl, falVideoUrl);
         } finally {
           setIsStoringVideo(false);
@@ -214,11 +225,6 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleEditVideo = () => {
-    // Implement your edit video logic here
-    console.log("Edit Video button clicked");
   };
 
   return (
@@ -354,8 +360,11 @@ const ImageToVideo = ({ initialImageUrl }: ImageToVideoProps) => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">Video Preview</h2>
               {videoUrl && (
-                <Button variant="outline" onClick={handleEditVideo}>
-                  Edit Video
+                <Button 
+                  variant="outline" 
+                  onClick={() => onSwitchToEditor && onSwitchToEditor(videoUrl)}
+                >
+                  Edit in Video Editor
                 </Button>
               )}
             </div>
