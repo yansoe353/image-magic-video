@@ -107,7 +107,7 @@ const Index = () => {
               {isMobile ? "Image→Video" : "Image to Video"}
             </TabsTrigger>
             <TabsTrigger value="video-editor" className="text-xs md:text-sm py-1.5 px-1 md:px-3">
-              {isMobile ? "Video Edit" : "Video Editor"}
+              {isMobile ? "Merge Videos" : "Video Merger"}
             </TabsTrigger>
             <TabsTrigger value="image-playground" className="text-xs md:text-sm py-1.5 px-1 md:px-3">
               {isMobile ? "Image Play" : "Image Playground"}
@@ -135,8 +135,8 @@ const Index = () => {
                 <div className="w-full overflow-hidden rounded-lg">
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
                     <iframe
-                      src="https://www.veed.io/embed/new"
-                      title="Video Editor"
+                      src="https://ezgif.com/merge-videos"
+                      title="Video Merger"
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
