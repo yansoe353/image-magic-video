@@ -14,8 +14,8 @@ import { useVideoControls } from "@/hooks/useVideoControls";
 import VideoPreview from "./VideoPreview";
 import * as falClient from "@fal-ai/client";
 
-// Setup fal.ai client
-falClient.init({
+// Initialize fal.ai client using the correct method available in the library
+falClient.configure({
   credentials: 'include',
 });
 
@@ -113,17 +113,17 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
 
       setProgressPercent(30);
 
-      // Submit the video to fal.ai for processing
-      const result = await falClient.run({
+      // Submit the video to fal.ai for processing using the correct API method
+      const result = await falClient.submit({
         modelId: "fal-ai/wan-effects",
-        input: {
+        inputs: {
           input_video: file,
           style: selectedEffect,
         },
-        onQueueUpdate: (update) => {
-          if (update.status === "IN_PROGRESS") {
+        onStatusChange: (update) => {
+          if (update.status === "processing") {
             setProgressPercent(50);
-          } else if (update.status === "COMPLETED") {
+          } else if (update.status === "completed") {
             setProgressPercent(90);
           }
         },
