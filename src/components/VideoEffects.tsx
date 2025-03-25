@@ -1,3 +1,4 @@
+
 import { useState, useRef, ChangeEvent } from "react";
 import { Loader2, Upload, RefreshCw, Video, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import VideoPreview from "./VideoPreview";
-import { falClient } from "@/hooks/useFalClient";
+import { falClient, EffectType } from "@/hooks/useFalClient";
 
 // Effect options for the model
 const effectOptions = [
@@ -38,7 +39,7 @@ interface VideoEffectsProps {
 
 const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
   const [inputVideoUrl, setInputVideoUrl] = useState<string | null>(initialVideoUrl || null);
-  const [selectedEffect, setSelectedEffect] = useState<string>("cakeify");
+  const [selectedEffect, setSelectedEffect] = useState<EffectType>("cakeify");
   const [outputVideoUrl, setOutputVideoUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progressPercent, setProgressPercent] = useState(0);
@@ -128,7 +129,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
       let result = null;
       const checkInterval = setInterval(async () => {
         try {
-          const status = await falClient.queue.check(request_id);
+          const status = await falClient.queue.status(request_id);
           if (status.status === "COMPLETED") {
             clearInterval(checkInterval);
             result = status.result;
@@ -184,7 +185,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
               <Label htmlFor="effect-select">Select Effect Style</Label>
               <Select
                 value={selectedEffect}
-                onValueChange={setSelectedEffect}
+                onValueChange={(value) => setSelectedEffect(value as EffectType)}
                 disabled={isProcessing}
               >
                 <SelectTrigger id="effect-select" className="w-full">
