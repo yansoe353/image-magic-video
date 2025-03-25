@@ -1,4 +1,3 @@
-
 import { useState, useRef, ChangeEvent } from "react";
 import { Loader2, Upload, RefreshCw, Video, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,28 +11,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import VideoPreview from "./VideoPreview";
-import * as falClient from "@fal-ai/client";
-
-// Initialize fal.ai client using the correct method available in the library
-falClient.configure({
-  credentials: 'include',
-});
+import { falClient } from "@/hooks/useFalClient";
 
 // Effect options for the model
 const effectOptions = [
-  { value: "anime", label: "Anime Style" },
-  { value: "cartoon", label: "Cartoon" },
-  { value: "arcane", label: "Arcane" },
-  { value: "gta", label: "GTA" },
-  { value: "pixar", label: "Pixar" },
-  { value: "vangogh", label: "Van Gogh" },
-  { value: "picasso", label: "Picasso" },
-  { value: "monet", label: "Monet" },
-  { value: "comic", label: "Comic" },
-  { value: "cyberpunk", label: "Cyberpunk" },
-  { value: "realistic", label: "Realistic" },
-  { value: "watercolor", label: "Watercolor" },
-  { value: "sketch", label: "Sketch" },
+  { value: "squish", label: "Squish" },
+  { value: "muscle", label: "Muscle" },
+  { value: "inflate", label: "Inflate" },
+  { value: "crush", label: "Crush" },
+  { value: "rotate", label: "Rotate" },
+  { value: "cakeify", label: "Cakeify" },
+  { value: "baby", label: "Baby" },
+  { value: "disney-princess", label: "Disney Princess" },
+  { value: "painting", label: "Painting" },
+  { value: "pirate-captain", label: "Pirate Captain" },
+  { value: "jungle", label: "Jungle" },
+  { value: "samurai", label: "Samurai" },
+  { value: "warrior", label: "Warrior" },
+  { value: "fire", label: "Fire" },
+  { value: "super-saiyan", label: "Super Saiyan" },
 ];
 
 interface VideoEffectsProps {
@@ -42,7 +38,7 @@ interface VideoEffectsProps {
 
 const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
   const [inputVideoUrl, setInputVideoUrl] = useState<string | null>(initialVideoUrl || null);
-  const [selectedEffect, setSelectedEffect] = useState<string>("anime");
+  const [selectedEffect, setSelectedEffect] = useState<string>("cakeify");
   const [outputVideoUrl, setOutputVideoUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progressPercent, setProgressPercent] = useState(0);
@@ -113,41 +109,59 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
 
       setProgressPercent(30);
 
-      // Submit the video to fal.ai for processing using the correct API method
-      const result = await falClient.submit({
-        modelId: "fal-ai/wan-effects",
-        inputs: {
+      // Submit the video to fal.ai for processing using the queue API
+      const { request_id } = await falClient.queue.submit("fal-ai/wan-effects", {
+        input: {
           input_video: file,
-          style: selectedEffect,
-        },
-        onStatusChange: (update) => {
-          if (update.status === "processing") {
-            setProgressPercent(50);
-          } else if (update.status === "completed") {
-            setProgressPercent(90);
-          }
+          effect_type: selectedEffect,
+          num_frames: 81,
+          frames_per_second: 16,
+          aspect_ratio: "16:9",
+          num_inference_steps: 30,
+          lora_scale: 1,
         },
       });
 
-      setProgressPercent(95);
+      setProgressPercent(50);
 
-      // Calculate processing time
-      const endTime = Date.now();
-      setProcessingTime((endTime - startTime) / 1000);
+      // Poll for results
+      let result = null;
+      const checkInterval = setInterval(async () => {
+        try {
+          const status = await falClient.queue.check(request_id);
+          if (status.status === "COMPLETED") {
+            clearInterval(checkInterval);
+            result = status.result;
+            setProgressPercent(90);
+            handleResults(result);
+          }
+        } catch (error) {
+          console.error("Error checking status:", error);
+        }
+      }, 2000);
 
-      // Get the output video URL
-      if (result.video) {
-        setOutputVideoUrl(result.video);
-        setActiveTab("output");
-        toast({
-          title: "Effect applied successfully",
-          description: `Video processed with ${selectedEffect} effect`,
-        });
-      } else {
-        throw new Error("No output video received");
-      }
+      const handleResults = (result: any) => {
+        setProgressPercent(95);
 
-      setProgressPercent(100);
+        // Calculate processing time
+        const endTime = Date.now();
+        setProcessingTime((endTime - startTime) / 1000);
+
+        // Get the output video URL
+        if (result?.video) {
+          setOutputVideoUrl(result.video);
+          setActiveTab("output");
+          toast({
+            title: "Effect applied successfully",
+            description: `Video processed with ${selectedEffect} effect`,
+          });
+        } else {
+          throw new Error("No output video received");
+        }
+
+        setProgressPercent(100);
+        setIsProcessing(false);
+      };
     } catch (error) {
       console.error("Error applying effect:", error);
       toast({
@@ -155,7 +169,6 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
         description: "Failed to apply the effect. Please try again.",
         variant: "destructive",
       });
-    } finally {
       setIsProcessing(false);
     }
   };
