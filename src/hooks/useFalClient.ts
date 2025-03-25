@@ -19,7 +19,7 @@ export type EffectType =
   | "gun-shooting" | "deflate" | "hulk" | "bride" | "classy" | "puppy"
   | "snow-white" | "mona-lisa" | "princess" | "vip" | "zen" | "assassin"
   | "timelapse" | "tsunami" | "zoom-call" | "doom-fps" | "fus-ro-dah"
-  | "hug-jesus" | "robot-face-reveal";
+  | "hug-jesus" | "robot-face-reveal"; 
 
 // Define aspect ratio enum
 export type AspectRatio = "16:9" | "9:16" | "1:1";

@@ -1,6 +1,6 @@
 
 import { useState, useRef, ChangeEvent } from "react";
-import { Loader2, Upload, RefreshCw, Video, Clock } from "lucide-react";
+import { Loader2, Upload, RefreshCw, Video, Clock, Image as ImageIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,6 +31,13 @@ const effectOptions = [
   { value: "warrior", label: "Warrior" },
   { value: "fire", label: "Fire" },
   { value: "super-saiyan", label: "Super Saiyan" },
+  { value: "gun-shooting", label: "Gun Shooting" },
+  { value: "deflate", label: "Deflate" },
+  { value: "hulk", label: "Hulk" },
+  { value: "bride", label: "Bride" },
+  { value: "princess", label: "Princess" },
+  { value: "zen", label: "Zen" },
+  { value: "assassin", label: "Assassin" },
 ];
 
 interface VideoEffectsProps {
@@ -38,7 +45,8 @@ interface VideoEffectsProps {
 }
 
 const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
-  const [inputVideoUrl, setInputVideoUrl] = useState<string | null>(initialVideoUrl || null);
+  const [inputImageUrl, setInputImageUrl] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedEffect, setSelectedEffect] = useState<EffectType>("cakeify");
   const [outputVideoUrl, setOutputVideoUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -48,35 +56,35 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const { isPlaying: isInputPlaying, videoRef: inputVideoRef, handlePlayPause: handleInputPlayPause } = useVideoControls();
   const { isPlaying: isOutputPlaying, videoRef: outputVideoRef, handlePlayPause: handleOutputPlayPause } = useVideoControls();
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check file size (max 50MB)
-    if (file.size > 50 * 1024 * 1024) {
+    // Check file size (max 10MB for images)
+    if (file.size > 10 * 1024 * 1024) {
       toast({
         title: "File too large",
-        description: "Please upload a video smaller than 50MB",
+        description: "Please upload an image smaller than 10MB",
         variant: "destructive",
       });
       return;
     }
 
-    // Check if it's a video file
-    if (!file.type.startsWith("video/")) {
+    // Check if it's an image file
+    if (!file.type.startsWith("image/")) {
       toast({
         title: "Invalid file",
-        description: "Please upload a valid video file",
+        description: "Please upload a valid image file (JPEG, PNG, etc.)",
         variant: "destructive",
       });
       return;
     }
 
     const url = URL.createObjectURL(file);
-    setInputVideoUrl(url);
+    setImagePreview(url);
+    setInputImageUrl(file);
     setOutputVideoUrl(null);
     setActiveTab("input");
   };
@@ -86,10 +94,10 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
   };
 
   const applyEffect = async () => {
-    if (!inputVideoUrl) {
+    if (!inputImageUrl) {
       toast({
-        title: "No video selected",
-        description: "Please upload a video first",
+        title: "No image selected",
+        description: "Please upload an image first",
         variant: "destructive",
       });
       return;
@@ -103,17 +111,12 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
     const startTime = Date.now();
 
     try {
-      // Prepare the video file for processing
-      const response = await fetch(inputVideoUrl);
-      const blob = await response.blob();
-      const file = new File([blob], "video.mp4", { type: "video/mp4" });
-
       setProgressPercent(30);
 
-      // Submit the video to fal.ai for processing using the queue API
+      // Submit the image to fal.ai for processing using the queue API
       const { request_id } = await falClient.queue.submit("fal-ai/wan-effects", {
         input: {
-          input_video: file,
+          input_video: inputImageUrl,
           effect_type: selectedEffect,
           num_frames: 81,
           frames_per_second: 16,
@@ -129,12 +132,14 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
       let result = null;
       const checkInterval = setInterval(async () => {
         try {
-          // The status method requires the model ID and request ID
-          const status = await falClient.queue.status("fal-ai/wan-effects", request_id);
+          const status = await falClient.queue.status("fal-ai/wan-effects", {
+            requestId: request_id,
+            logs: true,
+          });
+          
           if (status.status === "COMPLETED") {
             clearInterval(checkInterval);
-            // The output is in the output property, not result
-            result = status.output;
+            result = status.data;
             setProgressPercent(90);
             handleResults(result);
           }
@@ -151,8 +156,8 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
         setProcessingTime((endTime - startTime) / 1000);
 
         // Get the output video URL
-        if (result?.video) {
-          setOutputVideoUrl(result.video);
+        if (result?.video?.url) {
+          setOutputVideoUrl(result.video.url);
           setActiveTab("output");
           toast({
             title: "Effect applied successfully",
@@ -211,13 +216,13 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
                 disabled={isProcessing}
               >
                 <Upload className="h-4 w-4 mr-2" />
-                Upload Video
+                Upload Image
               </Button>
               <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept="video/*"
+                accept="image/*"
                 className="hidden"
               />
             </div>
@@ -225,7 +230,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
 
           <Button
             onClick={applyEffect}
-            disabled={!inputVideoUrl || isProcessing}
+            disabled={!imagePreview || isProcessing}
             className="w-full"
           >
             {isProcessing ? (
@@ -245,7 +250,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
             <div>
               <Progress value={progressPercent} className="h-2" />
               <p className="text-xs text-center mt-1 text-gray-500">
-                {progressPercent < 30 ? "Preparing video..." :
+                {progressPercent < 30 ? "Preparing image..." :
                  progressPercent < 50 ? "Sending to AI model..." :
                  progressPercent < 90 ? "Applying effect - this may take a few minutes..." :
                  "Finalizing..."}
@@ -253,61 +258,65 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
             </div>
           )}
 
-          {inputVideoUrl && (
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="input">
-                  <Video className="h-4 w-4 mr-2" />
-                  Input Video
-                </TabsTrigger>
-                <TabsTrigger value="output" disabled={!outputVideoUrl}>
-                  <Video className="h-4 w-4 mr-2" />
-                  Output Video
-                </TabsTrigger>
-              </TabsList>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="input">
+                <ImageIcon className="h-4 w-4 mr-2" />
+                Input Image
+              </TabsTrigger>
+              <TabsTrigger value="output" disabled={!outputVideoUrl}>
+                <Video className="h-4 w-4 mr-2" />
+                Output Video
+              </TabsTrigger>
+            </TabsList>
 
-              <TabsContent value="input" className="mt-2">
-                <VideoPreview
-                  videoUrl={inputVideoUrl}
-                  isLoading={false}
-                  generationLogs={[]}
-                  videoRef={inputVideoRef}
-                  isPlaying={isInputPlaying}
-                  handlePlayPause={handleInputPlayPause}
-                />
-              </TabsContent>
+            <TabsContent value="input" className="mt-2">
+              {imagePreview ? (
+                <div className="rounded-lg overflow-hidden aspect-video bg-slate-100 flex items-center justify-center">
+                  <img 
+                    src={imagePreview} 
+                    alt="Input" 
+                    className="max-w-full max-h-full object-contain" 
+                  />
+                </div>
+              ) : (
+                <div className="rounded-lg overflow-hidden aspect-video bg-slate-100 flex flex-col items-center justify-center text-gray-500">
+                  <ImageIcon className="h-12 w-12 mb-2" />
+                  <p>Upload an image to apply effects</p>
+                </div>
+              )}
+            </TabsContent>
 
-              <TabsContent value="output" className="mt-2">
-                {outputVideoUrl ? (
-                  <>
-                    <VideoPreview
-                      videoUrl={outputVideoUrl}
-                      isLoading={false}
-                      generationLogs={[]}
-                      videoRef={outputVideoRef}
-                      isPlaying={isOutputPlaying}
-                      handlePlayPause={handleOutputPlayPause}
-                    />
-                    {processingTime && (
-                      <div className="flex items-center mt-2 text-sm text-gray-500">
-                        <Clock className="h-4 w-4 mr-1" />
-                        Processing time: {processingTime.toFixed(1)} seconds
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="rounded-lg overflow-hidden aspect-video bg-slate-100 flex items-center justify-center">
-                    <Skeleton className="h-full w-full" />
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          )}
+            <TabsContent value="output" className="mt-2">
+              {outputVideoUrl ? (
+                <>
+                  <VideoPreview
+                    videoUrl={outputVideoUrl}
+                    isLoading={false}
+                    generationLogs={[]}
+                    videoRef={outputVideoRef}
+                    isPlaying={isOutputPlaying}
+                    handlePlayPause={handleOutputPlayPause}
+                  />
+                  {processingTime && (
+                    <div className="flex items-center mt-2 text-sm text-gray-500">
+                      <Clock className="h-4 w-4 mr-1" />
+                      Processing time: {processingTime.toFixed(1)} seconds
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="rounded-lg overflow-hidden aspect-video bg-slate-100 flex items-center justify-center">
+                  <Skeleton className="h-full w-full" />
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
 
-          {!inputVideoUrl && (
+          {!imagePreview && (
             <Alert>
               <AlertDescription>
-                Upload a video to apply AI-powered effects. Transform your videos into different artistic styles with just one click.
+                Upload an image to apply AI-powered effects. Transform your image into a video with different effects like squish, inflate, cakeify, and more.
               </AlertDescription>
             </Alert>
           )}
