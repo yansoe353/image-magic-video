@@ -45,7 +45,9 @@ interface VideoEffectsProps {
 }
 
 const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
+  // Use a string for the image URL and a File object for the actual file upload
   const [inputImageUrl, setInputImageUrl] = useState<string | null>(null);
+  const [inputImageFile, setInputImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedEffect, setSelectedEffect] = useState<EffectType>("cakeify");
   const [outputVideoUrl, setOutputVideoUrl] = useState<string | null>(null);
@@ -84,7 +86,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
 
     const url = URL.createObjectURL(file);
     setImagePreview(url);
-    setInputImageUrl(file);
+    setInputImageFile(file);
     setOutputVideoUrl(null);
     setActiveTab("input");
   };
@@ -94,7 +96,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
   };
 
   const applyEffect = async () => {
-    if (!inputImageUrl) {
+    if (!inputImageFile && !imagePreview) {
       toast({
         title: "No image selected",
         description: "Please upload an image first",
@@ -113,10 +115,21 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
     try {
       setProgressPercent(30);
 
+      // Upload the image file if we have it
+      let imageUrl;
+      if (inputImageFile) {
+        imageUrl = await falClient.storage.upload(inputImageFile);
+      } else if (imagePreview) {
+        // Use the preview URL if we don't have a file object
+        imageUrl = imagePreview;
+      } else {
+        throw new Error("No image to process");
+      }
+
       // Submit the image to fal.ai for processing using the queue API
       const { request_id } = await falClient.queue.submit("fal-ai/wan-effects", {
         input: {
-          input_video: inputImageUrl,
+          image_url: imageUrl,
           effect_type: selectedEffect,
           num_frames: 81,
           frames_per_second: 16,
@@ -139,7 +152,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
           
           if (status.status === "COMPLETED") {
             clearInterval(checkInterval);
-            result = status.data;
+            result = status.output;
             setProgressPercent(90);
             handleResults(result);
           }
