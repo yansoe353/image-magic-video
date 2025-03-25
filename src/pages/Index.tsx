@@ -6,7 +6,6 @@ import ImageToVideo from "@/components/ImageToVideo";
 import Header from "@/components/Header";
 import { getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
 import { Card, CardContent } from "@/components/ui/card";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AIAssistant } from "@/components/AIAssistant";
 import VideoEffects from "@/components/VideoEffects";
@@ -198,7 +197,6 @@ const Index = () => {
         </div>
       </footer>
       
-      {/* AI Assistant - only shown on the create page */}
       <AIAssistant />
     </div>
   );

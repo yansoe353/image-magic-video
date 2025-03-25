@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import VideoPreview from "./VideoPreview";
-import fal from "@fal-ai/client"; // Corrected import statement
+import * as fal from "@fal-ai/client"; // Fix the import statement
 
 // Setup fal.ai client
 fal.config({
