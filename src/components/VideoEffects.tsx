@@ -1,3 +1,4 @@
+
 import { useState, useRef, ChangeEvent } from "react";
 import { Loader2, Upload, RefreshCw, Video, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,10 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import VideoPreview from "./VideoPreview";
-import { client } from "@fal-ai/client";
+import * as falClient from "@fal-ai/client";
 
 // Setup fal.ai client
-client.config({
+falClient.init({
   credentials: 'include',
 });
 
@@ -113,7 +114,8 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
       setProgressPercent(30);
 
       // Submit the video to fal.ai for processing
-      const result = await client.subscribe("fal-ai/wan-effects", {
+      const result = await falClient.run({
+        modelId: "fal-ai/wan-effects",
         input: {
           input_video: file,
           style: selectedEffect,
