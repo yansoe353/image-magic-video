@@ -152,7 +152,8 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
           
           if (status.status === "COMPLETED") {
             clearInterval(checkInterval);
-            result = status.output;
+            // Use status.data instead of status.output since that's what the CompletedQueueStatus type provides
+            result = status.data;
             setProgressPercent(90);
             handleResults(result);
           }

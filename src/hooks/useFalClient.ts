@@ -11,7 +11,7 @@ try {
   console.error("Error initializing fal.ai client:", error);
 }
 
-// Define effect type enum to match the API requirements
+// Define effect type enum to match the API requirements exactly as listed in the documentation
 export type EffectType = 
   | "squish" | "muscle" | "inflate" | "crush" | "rotate" | "cakeify"
   | "baby" | "disney-princess" | "painting" | "pirate-captain" 
