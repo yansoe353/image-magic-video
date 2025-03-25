@@ -129,10 +129,12 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
       let result = null;
       const checkInterval = setInterval(async () => {
         try {
-          const status = await falClient.queue.status(request_id);
+          // The status method requires the model ID and request ID
+          const status = await falClient.queue.status("fal-ai/wan-effects", request_id);
           if (status.status === "COMPLETED") {
             clearInterval(checkInterval);
-            result = status.result;
+            // The output is in the output property, not result
+            result = status.output;
             setProgressPercent(90);
             handleResults(result);
           }

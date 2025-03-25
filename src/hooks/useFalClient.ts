@@ -15,7 +15,11 @@ try {
 export type EffectType = 
   | "squish" | "muscle" | "inflate" | "crush" | "rotate" | "cakeify"
   | "baby" | "disney-princess" | "painting" | "pirate-captain" 
-  | "jungle" | "samurai" | "warrior" | "fire" | "super-saiyan";
+  | "jungle" | "samurai" | "warrior" | "fire" | "super-saiyan"
+  | "gun-shooting" | "deflate" | "hulk" | "bride" | "classy" | "puppy"
+  | "snow-white" | "mona-lisa" | "princess" | "vip" | "zen" | "assassin"
+  | "timelapse" | "tsunami" | "zoom-call" | "doom-fps" | "fus-ro-dah"
+  | "hug-jesus" | "robot-face-reveal";
 
 // Define aspect ratio enum
 export type AspectRatio = "16:9" | "9:16" | "1:1";
