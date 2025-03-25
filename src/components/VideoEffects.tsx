@@ -11,10 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import VideoPreview from "./VideoPreview";
-import * as fal from "@fal-ai/client"; // Fix the import statement
+import { client } from "@fal-ai/client";
 
 // Setup fal.ai client
-fal.config({
+client.config({
   credentials: 'include',
 });
 
@@ -112,12 +112,8 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
 
       setProgressPercent(30);
 
-      // Create a FormData object to send the video
-      const formData = new FormData();
-      formData.append("video", file);
-
       // Submit the video to fal.ai for processing
-      const result = await fal.subscribe("fal-ai/wan-effects", {
+      const result = await client.subscribe("fal-ai/wan-effects", {
         input: {
           input_video: file,
           style: selectedEffect,
