@@ -1,4 +1,3 @@
-
 import { useState, useRef, ChangeEvent } from "react";
 import { Loader2, Upload, RefreshCw, Video, Clock, Image as ImageIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,7 +13,6 @@ import { useVideoControls } from "@/hooks/useVideoControls";
 import VideoPreview from "./VideoPreview";
 import { falClient, EffectType } from "@/hooks/useFalClient";
 
-// Effect options for the model
 const effectOptions = [
   { value: "squish", label: "Squish" },
   { value: "muscle", label: "Muscle" },
@@ -45,7 +43,6 @@ interface VideoEffectsProps {
 }
 
 const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
-  // Use a string for the image URL and a File object for the actual file upload
   const [inputImageUrl, setInputImageUrl] = useState<string | null>(null);
   const [inputImageFile, setInputImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -64,7 +61,6 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check file size (max 10MB for images)
     if (file.size > 10 * 1024 * 1024) {
       toast({
         title: "File too large",
@@ -74,7 +70,6 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
       return;
     }
 
-    // Check if it's an image file
     if (!file.type.startsWith("image/")) {
       toast({
         title: "Invalid file",
@@ -115,18 +110,15 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
     try {
       setProgressPercent(30);
 
-      // Upload the image file if we have it
       let imageUrl;
       if (inputImageFile) {
         imageUrl = await falClient.storage.upload(inputImageFile);
       } else if (imagePreview) {
-        // Use the preview URL if we don't have a file object
         imageUrl = imagePreview;
       } else {
         throw new Error("No image to process");
       }
 
-      // Submit the image to fal.ai for processing using the queue API
       const { request_id } = await falClient.queue.submit("fal-ai/wan-effects", {
         input: {
           image_url: imageUrl,
@@ -141,7 +133,6 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
 
       setProgressPercent(50);
 
-      // Poll for results
       let result = null;
       const checkInterval = setInterval(async () => {
         try {
@@ -152,8 +143,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
           
           if (status.status === "COMPLETED") {
             clearInterval(checkInterval);
-            // Use status.data instead of status.output since that's what the CompletedQueueStatus type provides
-            result = status.data;
+            result = status.output;
             setProgressPercent(90);
             handleResults(result);
           }
@@ -165,11 +155,9 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
       const handleResults = (result: any) => {
         setProgressPercent(95);
 
-        // Calculate processing time
         const endTime = Date.now();
         setProcessingTime((endTime - startTime) / 1000);
 
-        // Get the output video URL
         if (result?.video?.url) {
           setOutputVideoUrl(result.video.url);
           setActiveTab("output");
