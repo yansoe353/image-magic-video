@@ -37,6 +37,19 @@ const effectOptions = [
   { value: "princess", label: "Princess" },
   { value: "zen", label: "Zen" },
   { value: "assassin", label: "Assassin" },
+  // Adding missing effect options
+  { value: "classy", label: "Classy" },
+  { value: "puppy", label: "Puppy" },
+  { value: "snow-white", label: "Snow White" },
+  { value: "mona-lisa", label: "Mona Lisa" },
+  { value: "vip", label: "VIP" },
+  { value: "timelapse", label: "Timelapse" },
+  { value: "tsunami", label: "Tsunami" },
+  { value: "zoom-call", label: "Zoom Call" },
+  { value: "doom-fps", label: "Doom FPS" },
+  { value: "fus-ro-dah", label: "Fus Ro Dah" },
+  { value: "hug-jesus", label: "Hug Jesus" },
+  { value: "robot-face-reveal", label: "Robot Face Reveal" },
 ];
 
 interface VideoEffectsProps {
@@ -144,7 +157,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
           
           if (status.status === "COMPLETED") {
             clearInterval(checkInterval);
-            result = status.output;
+            result = status.data; // This is the correct property according to the API documentation
             setProgressPercent(90);
             handleResults(result);
           }
