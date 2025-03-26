@@ -143,7 +143,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
           
           if (status.status === "COMPLETED") {
             clearInterval(checkInterval);
-            result = status.output;
+            result = status.data;
             setProgressPercent(90);
             handleResults(result);
           }

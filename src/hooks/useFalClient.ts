@@ -1,4 +1,5 @@
 
+
 import { fal } from "@fal-ai/client";
 
 // Initialize the fal.ai client
@@ -16,8 +17,8 @@ export type EffectType =
   | "squish" | "muscle" | "inflate" | "crush" | "rotate" | "cakeify"
   | "baby" | "disney-princess" | "painting" | "pirate-captain" 
   | "jungle" | "samurai" | "warrior" | "fire" | "super-saiyan"
-  | "gun-shooting" | "deflate" | "hulk" | "bride" | "classy" | "puppy"
-  | "snow-white" | "mona-lisa" | "princess" | "vip" | "zen" | "assassin"
+  | "gun-shooting" | "deflate" | "hulk" | "bride" | "princess" | "zen" | "assassin"
+  | "classy" | "puppy" | "snow-white" | "mona-lisa" | "vip"
   | "timelapse" | "tsunami" | "zoom-call" | "doom-fps" | "fus-ro-dah"
   | "hug-jesus" | "robot-face-reveal"; 
 
@@ -25,3 +26,4 @@ export type EffectType =
 export type AspectRatio = "16:9" | "9:16" | "1:1";
 
 export const falClient = fal;
+
