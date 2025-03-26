@@ -1,5 +1,4 @@
 
-
 import { fal } from "@fal-ai/client";
 
 // Initialize the fal.ai client
@@ -26,4 +25,3 @@ export type EffectType =
 export type AspectRatio = "16:9" | "9:16" | "1:1";
 
 export const falClient = fal;
-
