@@ -1,4 +1,3 @@
-
 import { useState, useRef, ChangeEvent } from "react";
 import { Loader2, Upload, RefreshCw, Video, Clock, Image as ImageIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,7 +36,6 @@ const effectOptions = [
   { value: "princess", label: "Princess" },
   { value: "zen", label: "Zen" },
   { value: "assassin", label: "Assassin" },
-  // Adding missing effect options
   { value: "classy", label: "Classy" },
   { value: "puppy", label: "Puppy" },
   { value: "snow-white", label: "Snow White" },
@@ -157,8 +155,6 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
           
           if (status.status === "COMPLETED") {
             clearInterval(checkInterval);
-            // According to the API documentation, for this specific API endpoint
-            // the result will be in the 'video' property of the status object
             result = status;
             setProgressPercent(90);
             handleResults(result);
