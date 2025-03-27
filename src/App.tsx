@@ -46,77 +46,79 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Apply dark mode class to document
-useEffect(() => {
-  document.documentElement.classList.add('dark');
-}, []);
+const App = () => {
+  // Moved the useEffect inside the component
+  useEffect(() => {
+    document.documentElement.classList.add('dark');
+  }, []);
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/buy-account" element={<BuyAccount />} />
-          <Route path="/faq" element={<FAQ />} />
-          <Route 
-            path="/create" 
-            element={
-              <ProtectedRoute>
-                <Index />
-              </ProtectedRoute>
-            } 
-          />
-          <Route path="/examples" element={<Examples />} />
-          <Route 
-            path="/history" 
-            element={
-              <ProtectedRoute>
-                <History />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/users" 
-            element={
-              <ProtectedRoute>
-                <UserList />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/add-user" 
-            element={
-              <ProtectedRoute>
-                <AddUser />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/edit-user/:userId" 
-            element={
-              <ProtectedRoute>
-                <EditUser />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/user-limits/:userId" 
-            element={
-              <ProtectedRoute>
-                <UserLimits />
-              </ProtectedRoute>
-            } 
-          />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/buy-account" element={<BuyAccount />} />
+            <Route path="/faq" element={<FAQ />} />
+            <Route 
+              path="/create" 
+              element={
+                <ProtectedRoute>
+                  <Index />
+                </ProtectedRoute>
+              } 
+            />
+            <Route path="/examples" element={<Examples />} />
+            <Route 
+              path="/history" 
+              element={
+                <ProtectedRoute>
+                  <History />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/users" 
+              element={
+                <ProtectedRoute>
+                  <UserList />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/add-user" 
+              element={
+                <ProtectedRoute>
+                  <AddUser />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/edit-user/:userId" 
+              element={
+                <ProtectedRoute>
+                  <EditUser />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/user-limits/:userId" 
+              element={
+                <ProtectedRoute>
+                  <UserLimits />
+                </ProtectedRoute>
+              } 
+            />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
