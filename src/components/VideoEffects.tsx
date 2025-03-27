@@ -189,6 +189,8 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
             logs: true,
           });
 
+          console.log("Status response:", status); // Log the response for debugging
+
           if (status.status === "COMPLETED") {
             clearInterval(checkInterval);
             result = status.result; // Update this line to match the actual response structure
