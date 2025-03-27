@@ -1,16 +1,16 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { loginUser } from "@/utils/authUtils";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Info } from "lucide-react";
 
 const formSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -69,6 +69,11 @@ const Login = () => {
     }
   };
 
+  const fillDemoCredentials = () => {
+    form.setValue("email", "demouser@gmail.com");
+    form.setValue("password", "demo123");
+  };
+
   return (
     <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <Card className="w-full max-w-md">
@@ -79,6 +84,23 @@ const Login = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-4 flex items-start">
+            <Info className="h-5 w-5 text-amber-500 mt-0.5 mr-2 flex-shrink-0" />
+            <div className="text-sm text-amber-700">
+              <p className="font-medium mb-1">Demo Account Available</p>
+              <p>Email: demouser@gmail.com</p>
+              <p>Password: demo123</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-2 bg-amber-100 hover:bg-amber-200 border-amber-300"
+                onClick={fillDemoCredentials}
+              >
+                Fill Demo Credentials
+              </Button>
+            </div>
+          </div>
+          
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
