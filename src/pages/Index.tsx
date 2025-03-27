@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,7 +9,6 @@ import { getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT }
 import { Card, CardContent } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AIAssistant } from "@/components/AIAssistant";
-import VideoEffects from "@/components/VideoEffects";
 
 interface SelectedContent {
   url: string;
@@ -98,7 +98,7 @@ const Index = () => {
           className="w-full"
           onValueChange={(value) => setActiveTab(value)}
         >
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 gap-1 mb-8">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-1 mb-8">
             <TabsTrigger value="text-to-image" className="text-xs md:text-sm py-1.5 px-1 md:px-3">
               {isMobile ? "Text→Image" : "Text to Image"}
             </TabsTrigger>
@@ -107,9 +107,6 @@ const Index = () => {
             </TabsTrigger>
             <TabsTrigger value="video-editor" className="text-xs md:text-sm py-1.5 px-1 md:px-3">
               {isMobile ? "Merge Videos" : "Video Merger"}
-            </TabsTrigger>
-            <TabsTrigger value="video-effects" className="text-xs md:text-sm py-1.5 px-1 md:px-3">
-              {isMobile ? "AI Effects" : "AI Video Effects"}
             </TabsTrigger>
             <TabsTrigger value="image-playground" className="text-xs md:text-sm py-1.5 px-1 md:px-3">
               {isMobile ? "Image Play" : "Image Playground"}
@@ -147,10 +144,6 @@ const Index = () => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="video-effects" className="mt-0">
-            <VideoEffects initialVideoUrl={generatedVideoUrl} />
           </TabsContent>
           
           <TabsContent value="image-playground" className="mt-0">
