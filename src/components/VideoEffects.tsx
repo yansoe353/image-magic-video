@@ -11,7 +11,43 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import VideoPreview from "./VideoPreview";
-import { falClient, EffectType } from "@/hooks/useFalClient";
+import { falClient } from "@/hooks/useFalClient";
+
+export type EffectType =
+  | "squish"
+  | "muscle"
+  | "inflate"
+  | "crush"
+  | "rotate"
+  | "cakeify"
+  | "baby"
+  | "disney-princess"
+  | "painting"
+  | "pirate-captain"
+  | "jungle"
+  | "samurai"
+  | "warrior"
+  | "fire"
+  | "super-saiyan"
+  | "gun-shooting"
+  | "deflate"
+  | "hulk"
+  | "bride"
+  | "princess"
+  | "zen"
+  | "assassin"
+  | "classy"
+  | "puppy"
+  | "snow-white"
+  | "mona-lisa"
+  | "vip"
+  | "timelapse"
+  | "tsunami"
+  | "zoom-call"
+  | "doom-fps"
+  | "fus-ro-dah"
+  | "hug-jesus"
+  | "robot-face-reveal";
 
 const effectOptions = [
   { value: "squish", label: "Squish" },
@@ -152,10 +188,10 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
             requestId: request_id,
             logs: true,
           });
-          
+
           if (status.status === "COMPLETED") {
             clearInterval(checkInterval);
-            result = status;
+            result = status.result; // Update this line to match the actual response structure
             setProgressPercent(90);
             handleResults(result);
           }
@@ -287,10 +323,10 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
             <TabsContent value="input" className="mt-2">
               {imagePreview ? (
                 <div className="rounded-lg overflow-hidden aspect-video bg-slate-100 flex items-center justify-center">
-                  <img 
-                    src={imagePreview} 
-                    alt="Input" 
-                    className="max-w-full max-h-full object-contain" 
+                  <img
+                    src={imagePreview}
+                    alt="Input"
+                    className="max-w-full max-h-full object-contain"
                   />
                 </div>
               ) : (
