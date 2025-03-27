@@ -1,4 +1,3 @@
-
 import { useState, useRef, ChangeEvent } from "react";
 import { Loader2, Upload, RefreshCw, Video, Clock, Image as ImageIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -157,7 +156,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
           
           if (status.status === "COMPLETED") {
             clearInterval(checkInterval);
-            result = status.data; // This is the correct property according to the API documentation
+            result = status.output; // Access the output property for completed status
             setProgressPercent(90);
             handleResults(result);
           }
