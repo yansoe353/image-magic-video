@@ -63,30 +63,30 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 to-slate-800">
       <Header />
       
       <main className="flex-1 container max-w-5xl py-8 px-4 md:px-6 mt-16">
         <section className="mb-12 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-brand-purple to-brand-blue mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-gradient mb-4">
             AI Video Creator
           </h1>
-          <p className="text-slate-600 text-lg max-w-2xl mx-auto">
+          <p className="text-slate-300 text-lg max-w-2xl mx-auto">
             Transform your ideas into stunning videos with our AI-powered tools. Generate images from text, then convert them into captivating videos.
           </p>
           
           {!hasApiKey && (
-            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800 text-sm">
+            <div className="mt-4 p-4 bg-yellow-900/30 border border-yellow-700/50 rounded-md text-yellow-200 text-sm glass-morphism">
               Please set your Infinity API key using the button in the header to enable image and video generation.
             </div>
           )}
           
           {hasApiKey && (
             <div className="mt-4 flex justify-center gap-8 text-sm">
-              <div className="px-4 py-2 bg-blue-50 border border-blue-100 rounded-md">
+              <div className="px-4 py-2 bg-blue-900/20 border border-blue-700/30 rounded-md text-blue-200 neo-blur">
                 <span className="font-medium">Images:</span> {usageCounts.remainingImages}/{IMAGE_LIMIT} remaining
               </div>
-              <div className="px-4 py-2 bg-purple-50 border border-purple-100 rounded-md">
+              <div className="px-4 py-2 bg-purple-900/20 border border-purple-700/30 rounded-md text-purple-200 neo-blur">
                 <span className="font-medium">Videos:</span> {usageCounts.remainingVideos}/{VIDEO_LIMIT} remaining
               </div>
             </div>
@@ -98,20 +98,20 @@ const Index = () => {
           className="w-full"
           onValueChange={(value) => setActiveTab(value)}
         >
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-1 mb-8">
-            <TabsTrigger value="text-to-image" className="text-xs md:text-sm py-1.5 px-1 md:px-3">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md">
+            <TabsTrigger value="text-to-image" className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white">
               {isMobile ? "Text→Image" : "Text to Image"}
             </TabsTrigger>
-            <TabsTrigger value="image-to-video" className="text-xs md:text-sm py-1.5 px-1 md:px-3">
+            <TabsTrigger value="image-to-video" className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white">
               {isMobile ? "Image→Video" : "Image to Video"}
             </TabsTrigger>
-            <TabsTrigger value="video-editor" className="text-xs md:text-sm py-1.5 px-1 md:px-3">
+            <TabsTrigger value="video-editor" className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white">
               {isMobile ? "Merge Videos" : "Video Merger"}
             </TabsTrigger>
-            <TabsTrigger value="image-playground" className="text-xs md:text-sm py-1.5 px-1 md:px-3">
+            <TabsTrigger value="image-playground" className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white">
               {isMobile ? "Image Play" : "Image Playground"}
             </TabsTrigger>
-            <TabsTrigger value="video-playground" className="text-xs md:text-sm py-1.5 px-1 md:px-3">
+            <TabsTrigger value="video-playground" className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white">
               {isMobile ? "Video Play" : "Video Playground"}
             </TabsTrigger>
           </TabsList>
@@ -129,7 +129,7 @@ const Index = () => {
           </TabsContent>
           
           <TabsContent value="video-editor" className="mt-0">
-            <Card className="border-0 shadow-lg">
+            <Card className="border-0 shadow-lg bg-slate-800/50 backdrop-blur-md border border-slate-700/50">
               <CardContent className="p-0">
                 <div className="w-full overflow-hidden rounded-lg">
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
@@ -147,7 +147,7 @@ const Index = () => {
           </TabsContent>
           
           <TabsContent value="image-playground" className="mt-0">
-            <Card className="border-0 shadow-lg">
+            <Card className="border-0 shadow-lg bg-slate-800/50 backdrop-blur-md border border-slate-700/50">
               <CardContent className="p-0">
                 <div className="w-full overflow-hidden rounded-lg">
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
@@ -165,7 +165,7 @@ const Index = () => {
           </TabsContent>
           
           <TabsContent value="video-playground" className="mt-0">
-            <Card className="border-0 shadow-lg">
+            <Card className="border-0 shadow-lg bg-slate-800/50 backdrop-blur-md border border-slate-700/50">
               <CardContent className="p-0">
                 <div className="w-full overflow-hidden rounded-lg">
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
@@ -184,8 +184,8 @@ const Index = () => {
         </Tabs>
       </main>
       
-      <footer className="py-6 border-t border-slate-200 bg-white">
-        <div className="container text-center text-slate-500 max-w-6xl mx-auto">
+      <footer className="py-6 border-t border-slate-700/50 bg-slate-900/70 backdrop-blur-sm">
+        <div className="container text-center text-slate-400 max-w-6xl mx-auto">
           <p>© {new Date().getFullYear()} YoteShin AI. All rights reserved.</p>
         </div>
       </footer>
