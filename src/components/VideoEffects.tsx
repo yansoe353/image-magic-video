@@ -1,3 +1,4 @@
+
 import { useState, useRef, ChangeEvent } from "react";
 import { Loader2, Upload, RefreshCw, Video, Clock, Image as ImageIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import { useVideoControls } from "@/hooks/useVideoControls";
 import VideoPreview from "./VideoPreview";
 import { falClient, EffectType } from "@/hooks/useFalClient";
 
+// Effect options mapped from the EffectType to display options
 const effectOptions = [
   { value: "squish", label: "Squish" },
   { value: "muscle", label: "Muscle" },
@@ -27,7 +29,7 @@ const effectOptions = [
   { value: "jungle", label: "Jungle" },
   { value: "samurai", label: "Samurai" },
   { value: "warrior", label: "Warrior" },
-  { value: "fire", label: "Fire" },
+  // Note: Remove any effects not in the EffectType definition from useFalClient
   { value: "super-saiyan", label: "Super Saiyan" },
   { value: "gun-shooting", label: "Gun Shooting" },
   { value: "deflate", label: "Deflate" },
@@ -158,8 +160,8 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
           if (status.status === "COMPLETED") {
             clearInterval(checkInterval);
             
-            // Access the video URL from the output property
-            if (status.output?.video?.url) {
+            // Access the video URL from the proper location in the response
+            if (status.output && status.output.video && status.output.video.url) {
               videoUrl = status.output.video.url;
               setProgressPercent(90);
               

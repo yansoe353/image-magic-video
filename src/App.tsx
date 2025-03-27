@@ -46,6 +46,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Apply dark mode class to document
+useEffect(() => {
+  document.documentElement.classList.add('dark');
+}, []);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
