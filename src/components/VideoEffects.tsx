@@ -11,43 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import VideoPreview from "./VideoPreview";
-import { falClient } from "@/hooks/useFalClient";
-
-export type EffectType =
-  | "squish"
-  | "muscle"
-  | "inflate"
-  | "crush"
-  | "rotate"
-  | "cakeify"
-  | "baby"
-  | "disney-princess"
-  | "painting"
-  | "pirate-captain"
-  | "jungle"
-  | "samurai"
-  | "warrior"
-  | "fire"
-  | "super-saiyan"
-  | "gun-shooting"
-  | "deflate"
-  | "hulk"
-  | "bride"
-  | "princess"
-  | "zen"
-  | "assassin"
-  | "classy"
-  | "puppy"
-  | "snow-white"
-  | "mona-lisa"
-  | "vip"
-  | "timelapse"
-  | "tsunami"
-  | "zoom-call"
-  | "doom-fps"
-  | "fus-ro-dah"
-  | "hug-jesus"
-  | "robot-face-reveal";
+import { falClient, EffectType } from "@/hooks/useFalClient";
 
 const effectOptions = [
   { value: "squish", label: "Squish" },
@@ -181,7 +145,7 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
 
       setProgressPercent(50);
 
-      let result = null;
+      let videoUrl = null;
       const checkInterval = setInterval(async () => {
         try {
           const status = await falClient.queue.status("fal-ai/wan-effects", {
@@ -193,35 +157,33 @@ const VideoEffects = ({ initialVideoUrl }: VideoEffectsProps) => {
 
           if (status.status === "COMPLETED") {
             clearInterval(checkInterval);
-            result = status.result; // Update this line to match the actual response structure
-            setProgressPercent(90);
-            handleResults(result);
+            
+            // Access the video URL from the output property
+            if (status.output?.video?.url) {
+              videoUrl = status.output.video.url;
+              setProgressPercent(90);
+              
+              const endTime = Date.now();
+              setProcessingTime((endTime - startTime) / 1000);
+              
+              setOutputVideoUrl(videoUrl);
+              setActiveTab("output");
+              toast({
+                title: "Effect applied successfully",
+                description: `Video processed with ${selectedEffect} effect`,
+              });
+            } else {
+              throw new Error("No output video received in the response");
+            }
+            
+            setProgressPercent(100);
+            setIsProcessing(false);
           }
         } catch (error) {
           console.error("Error checking status:", error);
         }
       }, 2000);
 
-      const handleResults = (result: any) => {
-        setProgressPercent(95);
-
-        const endTime = Date.now();
-        setProcessingTime((endTime - startTime) / 1000);
-
-        if (result?.video?.url) {
-          setOutputVideoUrl(result.video.url);
-          setActiveTab("output");
-          toast({
-            title: "Effect applied successfully",
-            description: `Video processed with ${selectedEffect} effect`,
-          });
-        } else {
-          throw new Error("No output video received");
-        }
-
-        setProgressPercent(100);
-        setIsProcessing(false);
-      };
     } catch (error) {
       console.error("Error applying effect:", error);
       toast({
