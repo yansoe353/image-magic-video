@@ -82,7 +82,7 @@ const Index = () => {
           )}
           
           {hasApiKey && (
-            <div className="mt-4 flex justify-center gap-8 text-sm">
+            <div className="mt-4 flex flex-wrap justify-center gap-4 md:gap-8 text-sm">
               <div className="px-4 py-2 bg-blue-900/20 border border-blue-700/30 rounded-md text-blue-200 neo-blur">
                 <span className="font-medium">Images:</span> {usageCounts.remainingImages}/{IMAGE_LIMIT} remaining
               </div>
@@ -98,20 +98,35 @@ const Index = () => {
           className="w-full"
           onValueChange={(value) => setActiveTab(value)}
         >
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md">
-            <TabsTrigger value="text-to-image" className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md rounded-xl overflow-x-auto">
+            <TabsTrigger 
+              value="text-to-image" 
+              className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
+            >
               {isMobile ? "Text→Image" : "Text to Image"}
             </TabsTrigger>
-            <TabsTrigger value="image-to-video" className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white">
+            <TabsTrigger 
+              value="image-to-video" 
+              className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
+            >
               {isMobile ? "Image→Video" : "Image to Video"}
             </TabsTrigger>
-            <TabsTrigger value="video-editor" className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white">
+            <TabsTrigger 
+              value="video-editor" 
+              className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
+            >
               {isMobile ? "Merge Videos" : "Video Merger"}
             </TabsTrigger>
-            <TabsTrigger value="image-playground" className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white">
+            <TabsTrigger 
+              value="image-playground" 
+              className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
+            >
               {isMobile ? "Image Play" : "Image Playground"}
             </TabsTrigger>
-            <TabsTrigger value="video-playground" className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white">
+            <TabsTrigger 
+              value="video-playground" 
+              className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
+            >
               {isMobile ? "Video Play" : "Video Playground"}
             </TabsTrigger>
           </TabsList>
@@ -129,7 +144,7 @@ const Index = () => {
           </TabsContent>
           
           <TabsContent value="video-editor" className="mt-0">
-            <Card className="border-0 shadow-lg bg-slate-800/50 backdrop-blur-md border border-slate-700/50">
+            <Card className="border-0 shadow-lg glass-morphism overflow-hidden">
               <CardContent className="p-0">
                 <div className="w-full overflow-hidden rounded-lg">
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
@@ -147,7 +162,7 @@ const Index = () => {
           </TabsContent>
           
           <TabsContent value="image-playground" className="mt-0">
-            <Card className="border-0 shadow-lg bg-slate-800/50 backdrop-blur-md border border-slate-700/50">
+            <Card className="border-0 shadow-lg glass-morphism overflow-hidden">
               <CardContent className="p-0">
                 <div className="w-full overflow-hidden rounded-lg">
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
@@ -165,7 +180,7 @@ const Index = () => {
           </TabsContent>
           
           <TabsContent value="video-playground" className="mt-0">
-            <Card className="border-0 shadow-lg bg-slate-800/50 backdrop-blur-md border border-slate-700/50">
+            <Card className="border-0 shadow-lg glass-morphism overflow-hidden">
               <CardContent className="p-0">
                 <div className="w-full overflow-hidden rounded-lg">
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>

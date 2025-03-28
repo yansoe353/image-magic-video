@@ -61,7 +61,7 @@ const Header = () => {
   const isHomePage = location.pathname === "/";
 
   return (
-    <header className={`w-full border-b border-slate-200 ${isHomePage ? 'bg-transparent absolute top-0 left-0 z-10 border-transparent' : 'bg-white'}`}>
+    <header className={`w-full border-b ${isHomePage ? 'bg-transparent absolute top-0 left-0 z-50 border-transparent' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700'}`}>
       <div className="container flex h-16 items-center justify-between px-4 md:px-6 max-w-6xl mx-auto">
         <div className="flex items-center gap-2">
           <Link to="/" className={`text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-purple to-brand-blue ${isHomePage ? 'hover:opacity-80' : ''}`}>
@@ -159,39 +159,39 @@ const Header = () => {
         </nav>
         
         <div className="md:hidden">
-          <Button variant="ghost" size="icon" onClick={toggleMobileMenu} className={isHomePage ? 'text-white hover:bg-white/10' : ''}>
+          <Button variant="ghost" size="icon" onClick={toggleMobileMenu} className={isHomePage ? 'text-white hover:bg-white/10' : 'text-slate-800 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800'}>
             {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </Button>
         </div>
       </div>
       
       {mobileMenuOpen && (
-        <div className="md:hidden bg-white border-t border-slate-200 py-4 px-6">
+        <div className="md:hidden bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 py-4 px-6 shadow-md">
           <nav className="flex flex-col space-y-4">
             <Link 
               to="/" 
-              className="font-medium text-slate-600 hover:text-brand-purple"
+              className="font-medium text-slate-700 dark:text-slate-200 hover:text-brand-purple dark:hover:text-brand-purple"
               onClick={() => setMobileMenuOpen(false)}
             >
               Home
             </Link>
             <Link 
               to="/create" 
-              className="font-medium text-slate-600 hover:text-brand-purple"
+              className="font-medium text-slate-700 dark:text-slate-200 hover:text-brand-purple dark:hover:text-brand-purple"
               onClick={() => setMobileMenuOpen(false)}
             >
               Create
             </Link>
             <Link 
               to="/examples" 
-              className="font-medium text-slate-600 hover:text-brand-purple"
+              className="font-medium text-slate-700 dark:text-slate-200 hover:text-brand-purple dark:hover:text-brand-purple"
               onClick={() => setMobileMenuOpen(false)}
             >
               Examples
             </Link>
             <Link 
               to="/faq" 
-              className="font-medium text-slate-600 hover:text-brand-purple"
+              className="font-medium text-slate-700 dark:text-slate-200 hover:text-brand-purple dark:hover:text-brand-purple"
               onClick={() => setMobileMenuOpen(false)}
             >
               FAQ
@@ -200,7 +200,7 @@ const Header = () => {
             {loggedIn && (
               <Link 
                 to="/history" 
-                className="font-medium flex items-center gap-1 text-slate-600 hover:text-brand-purple"
+                className="font-medium flex items-center gap-1 text-slate-700 dark:text-slate-200 hover:text-brand-purple dark:hover:text-brand-purple"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 <History className="h-4 w-4" />
@@ -210,13 +210,13 @@ const Header = () => {
             
             {loggedIn ? (
               <>
-                <div className="py-2">
-                  <span className="text-sm text-slate-600 block mb-2">
+                <div className="py-2 border-t border-slate-200 dark:border-slate-700 mt-2">
+                  <span className="text-sm text-slate-700 dark:text-slate-300 block mb-2">
                     {currentUser?.name || currentUser?.email}
                   </span>
                   <ApiKeyInput onApiKeySet={setIsApiKeySet} />
                   {isApiKeySet && (
-                    <span className="text-xs text-green-600 ml-2">
+                    <span className="text-xs text-green-600 dark:text-green-400 ml-2">
                       API Key Set
                     </span>
                   )}
@@ -224,7 +224,7 @@ const Header = () => {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="gap-2 w-full flex items-center" 
+                  className="gap-2 w-full flex items-center border-slate-300 dark:border-slate-600" 
                   onClick={handleApiKeyClick}
                 >
                   <Key className="h-4 w-4" />
@@ -232,7 +232,7 @@ const Header = () => {
                 </Button>
                 <Link 
                   to="/users"
-                  className="font-medium flex items-center gap-1 text-slate-600 hover:text-brand-purple"
+                  className="font-medium flex items-center gap-1 text-slate-700 dark:text-slate-200 hover:text-brand-purple dark:hover:text-brand-purple"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <Users className="h-4 w-4" />
@@ -241,7 +241,7 @@ const Header = () => {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="gap-2 w-full" 
+                  className="gap-2 w-full border-slate-300 dark:border-slate-600" 
                   onClick={() => {
                     handleLogout();
                     setMobileMenuOpen(false);
@@ -255,7 +255,7 @@ const Header = () => {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="gap-2 w-full" 
+                className="gap-2 w-full border-slate-300 dark:border-slate-600" 
                 onClick={() => {
                   navigate("/login");
                   setMobileMenuOpen(false);
