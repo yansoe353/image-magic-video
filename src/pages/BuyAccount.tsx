@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, Phone, Send, ArrowLeft, ImageIcon, VideoIcon } from "lucide-react";
+import { MessageCircle, Phone, Send, ArrowLeft, ImageIcon, VideoIcon, Bot } from "lucide-react";
 import BuyApiKey from "@/components/api-key/BuyApiKeyPopover";
 
 const BuyAccount = () => {
@@ -63,12 +63,20 @@ const BuyAccount = () => {
                 <span>Unlimited Image Generation in Playground</span>
               </li>
               <li className="flex items-start">
+                <span className="text-green-500 mr-2">✓</span>
+                <span>Unlimited Video Generation in Playground</span>
+              </li>
+              <li className="flex items-start">
                 <ImageIcon className="h-5 w-5 text-brand-purple mr-2 flex-shrink-0" />
                 <span><strong>100</strong> Pro image generations</span>
               </li>
               <li className="flex items-start">
                 <VideoIcon className="h-5 w-5 text-brand-purple mr-2 flex-shrink-0" />
-                <span><strong>20</strong> video generations</span>
+                <span><strong>20</strong> Pro video generations</span>
+              </li>
+              <li className="flex items-start">
+                <Bot className="h-5 w-5 text-brand-purple mr-2 flex-shrink-0" />
+                <span>Access YoteShin AI Assistant</span>
               </li>
               <li className="flex items-start">
                 <span className="text-green-500 mr-2">✓</span>
