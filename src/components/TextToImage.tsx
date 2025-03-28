@@ -18,6 +18,7 @@ import { UsageLimits } from "./image-generation/UsageLimits";
 import { translateText } from "@/utils/translationUtils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import ProLabel from "./ProLabel";
 
 type SupportedLanguage = "en" | "my" | "th";
 
@@ -297,7 +298,6 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
     }
   };
 
-  // Helper function to detect the language of the prompt
   async function detectLanguage(text: string): Promise<SupportedLanguage> {
     try {
       const apiUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
@@ -309,15 +309,14 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
 
       const data = await response.json();
 
-      // Check if the response structure is as expected
       if (data && data[2]) {
-        return data[2]; // Return detected language code
+        return data[2];
       } else {
         throw new Error("Unexpected response structure from language detection API");
       }
     } catch (error) {
       console.error("Language detection error:", error);
-      return "en"; // Default to English if detection fails
+      return "en";
     }
   }
 
@@ -325,7 +324,10 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
     <div className="grid gap-8 md:grid-cols-2">
       <Card className="overflow-hidden">
         <CardContent className="p-6">
-          <h2 className="text-2xl font-bold mb-4">Create an Image</h2>
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-2xl font-bold">Create an Image</h2>
+            <ProLabel />
+          </div>
 
           {!isApiKeySet && (
             <Alert className="mb-4">
@@ -385,8 +387,6 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
               onChange={setGuidanceScale}
               disabled={isLoading}
             />
-
-          
 
             <div className="flex items-center justify-between">
               <Button

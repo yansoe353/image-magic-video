@@ -18,6 +18,7 @@ import VideoPreview from "./VideoPreview";
 import { supabase } from "@/integrations/supabase/client";
 import { isLoggedIn } from "@/utils/authUtils";
 import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
+import ProLabel from "./ProLabel";
 
 // Initialize fal.ai client with proper environment variable handling for browser
 try {
@@ -231,7 +232,10 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
     <div className="grid gap-8 md:grid-cols-2">
       <Card className="overflow-hidden">
         <CardContent className="p-6">
-          <h2 className="text-2xl font-bold mb-4">Image to Video</h2>
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-2xl font-bold">Image to Video</h2>
+            <ProLabel />
+          </div>
 
           {counts.remainingVideos <= 5 && (
             <Alert variant="destructive" className="mb-4">
