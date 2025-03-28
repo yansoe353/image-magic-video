@@ -50,7 +50,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
   const [supabaseVideoUrl, setSupabaseVideoUrl] = useState("");
   const [isStoringVideo, setIsStoringVideo] = useState(false);
 
-  const [duration, setDuration] = useState<string>("5");
+  const [duration] = useState<string>("5");
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
   const [negativePrompt, setNegativePrompt] = useState<string>("blur, distort, and low quality");
   const [cfgScale, setCfgScale] = useState<number>(0.5);
@@ -149,7 +149,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
         input: {
           prompt: promptToUse,
           image_url: imageUrl,
-          duration: duration as "5" | "10",
+          duration: "5",
           aspect_ratio: aspectRatio as "16:9" | "9:16" | "1:1",
           negative_prompt: negativePrompt,
           cfg_scale: cfgScale,
@@ -286,15 +286,9 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="duration">Duration</Label>
-                <Select value={duration} onValueChange={setDuration}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select duration" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="5">5 seconds</SelectItem>
-                    <SelectItem value="10">10 seconds</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="bg-slate-800/60 px-3 py-2 rounded-md border border-slate-700/50 text-slate-300">
+                  5 seconds
+                </div>
               </div>
 
               <div>
