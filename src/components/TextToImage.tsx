@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -208,11 +209,12 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       console.log("Image Size:", { width, height });
       console.log("Guidance Scale:", guidanceScale);
 
-      // Now using the imagen3/fast model
+      // Now using the imagen3/fast model with correct properties
       const result = await fal.subscribe("fal-ai/imagen3/fast", {
         input: {
           prompt: promptToUse,
-          image_size: `${width}x${height}`,
+          width: width,
+          height: height,
           enable_safety_filter: true,
         },
       });
