@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -213,8 +212,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       const result = await fal.subscribe("fal-ai/imagen3/fast", {
         input: {
           prompt: promptToUse,
-          width: width,
-          height: height,
+          image_size: `${width}x${height}`,
           enable_safety_filter: true,
         },
       });
