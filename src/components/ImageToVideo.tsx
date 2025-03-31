@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { isLoggedIn } from "@/utils/authUtils";
 import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
 import ProLabel from "./ProLabel";
+import KlingAILabel from "./KlingAILabel";
 
 // Initialize fal.ai client with proper environment variable handling for browser
 try {
@@ -235,6 +237,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-2xl font-bold">Image to Video</h2>
             <ProLabel />
+            <KlingAILabel />
           </div>
 
           {counts.remainingVideos <= 5 && (
