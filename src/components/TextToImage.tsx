@@ -85,14 +85,10 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
 
     try {
       localStorage.setItem("falApiKey", apiKey);
-
-      // Configure fal client with the new API key
       fal.config({
         credentials: apiKey
       });
-
       setIsApiKeySet(true);
-
       toast({
         title: "Success",
         description: "API key saved successfully",
@@ -105,6 +101,12 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         variant: "destructive",
       });
     }
+  };
+
+  const getAspectRatio = (sizeOption: ImageSizeOption): string => {
+    if (sizeOption.includes('landscape')) return '16:9';
+    if (sizeOption.includes('portrait')) return '9:16';
+    return '1:1';
   };
 
   const saveToHistory = async (imageUrl: string, originalUrl: string) => {
@@ -128,15 +130,13 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             size: imageSize,
             original_url: originalUrl,
             loras: selectedLoras,
-            model: "flux-lora",
+            model: "imagen3-fast",
             guidance_scale: guidanceScale
           }
         });
 
       if (error) {
         console.error("Error saving to history:", error);
-      } else {
-        console.log("Successfully saved image to history");
       }
     } catch (err) {
       console.error("Failed to save to history:", err);
@@ -177,7 +177,6 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       let promptToUse = prompt;
       if (prompt && prompt.length > 0) {
         try {
-          // Translate the prompt to English if it's not already in English
           const detectedLanguage = await detectLanguage(prompt);
           if (detectedLanguage !== "en") {
             promptToUse = await translateText(prompt, detectedLanguage, "en");
@@ -187,47 +186,31 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         }
       }
 
-      // Map the image size to dimensions
-      let width = 1024;
-      let height = 1024;
-
-      if (imageSize.includes('landscape')) {
-        width = 1280;
-        height = 768;
-      } else if (imageSize.includes('portrait')) {
-        width = 768;
-        height = 1280;
-      }
-
-      // Configure fal client with the user's API key
       fal.config({
         credentials: apiKey
       });
 
-      // Log parameters
-      console.log("Image Size:", { width, height });
-      console.log("Guidance Scale:", guidanceScale);
-
-      // Now using the imagen3/fast model with correct properties
       const result = await fal.subscribe("fal-ai/imagen3/fast", {
         input: {
           prompt: promptToUse,
-          image_size: `${width}x${height}`,
+          aspect_ratio: getAspectRatio(imageSize),
           enable_safety_filter: true,
+          guidance_scale: guidanceScale,
+          negative_prompt: selectedLoras.length > 0 ? "low quality, bad anatomy" : ""
         },
       });
 
-      if (result.data && result.data.images && result.data.images[0]) {
+      if (result.data?.images?.[0]?.url) {
         const falImageUrl = result.data.images[0].url;
         setOriginalImageUrl(falImageUrl);
-        setGeneratedImage(""); // Clear any existing URL
+        setGeneratedImage("");
 
         setIsUploading(true);
         try {
           const userId = await getUserId();
           const supabaseUrl = await uploadUrlToStorage(falImageUrl, 'image', userId);
           setSupabaseImageUrl(supabaseUrl);
-          setGeneratedImage(supabaseUrl); // Set the Supabase URL as the image URL
+          setGeneratedImage(supabaseUrl);
 
           await saveToHistory(supabaseUrl, falImageUrl);
 
@@ -250,12 +233,6 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           });
           const freshCounts = await getRemainingCountsAsync();
           setCounts(freshCounts);
-        } else {
-          toast({
-            title: "Usage Limit Reached",
-            description: "You've reached your image generation limit.",
-            variant: "destructive",
-          });
         }
       } else {
         throw new Error("No image URL in response");
@@ -281,7 +258,6 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
 
   const handleDownload = () => {
     const imageUrlToDownload = supabaseImageUrl || generatedImage;
-
     if (imageUrlToDownload) {
       const link = document.createElement("a");
       link.href = imageUrlToDownload;
@@ -296,18 +272,9 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
     try {
       const apiUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
       const response = await fetch(apiUrl);
-
-      if (!response.ok) {
-        throw new Error(`Language detection API error: ${response.statusText}`);
-      }
-
+      if (!response.ok) throw new Error(`Language detection API error: ${response.statusText}`);
       const data = await response.json();
-
-      if (data && data[2]) {
-        return data[2];
-      } else {
-        throw new Error("Unexpected response structure from language detection API");
-      }
+      return data?.[2] || "en";
     } catch (error) {
       console.error("Language detection error:", error);
       return "en";
