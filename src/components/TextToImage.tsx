@@ -187,7 +187,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         }
       }
 
-      // Map the image size to dimensions for flux-lora
+      // Map the image size to dimensions
       let width = 1024;
       let height = 1024;
 
@@ -204,22 +204,16 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         credentials: apiKey
       });
 
-      // Log the selected Loras and other parameters
-      console.log("Selected Loras:", selectedLoras);
+      // Log parameters
       console.log("Image Size:", { width, height });
       console.log("Guidance Scale:", guidanceScale);
 
-      // Update to use the correct properties for FluxLoraInput
-      const result = await fal.subscribe("fal-ai/flux-lora", {
+      // Now using the imagen3/fast model
+      const result = await fal.subscribe("fal-ai/imagen3/fast", {
         input: {
           prompt: promptToUse,
-          loras: selectedLoras.map(lora => ({
-            path: lora,
-            strength: 0.8
-          })),
-          image_size: { width, height },
-          guidance_scale: guidanceScale,
-          num_inference_steps: 30,
+          image_size: `${width}x${height}`,
+          enable_safety_filter: true,
         },
       });
 
