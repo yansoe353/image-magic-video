@@ -59,6 +59,72 @@ export function useVideoEditor() {
     setAudioTrack(audio);
   };
 
+  const createSlideshowFromImages = async (
+    imageUrls: string[],
+    voiceoverAudioUrl?: string,
+    slideDuration: number = 5
+  ) => {
+    if (imageUrls.length === 0) {
+      toast({
+        title: "No images to process",
+        description: "Please provide at least one image for the slideshow.",
+        variant: "destructive"
+      });
+      return null;
+    }
+    
+    setIsProcessing(true);
+    setProgressPercent(10);
+    setError(null);
+    
+    try {
+      // Get current user ID if available
+      const userId = await getUserId();
+      
+      // Prepare images and parameters for the server
+      setProgressPercent(40);
+      
+      // Call our Supabase Edge Function for slideshow creation
+      const { data, error } = await supabase.functions.invoke('create-slideshow', {
+        body: { 
+          imageUrls, 
+          voiceoverUrl: voiceoverAudioUrl,
+          slideDuration,
+          userId 
+        }
+      });
+      
+      if (error) {
+        throw new Error(`Server processing failed: ${error.message}`);
+      }
+      
+      setProgressPercent(90);
+      
+      // Return the slideshow video URL from the server response
+      setCombinedVideoUrl(data.url);
+      
+      toast({
+        title: "Slideshow Created",
+        description: "Your image slideshow with narration has been created.",
+      });
+      
+      setProgressPercent(100);
+      return data.url;
+      
+    } catch (error) {
+      console.error("Failed to create slideshow:", error);
+      setError("Video processing failed on the server. Please try again later.");
+      toast({
+        title: "Processing Error",
+        description: "Server-side slideshow creation encountered an error. Please try again.",
+        variant: "destructive"
+      });
+      return null;
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const combineVideos = async () => {
     if (videoClips.length === 0) {
       toast({
@@ -146,6 +212,7 @@ export function useVideoEditor() {
     removeVideoClip,
     reorderVideoClips,
     setAudio,
-    combineVideos
+    combineVideos,
+    createSlideshowFromImages
   };
 }
