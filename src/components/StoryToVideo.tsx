@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -134,7 +133,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
       
       let jsonResponse;
       try {
-        // Extract JSON from the response if it's wrapped in markdown or other text
         const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/) || 
                           response.match(/{[\s\S]*}/);
         
@@ -221,7 +219,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
               prompt: frame.imagePrompt,
               aspect_ratio: "16:9",
               enable_safety_filter: true,
-              guidance_scale: 9,
               negative_prompt: "low quality, bad anatomy, distorted, blurry"
             },
           });
@@ -229,7 +226,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
           if (result.data?.images?.[0]?.url) {
             const imageUrl = result.data.images[0].url;
             
-            // Upload to storage if logged in
             try {
               const userId = await getUserId();
               const supabaseUrl = await uploadUrlToStorage(imageUrl, 'image', userId);
@@ -294,7 +290,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
       return;
     }
 
-    // Check if we have at least one image
     const hasImages = storyFrames.some(frame => frame.imageUrl);
     if (!hasImages) {
       toast({
@@ -315,7 +310,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
         credentials: apiKey
       });
 
-      // For now, we'll use the first image with an image URL
       const firstFrameWithImage = storyFrames.find(frame => frame.imageUrl);
       if (!firstFrameWithImage || !firstFrameWithImage.imageUrl) {
         throw new Error("No images available to create video");
@@ -332,7 +326,7 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
           negative_prompt: "low quality, distorted, blurry",
           cfg_scale: 0.6,
           lipsync_t2v_req: {
-            text: voiceoverText.substring(0, 200) // Using the first 200 chars for demo
+            text: voiceoverText.substring(0, 200)
           }
         },
         logs: true,
@@ -347,7 +341,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
       if (result.data?.video?.url) {
         const videoUrl = result.data.video.url;
         
-        // Store the video URL
         try {
           const userId = await getUserId();
           const supabaseUrl = await uploadUrlToStorage(videoUrl, 'video', userId);
@@ -357,7 +350,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
             onVideoGenerated(supabaseUrl);
           }
           
-          // Save to history if logged in
           if (isLoggedIn()) {
             await supabase
               .from('user_content_history')
@@ -376,7 +368,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
                 }
               });
           }
-          
         } catch (uploadError) {
           console.error("Failed to upload to Supabase:", uploadError);
           setGeneratedVideoUrl(videoUrl);
