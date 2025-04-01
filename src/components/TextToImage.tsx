@@ -9,12 +9,12 @@ import { incrementImageCount, getRemainingCounts, getRemainingCountsAsync, IMAGE
 import { supabase } from "@/integrations/supabase/client";
 import { isLoggedIn } from "@/utils/authUtils";
 import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
-import PromptInput from "./image-generation/PromptInput";
-import ImageSizeSelector, { ImageSizeOption } from "./image-generation/ImageSizeSelector";
-import StyleModifiers, { LoraOption } from "./image-generation/StyleModifiers";
-import GuidanceScaleSlider from "./image-generation/GuidanceScaleSlider";
-import GeneratedImageDisplay from "./image-generation/GeneratedImageDisplay";
-import UsageLimits from "./image-generation/UsageLimits";
+import { PromptInput } from "./image-generation/PromptInput";
+import { ImageSizeSelector, ImageSizeOption } from "./image-generation/ImageSizeSelector";
+import { StyleModifiers, LoraOption } from "./image-generation/StyleModifiers";
+import { GuidanceScaleSlider } from "./image-generation/GuidanceScaleSlider";
+import { GeneratedImageDisplay } from "./image-generation/GeneratedImageDisplay";
+import { UsageLimits } from "./image-generation/UsageLimits";
 import { translateText } from "@/utils/translationUtils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +25,7 @@ type SupportedLanguage = "en" | "my" | "th";
 const LANGUAGES = {
   en: "English",
   my: "Myanmar",
-  th: "Thai",
+  th: "Thai"
 };
 
 type LanguageOption = keyof typeof LANGUAGES;
@@ -62,9 +62,9 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   };
 
   const toggleLora = (loraId: LoraOption) => {
-    setSelectedLoras((current) =>
+    setSelectedLoras(current =>
       current.includes(loraId)
-        ? current.filter((id) => id !== loraId)
+        ? current.filter(id => id !== loraId)
         : [...current, loraId]
     );
   };
@@ -86,7 +86,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
     try {
       localStorage.setItem("falApiKey", apiKey);
       fal.config({
-        credentials: apiKey,
+        credentials: apiKey
       });
       setIsApiKeySet(true);
       toast({
@@ -103,7 +103,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
     }
   };
 
-  const getAspectRatio = (sizeOption: ImageSizeOption): { width: number; height: number } => {
+  const getAspectRatio = (sizeOption: ImageSizeOption): { width: number, height: number } => {
     if (sizeOption.includes('landscape')) return { width: 1024, height: 576 };
     if (sizeOption.includes('portrait')) return { width: 576, height: 1024 };
     return { width: 1024, height: 1024 };
@@ -131,8 +131,8 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             original_url: originalUrl,
             loras: selectedLoras,
             model: "imagen3-fast",
-            guidance_scale: guidanceScale,
-          },
+            guidance_scale: guidanceScale
+          }
         });
 
       if (error) {
@@ -187,18 +187,18 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       }
 
       fal.config({
-        credentials: apiKey,
+        credentials: apiKey
       });
 
       const dimensions = getAspectRatio(imageSize);
-
+      
       const result = await fal.subscribe("fal-ai/imagen3/fast", {
         input: {
           prompt: promptToUse,
-          aspect_ratio: dimensions.width > dimensions.height ? "16:9" : dimensions.height > dimensions.width ? "9:16" : "1:1",
+          aspect_ratio: `${dimensions.width}:${dimensions.height}`,
           enable_safety_filter: true,
           guidance_scale: guidanceScale,
-          negative_prompt: selectedLoras.length > 0 ? "low quality, bad anatomy, distorted, blurry" : "",
+          negative_prompt: selectedLoras.length > 0 ? "low quality, bad anatomy" : ""
         },
       });
 
@@ -297,7 +297,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
               <AlertTitle>API Key Required</AlertTitle>
               <AlertDescription>
                 <div className="space-y-4 mt-2">
-                  <p>Please enter your Infinity API key using the button in the header to enable image and video generation.</p>
+                  <p>ပုံတွေ ဗွီဒီယိုတွေ ထုတ်ဖို့ Infinity Tech မှဝယ်ယူထားသည့် Infinity API Key ထည့်ရပါမယ်</p>
                   <div>
                     <Label htmlFor="apiKey">Infinity API Key</Label>
                     <div className="flex gap-2 mt-1">
@@ -311,17 +311,17 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
                       />
                       <Button onClick={saveApiKey}>Save Key</Button>
                     </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      <a
+                        href="https://m.me/infinitytechmyanmar"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:underline"
+                      >
+                        Get your key here
+                      </a>
+                    </p>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    <a
-                      href="https://m.me/infinitytechmyanmar"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:underline"
-                    >
-                      Get your key here
-                    </a>
-                  </p>
                 </div>
               </AlertDescription>
             </Alert>
