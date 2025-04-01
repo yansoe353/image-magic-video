@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
 import { fal } from "@fal-ai/client";
 import { incrementImageCount, incrementVideoCount, getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
@@ -19,8 +18,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { isLoggedIn } from "@/utils/authUtils";
 import VideoPreview from "./VideoPreview";
 import { useVideoControls } from "@/hooks/useVideoControls";
+import { useVideoEditor } from "@/hooks/useVideoEditor";
 import ProLabel from "./ProLabel";
 import KlingAILabel from "./KlingAILabel";
+import puppeteer from 'puppeteer';
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import { exec } from 'child_process';
 
 interface StoryFrame {
   text: string;
@@ -37,20 +43,24 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [isGeneratingVoiceover, setIsGeneratingVoiceover] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [storyFrames, setStoryFrames] = useState<StoryFrame[]>([]);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [storyTitle, setStoryTitle] = useState("");
-  const [narratorVoice, setNarratorVoice] = useState("en-US-Neural2-F");
+  const [narratorVoice, setNarratorVoice] = useState("alloy");
   const [voiceoverText, setVoiceoverText] = useState("");
+  const [voiceoverUrl, setVoiceoverUrl] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string>(localStorage.getItem("falApiKey") || "");
   const [isApiKeySet, setIsApiKeySet] = useState<boolean>(!!localStorage.getItem("falApiKey"));
   const [progressPercent, setProgressPercent] = useState(0);
   const [logs, setLogs] = useState<string[]>([]);
-  
+  const [slideDuration, setSlideDuration] = useState(5);
+
   const { generateResponse } = useGeminiAPI();
   const { toast } = useToast();
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
+  const { createSlideshowFromImages, isProcessing } = useVideoEditor();
   const [counts, setCounts] = useState(getRemainingCounts());
 
   const addLog = (message: string) => {
@@ -110,7 +120,7 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
     try {
       const prompt = `
         Create a short visual story based on this prompt: "${storyPrompt}".
-        
+
         Format your response as JSON with the following structure:
         {
           "title": "Story Title",
@@ -121,23 +131,22 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
             }
           ]
         }
-        
+
         Create 5-7 frames that tell a coherent story. For each frame:
         - text: Write a clear, engaging narration (40-60 words)
         - imagePrompt: Create a detailed description for image generation (20-30 words)
-        
+
         Make sure the JSON is valid and properly formatted.
       `;
 
       const response = await generateResponse(prompt);
       console.log("AI response:", response);
-      
+
       let jsonResponse;
       try {
-        // Extract JSON from the response if it's wrapped in markdown or other text
-        const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/) || 
+        const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/) ||
                           response.match(/{[\s\S]*}/);
-        
+
         const jsonStr = jsonMatch ? jsonMatch[0].replace(/```json|```/g, '') : response;
         jsonResponse = JSON.parse(jsonStr);
       } catch (parseError) {
@@ -150,23 +159,23 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
       }
 
       setStoryTitle(jsonResponse.title);
-      
+
       const frames = jsonResponse.frames.map((frame: any) => ({
         text: frame.text,
         imagePrompt: frame.imagePrompt,
         imageUrl: null
       }));
-      
+
       setStoryFrames(frames);
       setVoiceoverText(frames.map(f => f.text).join("\n\n"));
       setProgressPercent(30);
       addLog(`Created story with ${frames.length} scenes`);
-      
+
       toast({
         title: "Story Generated",
         description: `Created "${jsonResponse.title}" with ${frames.length} scenes`,
       });
-      
+
     } catch (error) {
       console.error("Failed to generate story:", error);
       toast({
@@ -214,22 +223,19 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
       for (let i = 0; i < updatedFrames.length; i++) {
         const frame = updatedFrames[i];
         addLog(`Generating image ${i + 1}/${updatedFrames.length}: "${frame.imagePrompt.substring(0, 40)}..."`);
-        
+
         try {
           const result = await fal.subscribe("fal-ai/imagen3/fast", {
             input: {
               prompt: frame.imagePrompt,
               aspect_ratio: "16:9",
-              enable_safety_filter: true,
-              guidance_scale: 9,
               negative_prompt: "low quality, bad anatomy, distorted, blurry"
             },
           });
 
           if (result.data?.images?.[0]?.url) {
             const imageUrl = result.data.images[0].url;
-            
-            // Upload to storage if logged in
+
             try {
               const userId = await getUserId();
               const supabaseUrl = await uploadUrlToStorage(imageUrl, 'image', userId);
@@ -238,13 +244,13 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
               console.error("Failed to upload to Supabase:", uploadError);
               updatedFrames[i] = { ...frame, imageUrl: imageUrl };
             }
-            
+
             await incrementImageCount();
             generatedCount++;
-            
+
             const freshCounts = await getRemainingCountsAsync();
             setCounts(freshCounts);
-            
+
             setProgressPercent(40 + Math.round((i + 1) / updatedFrames.length * 20));
             addLog(`Generated image ${i + 1}/${updatedFrames.length} successfully`);
           }
@@ -255,14 +261,14 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
       }
 
       setStoryFrames(updatedFrames);
-      
+
       toast({
         title: "Images Generated",
         description: `Successfully generated ${generatedCount} of ${updatedFrames.length} images`,
       });
-      
+
       setProgressPercent(60);
-      
+
     } catch (error) {
       console.error("Failed to generate images:", error);
       toast({
@@ -273,6 +279,80 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
     } finally {
       setIsGeneratingImages(false);
     }
+  };
+
+  const generateVoiceover = async () => {
+    if (!voiceoverText.trim()) {
+      toast({
+        title: "No Text to Narrate",
+        description: "Please ensure there is narration text for the voiceover",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingVoiceover(true);
+    addLog("Generating voiceover audio...");
+
+    try {
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: {
+          text: voiceoverText,
+          voice: narratorVoice
+        }
+      });
+
+      if (error) {
+        throw new Error(`Voiceover generation failed: ${error.message}`);
+      }
+
+      if (!data || !data.audioContent) {
+        throw new Error("No audio content received from the server");
+      }
+
+      // Convert base64 to URL
+      const audioBlob = base64ToBlob(data.audioContent, 'audio/mp3');
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      // Save to Supabase if possible
+      try {
+        const userId = await getUserId();
+        const supabaseUrl = await uploadUrlToStorage(audioUrl, 'audio' as 'image' | 'video' | 'audio', userId);
+        setVoiceoverUrl(supabaseUrl);
+      } catch (uploadError) {
+        console.error("Failed to upload audio to Supabase:", uploadError);
+        setVoiceoverUrl(audioUrl);
+      }
+
+      toast({
+        title: "Voiceover Generated",
+        description: "AI narration has been created successfully",
+      });
+
+      addLog("Voiceover audio created successfully");
+
+    } catch (error) {
+      console.error("Failed to generate voiceover:", error);
+      toast({
+        title: "Voiceover Error",
+        description: error instanceof Error ? error.message : "Failed to create voiceover",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingVoiceover(false);
+    }
+  };
+
+  const base64ToBlob = (base64: string, mimeType: string) => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
   };
 
   const generateVideo = async () => {
@@ -294,7 +374,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
       return;
     }
 
-    // Check if we have at least one image
     const hasImages = storyFrames.some(frame => frame.imageUrl);
     if (!hasImages) {
       toast({
@@ -308,103 +387,55 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
     setIsGeneratingVideo(true);
     setCurrentStep(3);
     setProgressPercent(70);
-    addLog("Creating final video with voiceover...");
+    addLog("Creating slideshow with voiceover...");
 
     try {
-      fal.config({
-        credentials: apiKey
-      });
+      // Create a temporary directory to store the images
+      const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'story-to-video-'));
 
-      // For now, we'll use the first image with an image URL
-      const firstFrameWithImage = storyFrames.find(frame => frame.imageUrl);
-      if (!firstFrameWithImage || !firstFrameWithImage.imageUrl) {
-        throw new Error("No images available to create video");
+      // Launch Puppeteer and generate screenshots
+      const browser = await puppeteer.launch();
+      const page = await browser.newPage();
+
+      for (let i = 0; i < storyFrames.length; i++) {
+        const frame = storyFrames[i];
+        await page.goto(frame.imageUrl, { waitUntil: 'networkidle2' });
+        await page.screenshot({ path: path.join(tempDir, `image_${i}.png`) });
       }
 
-      addLog("Using image-to-video with narration...");
-      
-      const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
-        input: {
-          prompt: "Cinematic smooth scene with gentle camera motion",
-          image_url: firstFrameWithImage.imageUrl,
-          duration: "5",
-          aspect_ratio: "16:9",
-          negative_prompt: "low quality, distorted, blurry",
-          cfg_scale: 0.6,
-          lipsync_t2v_req: {
-            text: voiceoverText.substring(0, 200) // Using the first 200 chars for demo
-          }
-        },
-        logs: true,
-        onQueueUpdate: (update) => {
-          if (update.status === "IN_PROGRESS" && update.logs) {
-            const newLogs = update.logs.map(log => log.message);
-            newLogs.forEach(log => addLog(log));
-          }
-        },
+      await browser.close();
+
+      // Generate the video using FFmpeg
+      const outputVideoPath = path.join(tempDir, 'output.mp4');
+      const ffmpegCommand = `ffmpeg -framerate 1 -pattern_type glob -i '${tempDir}/*.png' -i ${voiceoverUrl} -c:v libx264 -c:a aac -shortest ${outputVideoPath}`;
+
+      await exec(ffmpegCommand);
+
+      // Upload the generated video to Supabase
+      const userId = await getUserId();
+      const supabaseUrl = await uploadUrlToStorage(outputVideoPath, 'video', userId);
+      setGeneratedVideoUrl(supabaseUrl);
+
+      if (onVideoGenerated) {
+        onVideoGenerated(supabaseUrl);
+      }
+
+      await incrementVideoCount();
+      const freshCounts = await getRemainingCountsAsync();
+      setCounts(freshCounts);
+
+      toast({
+        title: "Slideshow Created",
+        description: "Your images have been turned into a video with narration!",
       });
 
-      if (result.data?.video?.url) {
-        const videoUrl = result.data.video.url;
-        
-        // Store the video URL
-        try {
-          const userId = await getUserId();
-          const supabaseUrl = await uploadUrlToStorage(videoUrl, 'video', userId);
-          setGeneratedVideoUrl(supabaseUrl);
-          
-          if (onVideoGenerated) {
-            onVideoGenerated(supabaseUrl);
-          }
-          
-          // Save to history if logged in
-          if (isLoggedIn()) {
-            await supabase
-              .from('user_content_history')
-              .insert({
-                user_id: userId,
-                content_type: 'video',
-                content_url: supabaseUrl,
-                prompt: storyPrompt,
-                metadata: {
-                  title: storyTitle,
-                  frames: storyFrames.map(frame => ({
-                    text: frame.text,
-                    imagePrompt: frame.imagePrompt
-                  })),
-                  original_url: videoUrl
-                }
-              });
-          }
-          
-        } catch (uploadError) {
-          console.error("Failed to upload to Supabase:", uploadError);
-          setGeneratedVideoUrl(videoUrl);
-          
-          if (onVideoGenerated) {
-            onVideoGenerated(videoUrl);
-          }
-        }
-        
-        await incrementVideoCount();
-        const freshCounts = await getRemainingCountsAsync();
-        setCounts(freshCounts);
-        
-        toast({
-          title: "Video Created",
-          description: "Your story has been turned into a video!",
-        });
-      } else {
-        throw new Error("No video URL in response");
-      }
-      
       setProgressPercent(100);
-      
+
     } catch (error) {
-      console.error("Failed to generate video:", error);
+      console.error("Failed to generate slideshow:", error);
       toast({
         title: "Video Generation Error",
-        description: error instanceof Error ? error.message : "Failed to create video",
+        description: error instanceof Error ? error.message : "Failed to create slideshow",
         variant: "destructive",
       });
     } finally {
@@ -419,7 +450,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-2xl font-bold">Story to Video</h2>
             <ProLabel />
-            <KlingAILabel />
           </div>
 
           {!isApiKeySet && (
@@ -455,7 +485,7 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
           </Alert>
 
           <Tabs defaultValue="story" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="story">
                 <BookOpenText className="h-4 w-4 mr-2" />
                 Create Story
@@ -464,9 +494,13 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
                 <ImageIcon className="h-4 w-4 mr-2" />
                 Generate Images
               </TabsTrigger>
+              <TabsTrigger value="voiceover" disabled={storyFrames.length === 0}>
+                <Mic className="h-4 w-4 mr-2" />
+                Voiceover
+              </TabsTrigger>
               <TabsTrigger value="video" disabled={!storyFrames.some(f => f.imageUrl)}>
                 <Film className="h-4 w-4 mr-2" />
-                Create Video
+                Create Slideshow
               </TabsTrigger>
             </TabsList>
 
@@ -523,9 +557,9 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
               <Button
                 onClick={generateImages}
                 disabled={
-                  isGeneratingImages || 
-                  storyFrames.length === 0 || 
-                  !isApiKeySet || 
+                  isGeneratingImages ||
+                  storyFrames.length === 0 ||
+                  !isApiKeySet ||
                   counts.remainingImages < storyFrames.length
                 }
                 className="w-full"
@@ -544,7 +578,7 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
               </Button>
             </TabsContent>
 
-            <TabsContent value="video" className="mt-4 space-y-4">
+            <TabsContent value="voiceover" className="mt-4 space-y-4">
               <div>
                 <Label htmlFor="voiceoverText">Narration Script</Label>
                 <Textarea
@@ -553,6 +587,70 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
                   onChange={(e) => setVoiceoverText(e.target.value)}
                   className="min-h-[150px]"
                   placeholder="Enter narration text for the video..."
+                  disabled={isGeneratingVoiceover}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="narratorVoice">Narrator Voice</Label>
+                <Select
+                  value={narratorVoice}
+                  onValueChange={setNarratorVoice}
+                  disabled={isGeneratingVoiceover}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select voice" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="alloy">Alloy (Balanced)</SelectItem>
+                    <SelectItem value="echo">Echo (Male)</SelectItem>
+                    <SelectItem value="fable">Fable (Male)</SelectItem>
+                    <SelectItem value="onyx">Onyx (Male)</SelectItem>
+                    <SelectItem value="nova">Nova (Female)</SelectItem>
+                    <SelectItem value="shimmer">Shimmer (Female)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button
+                onClick={generateVoiceover}
+                disabled={isGeneratingVoiceover || !voiceoverText.trim()}
+                className="w-full"
+              >
+                {isGeneratingVoiceover ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating Voiceover...
+                  </>
+                ) : (
+                  <>
+                    <Mic className="mr-2 h-4 w-4" />
+                    Generate Voiceover
+                  </>
+                )}
+              </Button>
+
+              {voiceoverUrl && (
+                <div className="mt-2">
+                  <p className="text-sm mb-2">Preview Voiceover:</p>
+                  <audio controls className="w-full">
+                    <source src={voiceoverUrl} type="audio/mp3" />
+                    Your browser does not support the audio element.
+                  </audio>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="video" className="mt-4 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="slideDuration">Slide Duration (seconds)</Label>
+                <Input
+                  id="slideDuration"
+                  type="number"
+                  min="2"
+                  max="10"
+                  value={slideDuration}
+                  onChange={(e) => setSlideDuration(Number(e.target.value))}
                   disabled={isGeneratingVideo}
                 />
               </div>
@@ -560,35 +658,37 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
               <Button
                 onClick={generateVideo}
                 disabled={
-                  isGeneratingVideo || 
-                  !storyFrames.some(f => f.imageUrl) || 
-                  !isApiKeySet || 
-                  counts.remainingVideos < 1
+                  isGeneratingVideo ||
+                  !storyFrames.some(f => f.imageUrl) ||
+                  !isApiKeySet ||
+                  counts.remainingVideos < 1 ||
+                  isProcessing
                 }
                 className="w-full"
               >
-                {isGeneratingVideo ? (
+                {isGeneratingVideo || isProcessing ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating Video...
+                    Creating Slideshow...
                   </>
                 ) : (
                   <>
                     <Film className="mr-2 h-4 w-4" />
-                    Create Video
+                    Create Slideshow
                   </>
                 )}
               </Button>
             </TabsContent>
           </Tabs>
 
-          {(isGeneratingScript || isGeneratingImages || isGeneratingVideo) && (
+          {(isGeneratingScript || isGeneratingImages || isGeneratingVideo || isGeneratingVoiceover || isProcessing) && (
             <div className="mt-4">
               <Progress value={progressPercent} className="h-2" />
               <p className="text-xs text-center mt-1 text-gray-500">
                 {currentStep === 1 && "Generating story script..."}
                 {currentStep === 2 && "Creating images for each scene..."}
-                {currentStep === 3 && "Composing final video with voiceover..."}
+                {currentStep === 3 && "Composing slideshow with voiceover..."}
+                {isGeneratingVoiceover && "Generating voiceover..."}
               </p>
             </div>
           )}
@@ -598,11 +698,11 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
       <Card className="overflow-hidden">
         <CardContent className="p-6">
           <h2 className="text-2xl font-bold mb-4">Preview</h2>
-          
+
           {generatedVideoUrl ? (
             <VideoPreview
               videoUrl={generatedVideoUrl}
-              isLoading={isGeneratingVideo}
+              isLoading={isGeneratingVideo || isProcessing}
               generationLogs={[]}
               videoRef={videoRef}
               isPlaying={isPlaying}
@@ -611,10 +711,10 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
           ) : (
             <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-6 text-center flex flex-col items-center justify-center min-h-[300px]">
               <Film className="h-12 w-12 text-slate-400 mb-4" />
-              <p className="text-slate-500">Your story video will appear here</p>
+              <p className="text-slate-500">Your story slideshow will appear here</p>
             </div>
           )}
-          
+
           <div className="mt-4 h-[200px] overflow-y-auto p-2 text-xs bg-black/70 text-green-400 font-mono rounded border border-slate-700 shadow-inner">
             {logs.length > 0 ? (
               logs.map((log, i) => (
