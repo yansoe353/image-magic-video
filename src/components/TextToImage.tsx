@@ -103,10 +103,10 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
     }
   };
 
-  const getAspectRatio = (sizeOption: ImageSizeOption): string => {
-    if (sizeOption.includes('landscape')) return '16:9';
-    if (sizeOption.includes('portrait')) return '9:16';
-    return '1:1';
+  const getAspectRatio = (sizeOption: ImageSizeOption): { width: number, height: number } => {
+    if (sizeOption.includes('landscape')) return { width: 1024, height: 576 };
+    if (sizeOption.includes('portrait')) return { width: 576, height: 1024 };
+    return { width: 1024, height: 1024 };
   };
 
   const saveToHistory = async (imageUrl: string, originalUrl: string) => {
@@ -190,10 +190,12 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         credentials: apiKey
       });
 
+      const dimensions = getAspectRatio(imageSize);
+      
       const result = await fal.subscribe("fal-ai/imagen3/fast", {
         input: {
           prompt: promptToUse,
-          aspect_ratio: getAspectRatio(imageSize),
+          aspect_ratio: `${dimensions.width}:${dimensions.height}`,
           enable_safety_filter: true,
           guidance_scale: guidanceScale,
           negative_prompt: selectedLoras.length > 0 ? "low quality, bad anatomy" : ""
