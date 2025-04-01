@@ -1,68 +1,162 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Loader2, Image as ImageIcon, Paintbrush } from "lucide-react";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { PromptInput } from "@/components/image-generation/PromptInput";
-import { GuidanceScaleSlider } from "@/components/image-generation/GuidanceScaleSlider";
-import { ImageSizeSelector, ImageSizeOption } from "@/components/image-generation/ImageSizeSelector";
-import { GeneratedImageDisplay } from "@/components/image-generation/GeneratedImageDisplay";
-import { usageTracker, incrementImageCount, getRemainingCounts } from "@/utils/usageTracker";
 import { fal } from "@fal-ai/client";
-import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
+import { Loader2, ImageIcon } from "lucide-react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { incrementImageCount, getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT } from "@/utils/usageTracker";
 import { supabase } from "@/integrations/supabase/client";
 import { isLoggedIn } from "@/utils/authUtils";
+import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
+import { PromptInput } from "./image-generation/PromptInput";
+import { ImageSizeSelector, ImageSizeOption } from "./image-generation/ImageSizeSelector";
+import { StyleModifiers, LoraOption } from "./image-generation/StyleModifiers";
+import { GuidanceScaleSlider } from "./image-generation/GuidanceScaleSlider";
+import { GeneratedImageDisplay } from "./image-generation/GeneratedImageDisplay";
+import { UsageLimits } from "./image-generation/UsageLimits";
+import { translateText } from "@/utils/translationUtils";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import ProLabel from "./ProLabel";
 
+type SupportedLanguage = "en" | "my" | "th";
+
+const LANGUAGES = {
+  en: "English",
+  my: "Myanmar",
+  th: "Thai"
+};
+
+type LanguageOption = keyof typeof LANGUAGES;
+
 interface TextToImageProps {
-  onImageGenerated?: (imageUrl: string) => void;
+  onImageGenerated: (imageUrl: string) => void;
 }
 
-const initialPrompt = "A futuristic cityscape at sunset, neon lights, flying vehicles";
-
 const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
-  const [prompt, setPrompt] = useState(initialPrompt);
-  const [enhancedPrompt, setEnhancedPrompt] = useState(initialPrompt);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
-  const [apiError, setApiError] = useState<string | null>(null);
-  const [imageSize, setImageSize] = useState<ImageSizeOption>("square");
-  const [guidanceScale, setGuidanceScale] = useState(7.5);
+  const [prompt, setPrompt] = useState("");
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [imageSize, setImageSize] = useState<ImageSizeOption>("square_hd");
   const { toast } = useToast();
   const [counts, setCounts] = useState(getRemainingCounts());
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
+  const [supabaseImageUrl, setSupabaseImageUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedLoras, setSelectedLoras] = useState<LoraOption[]>([]);
+  const [guidanceScale, setGuidanceScale] = useState(9);
+  const [apiKey, setApiKey] = useState<string>(localStorage.getItem("falApiKey") || "");
+  const [isApiKeySet, setIsApiKeySet] = useState<boolean>(!!localStorage.getItem("falApiKey"));
 
   useEffect(() => {
     const updateCounts = async () => {
-      const freshCounts = await getRemainingCounts();
+      const freshCounts = await getRemainingCountsAsync();
       setCounts(freshCounts);
     };
-
     updateCounts();
   }, []);
 
-  const getAspectRatio = (size: ImageSizeOption) => {
-    switch (size) {
-      case "square": return "1:1";
-      case "square_hd": return "1:1";
-      case "portrait_4_3": return "4:3";
-      case "portrait_16_9": return "16:9";
-      case "landscape_4_3": return "3:4";
-      case "landscape_16_9": return "16:9";
-      default: return "1:1";
+  const handlePromptChange = (newPrompt: string) => {
+    setPrompt(newPrompt);
+  };
+
+  const toggleLora = (loraId: LoraOption) => {
+    setSelectedLoras(current =>
+      current.includes(loraId)
+        ? current.filter(id => id !== loraId)
+        : [...current, loraId]
+    );
+  };
+
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setApiKey(e.target.value);
+  };
+
+  const saveApiKey = () => {
+    if (!apiKey.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid API key",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      localStorage.setItem("falApiKey", apiKey);
+      fal.config({
+        credentials: apiKey
+      });
+      setIsApiKeySet(true);
+      toast({
+        title: "Success",
+        description: "API key saved successfully",
+      });
+    } catch (error) {
+      console.error("Failed to save API key:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save API key",
+        variant: "destructive",
+      });
     }
   };
 
-  const enhancePrompt = async (inputPrompt: string) => {
-    return inputPrompt;
+  const getAspectRatio = (sizeOption: ImageSizeOption): string => {
+    if (sizeOption.includes('landscape')) return '16:9';
+    if (sizeOption.includes('portrait')) return '9:16';
+    return '1:1';
+  };
+
+  const saveToHistory = async (imageUrl: string, originalUrl: string) => {
+    if (!isLoggedIn()) return;
+
+    try {
+      const userId = await getUserId();
+      if (!userId) {
+        console.error("No user ID found");
+        return;
+      }
+
+      const { error } = await supabase
+        .from('user_content_history')
+        .insert({
+          user_id: userId,
+          content_type: 'image',
+          content_url: imageUrl,
+          prompt: prompt,
+          metadata: {
+            size: imageSize,
+            original_url: originalUrl,
+            loras: selectedLoras,
+            model: "imagen3-fast",
+            guidance_scale: guidanceScale
+          }
+        });
+
+      if (error) {
+        console.error("Error saving to history:", error);
+      }
+    } catch (err) {
+      console.error("Failed to save to history:", err);
+    }
   };
 
   const generateImage = async () => {
-    if (!isLoggedIn()) {
+    if (!prompt.trim()) {
       toast({
-        title: "Login Required",
-        description: "You must be logged in to generate images",
+        title: "Error",
+        description: "Please enter a prompt first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isApiKeySet) {
+      toast({
+        title: "API Key Required",
+        description: "Please set your FAL.AI API key first",
         variant: "destructive",
       });
       return;
@@ -70,169 +164,231 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
 
     if (counts.remainingImages <= 0) {
       toast({
-        title: "No Image Credits",
-        description: "You don't have any image generations remaining",
+        title: "Usage Limit Reached",
+        description: `You've reached the limit of ${IMAGE_LIMIT} image generations.`,
         variant: "destructive",
       });
       return;
     }
 
-    setIsGenerating(true);
-    setApiError(null);
+    setIsLoading(true);
 
     try {
-      const enhanced = await enhancePrompt(prompt);
-      setEnhancedPrompt(enhanced);
+      let promptToUse = prompt;
+      if (prompt && prompt.length > 0) {
+        try {
+          const detectedLanguage = await detectLanguage(prompt);
+          if (detectedLanguage !== "en") {
+            promptToUse = await translateText(prompt, detectedLanguage, "en");
+          }
+        } catch (error) {
+          console.error("Failed to translate prompt:", error);
+        }
+      }
 
       fal.config({
-        credentials: localStorage.getItem("falApiKey") || ""
+        credentials: apiKey
       });
 
       const result = await fal.subscribe("fal-ai/imagen3/fast", {
         input: {
-          prompt: enhancedPrompt,
+          prompt: promptToUse,
           aspect_ratio: getAspectRatio(imageSize),
           enable_safety_filter: true,
-          negative_prompt: "low quality, bad anatomy, distorted, blurry"
+          guidance_scale: guidanceScale,
+          negative_prompt: selectedLoras.length > 0 ? "low quality, bad anatomy" : ""
         },
       });
 
       if (result.data?.images?.[0]?.url) {
-        const imageUrl = result.data.images[0].url;
+        const falImageUrl = result.data.images[0].url;
+        setOriginalImageUrl(falImageUrl);
+        setGeneratedImage("");
 
-        // Upload to storage if logged in
+        setIsUploading(true);
         try {
           const userId = await getUserId();
-          const supabaseUrl = await uploadUrlToStorage(imageUrl, 'image', userId);
-          setGeneratedImageUrl(supabaseUrl);
+          const supabaseUrl = await uploadUrlToStorage(falImageUrl, 'image', userId);
+          setSupabaseImageUrl(supabaseUrl);
+          setGeneratedImage(supabaseUrl);
 
-          // Save to history if logged in
-          if (isLoggedIn()) {
-            await supabase
-              .from('user_content_history')
-              .insert({
-                user_id: userId,
-                content_type: 'image',
-                content_url: supabaseUrl,
-                prompt: prompt,
-                metadata: {
-                  enhancedPrompt: enhancedPrompt,
-                  imageSize: imageSize,
-                  guidanceScale: guidanceScale
-                }
-              });
-          }
+          await saveToHistory(supabaseUrl, falImageUrl);
 
-          if (onImageGenerated) {
-            onImageGenerated(supabaseUrl);
-          }
+          toast({
+            title: "Image Stored",
+            description: "Image uploaded to your storage",
+          });
         } catch (uploadError) {
           console.error("Failed to upload to Supabase:", uploadError);
-          setGeneratedImageUrl(imageUrl);
-
-          if (onImageGenerated) {
-            onImageGenerated(imageUrl);
-          }
+          setGeneratedImage(falImageUrl);
+          await saveToHistory(falImageUrl, falImageUrl);
+        } finally {
+          setIsUploading(false);
         }
 
-        await incrementImageCount();
-        const freshCounts = await getRemainingCounts();
-        setCounts(freshCounts);
-
-        toast({
-          title: "Image Generated",
-          description: "Your image has been generated!",
-        });
+        if (await incrementImageCount()) {
+          toast({
+            title: "Success",
+            description: "Image generated successfully!",
+          });
+          const freshCounts = await getRemainingCountsAsync();
+          setCounts(freshCounts);
+        }
       } else {
         throw new Error("No image URL in response");
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to generate image:", error);
-      setApiError(error.message || "Failed to generate image");
       toast({
-        title: "Generation Error",
-        description: error.message || "Failed to generate image",
+        title: "Error",
+        description: "Failed to generate image. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setIsGenerating(false);
+      setIsLoading(false);
     }
   };
+
+  const handleUseImage = () => {
+    if (generatedImage) {
+      const imageUrlToUse = supabaseImageUrl || generatedImage;
+      onImageGenerated(imageUrlToUse);
+    }
+  };
+
+  const handleDownload = () => {
+    const imageUrlToDownload = supabaseImageUrl || generatedImage;
+    if (imageUrlToDownload) {
+      const link = document.createElement("a");
+      link.href = imageUrlToDownload;
+      link.download = "generated-image.png";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  async function detectLanguage(text: string): Promise<SupportedLanguage> {
+    try {
+      const apiUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
+      const response = await fetch(apiUrl);
+      if (!response.ok) throw new Error(`Language detection API error: ${response.statusText}`);
+      const data = await response.json();
+      return data?.[2] || "en";
+    } catch (error) {
+      console.error("Language detection error:", error);
+      return "en";
+    }
+  }
 
   return (
     <div className="grid gap-8 md:grid-cols-2">
       <Card className="overflow-hidden">
         <CardContent className="p-6">
           <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-2xl font-bold">Text to Image</h2>
+            <h2 className="text-2xl font-bold">Create an Image</h2>
             <ProLabel />
           </div>
 
-          <Alert className="mb-4">
-            <AlertDescription>
-              This feature will use 1 image credit. You have {counts.remainingImages} remaining.
-            </AlertDescription>
-          </Alert>
-
-          {apiError && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{apiError}</AlertDescription>
+          {!isApiKeySet && (
+            <Alert className="mb-4">
+              <AlertTitle>API Key Required</AlertTitle>
+              <AlertDescription>
+                <div className="space-y-4 mt-2">
+                  <p>ပုံတွေ ဗွီဒီယိုတွေ ထုတ်ဖို့ Infinity Tech မှဝယ်ယူထားသည့် Infinity API Key ထည့်ရပါမယ်</p>
+                  <div>
+                    <Label htmlFor="apiKey">Infinity API Key</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        id="apiKey"
+                        type="password"
+                        value={apiKey}
+                        onChange={handleApiKeyChange}
+                        placeholder="Enter your Infinity API key"
+                        className="flex-1"
+                      />
+                      <Button onClick={saveApiKey}>Save Key</Button>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      <a
+                        href="https://m.me/infinitytechmyanmar"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:underline"
+                      >
+                        Get your key here
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              </AlertDescription>
             </Alert>
           )}
 
+          <UsageLimits
+            remainingImages={counts.remainingImages}
+            imageLimit={IMAGE_LIMIT}
+          />
+
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="prompt">Prompt</Label>
-              <PromptInput
-                id="prompt"
-                placeholder="Enter a detailed prompt to generate an image"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                disabled={isGenerating}
-              />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <ImageSizeSelector 
-              value={imageSize} 
-              onChange={(newSize: ImageSizeOption) => setImageSize(newSize)} 
-              disabled={isGenerating}
+            <PromptInput
+              prompt={prompt}
+              onPromptChange={handlePromptChange}
+              disabled={isLoading}
             />
+
+            <ImageSizeSelector
+              value={imageSize}
+              onChange={setImageSize}
+              disabled={isLoading}
+            />
+
             <GuidanceScaleSlider
               value={guidanceScale}
               onChange={setGuidanceScale}
-              disabled={isGenerating}
+              disabled={isLoading}
             />
-          </div>
 
-          <Button
-            onClick={generateImage}
-            disabled={isGenerating || !prompt.trim()}
-            className="w-full"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <ImageIcon className="mr-2 h-4 w-4" />
-                Generate Image
-              </>
+            <div className="flex items-center justify-between">
+              <Button
+                onClick={generateImage}
+                disabled={isLoading || !prompt.trim() || counts.remainingImages <= 0 || !isApiKeySet}
+                className="w-full"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon className="mr-2 h-4 w-4" />
+                    Generate Image
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {counts.remainingImages > 0 && (
+              <p className="text-xs text-slate-500 text-center">
+                {counts.remainingImages} of {IMAGE_LIMIT} image generations remaining
+              </p>
             )}
-          </Button>
+          </div>
         </CardContent>
       </Card>
 
-      <GeneratedImageDisplay
-        generatedImageUrl={generatedImageUrl}
-        prompt={prompt}
-        isGenerating={isGenerating}
-        icon={ImageIcon}
-      />
+      <Card className="overflow-hidden">
+        <CardContent className="p-6">
+          <GeneratedImageDisplay
+            imageUrl={generatedImage}
+            isLoading={isLoading}
+            isUploading={isUploading}
+            onUseImage={handleUseImage}
+            onDownload={handleDownload}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 };

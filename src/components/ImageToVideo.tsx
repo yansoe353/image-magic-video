@@ -8,13 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { fal } from "@fal-ai/client";
-import { Languages, AlertCircle, Mic } from "lucide-react";
+import { Languages, AlertCircle } from "lucide-react";
 import { LANGUAGES, translateText, type LanguageOption } from "@/utils/translationUtils";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import { usePromptTranslation } from "@/hooks/usePromptTranslation";
 import { incrementVideoCount, getRemainingCounts, getRemainingCountsAsync, VIDEO_LIMIT } from "@/utils/usageTracker";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Checkbox } from "@/components/ui/checkbox";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,8 +52,6 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
   const [originalVideoUrl, setOriginalVideoUrl] = useState("");
   const [supabaseVideoUrl, setSupabaseVideoUrl] = useState("");
   const [isStoringVideo, setIsStoringVideo] = useState(false);
-  const [enableLipsync, setEnableLipsync] = useState(false);
-  const [audioPrompt, setAudioPrompt] = useState("");
 
   const [duration] = useState<string>("5");
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
@@ -102,9 +99,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
             aspectRatio,
             negativePrompt,
             cfgScale,
-            original_url: originalUrl,
-            enableLipsync,
-            audioPrompt: enableLipsync ? audioPrompt : null
+            original_url: originalUrl
           }
         });
 
@@ -123,15 +118,6 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
       toast({
         title: "Error",
         description: "Please upload an image and provide a prompt",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (enableLipsync && !audioPrompt.trim()) {
-      toast({
-        title: "Error",
-        description: "Please provide an audio prompt for lipsync",
         variant: "destructive",
       });
       return;
@@ -162,22 +148,6 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
         }
       }
 
-      let audioPromptToUse = "";
-      if (enableLipsync && audioPrompt) {
-        if (selectedLanguage !== "en") {
-          try {
-            audioPromptToUse = await translateText(audioPrompt, selectedLanguage, "en");
-            setGenerationLogs(prev => [...prev, "Translated audio prompt to English for better results."]);
-          } catch (error) {
-            console.error("Failed to translate audio prompt to English:", error);
-            audioPromptToUse = audioPrompt;
-          }
-        } else {
-          audioPromptToUse = audioPrompt;
-        }
-        setGenerationLogs(prev => [...prev, "Setting up lipsync with audio prompt..."]);
-      }
-
       const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
         input: {
           prompt: promptToUse,
@@ -186,9 +156,6 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
           aspect_ratio: aspectRatio as "16:9" | "9:16" | "1:1",
           negative_prompt: negativePrompt,
           cfg_scale: cfgScale,
-          ...(enableLipsync && audioPromptToUse ? { lipsync_t2v_req: {
-            text: audioPromptToUse
-          }} : {})
         },
         logs: true,
         onQueueUpdate: (update) => {
@@ -371,44 +338,9 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
               </div>
             </div>
 
-            <div className="space-y-2 p-3 border border-slate-700/50 rounded-md bg-slate-800/30">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="lipsync"
-                  checked={enableLipsync}
-                  onCheckedChange={(checked) => setEnableLipsync(checked as boolean)}
-                />
-                <div className="grid gap-1.5 leading-none">
-                  <Label
-                    htmlFor="lipsync"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center"
-                  >
-                    Enable Lipsync
-                    <Mic className="ml-2 h-3 w-3" />
-                  </Label>
-                  <p className="text-sm text-slate-400">
-                    Make the person in the image speak the text
-                  </p>
-                </div>
-              </div>
-              
-              {enableLipsync && (
-                <div className="mt-2">
-                  <Label htmlFor="audioPrompt">Audio Prompt</Label>
-                  <Textarea
-                    id="audioPrompt"
-                    placeholder="Enter what you want the person to say..."
-                    value={audioPrompt}
-                    onChange={(e) => setAudioPrompt(e.target.value)}
-                    className="min-h-[80px] mt-1"
-                  />
-                </div>
-              )}
-            </div>
-
             <Button
               onClick={generateVideo}
-              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || (enableLipsync && !audioPrompt.trim()) || counts.remainingVideos <= 0}
+              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || counts.remainingVideos <= 0}
               className="w-full"
             >
               Generate Video
