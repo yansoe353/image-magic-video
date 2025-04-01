@@ -1,7 +1,7 @@
-
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Brain, Sparkles, Video, Image, Shield, Play, Eye, Film, HelpCircle } from "lucide-react";
+import PublicGallery from "@/components/PublicGallery";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -93,6 +93,9 @@ const Home = () => {
           </div>
         </div>
       </section>
+
+      {/* Public Gallery Section */}
+      <PublicGallery />
 
       {/* Featured Videos Section */}
       <section className="py-20 px-4 bg-slate-900 text-white">
