@@ -1,3 +1,4 @@
+
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 
@@ -50,7 +51,7 @@ export const StyleModifiers = ({ selectedLoras, onToggleLora, loraScale, onScale
                   <input
                     type="number"
                     id={`scale-${lora.id}`}
-                    value={loraScale[lora.id]}
+                    value={loraScale[lora.id] || 1.0}
                     onChange={(e) => onScaleChange(lora.id as LoraOption, parseFloat(e.target.value))}
                     disabled={disabled}
                     className="text-xs border rounded px-2 py-1"
