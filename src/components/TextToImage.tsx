@@ -6,14 +6,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { RotateCw, Download, ImageIcon, Loader2 } from "lucide-react";
 import { fal } from "@fal-ai/client";
-import { ApiKeyInput } from "@/components/ApiKeyInput";
+import ApiKeyInput from "@/components/ApiKeyInput";
 import { PromptInput } from "@/components/image-generation/PromptInput";
 import { GeneratedImageDisplay } from "@/components/image-generation/GeneratedImageDisplay";
-import { ImageSizeSelector } from "@/components/image-generation/ImageSizeSelector";
+import { ImageSizeSelector, ImageSizeOption } from "@/components/image-generation/ImageSizeSelector";
 import { GuidanceScaleSlider } from "@/components/image-generation/GuidanceScaleSlider";
-import { StyleModifiers } from "@/components/image-generation/StyleModifiers";
+import { StyleModifiers, LoraOption } from "@/components/image-generation/StyleModifiers";
 import { UsageLimits } from "@/components/image-generation/UsageLimits";
-import { incrementImageCount, getRemainingCountsAsync } from "@/utils/usageTracker";
+import { incrementImageCount, getRemainingCountsAsync, IMAGE_LIMIT } from "@/utils/usageTracker";
 import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { isLoggedIn } from "@/utils/authUtils";
@@ -28,12 +28,29 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [isApiKeySet, setIsApiKeySet] = useState<boolean>(!!localStorage.getItem("falApiKey"));
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [imageSize, setImageSize] = useState<string>("square-1:1");
+  const [imageSize, setImageSize] = useState<ImageSizeOption>("square");
   const [guidanceScale, setGuidanceScale] = useState<number>(7);
-  const [styleModifiers, setStyleModifiers] = useState<string[]>([]);
+  const [styleModifiers, setStyleModifiers] = useState<LoraOption[]>([]);
+  const [loraScale, setLoraScale] = useState<{ [key: string]: number }>({});
 
-  const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setPrompt(e.target.value);
+  const handlePromptChange = (newPrompt: string) => {
+    setPrompt(newPrompt);
+  };
+
+  const handleToggleLora = (lora: LoraOption) => {
+    if (styleModifiers.includes(lora)) {
+      setStyleModifiers(styleModifiers.filter(style => style !== lora));
+    } else {
+      setStyleModifiers([...styleModifiers, lora]);
+      // Initialize scale if not set
+      if (!loraScale[lora]) {
+        setLoraScale({ ...loraScale, [lora]: 1.0 });
+      }
+    }
+  };
+
+  const handleLoraScaleChange = (lora: LoraOption, scale: number) => {
+    setLoraScale({ ...loraScale, [lora]: scale });
   };
 
   const generateImage = async () => {
@@ -65,15 +82,16 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       });
 
       // Calculate dimensions based on selected size
-      let width = 1024;
-      let height = 1024;
+      let aspectRatio = "1:1";
       
-      if (imageSize === "portrait-2:3") {
-        width = 832;
-        height = 1216;
-      } else if (imageSize === "landscape-3:2") {
-        width = 1216;
-        height = 832;
+      if (imageSize === "portrait_16_9") {
+        aspectRatio = "9:16";
+      } else if (imageSize === "landscape_16_9") {
+        aspectRatio = "16:9";
+      } else if (imageSize === "portrait_4_3") {
+        aspectRatio = "3:4";
+      } else if (imageSize === "landscape_4_3") {
+        aspectRatio = "4:3";
       }
 
       // Add style modifiers to prompt
@@ -84,8 +102,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       const result = await fal.subscribe("fal-ai/imagen3/fast", {
         input: {
           prompt: enhancedPrompt,
-          width,
-          height,
+          aspect_ratio: aspectRatio,
           negative_prompt: "low quality, bad anatomy, distorted, blurry",
           cfg_scale: guidanceScale
         },
@@ -193,20 +210,22 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             />
           )}
           
-          <UsageLimits className="mb-6" contentType="image" />
+          <UsageLimits 
+            remainingImages={IMAGE_LIMIT} 
+            imageLimit={IMAGE_LIMIT} 
+          />
           
           <div className="space-y-4">
             <PromptInput
-              placeholder="Describe the image you want to create... (e.g., A serene forest landscape with a small cabin, morning light, fog)"
-              value={prompt}
-              onChange={handlePromptChange}
+              prompt={prompt}
+              onPromptChange={handlePromptChange}
               disabled={isGenerating}
             />
             
             <div className="grid gap-4 sm:grid-cols-2">
               <ImageSizeSelector
-                selectedSize={imageSize}
-                onSelectSize={setImageSize}
+                value={imageSize}
+                onChange={setImageSize}
                 disabled={isGenerating}
               />
               
@@ -218,8 +237,10 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             </div>
             
             <StyleModifiers
-              selectedStyles={styleModifiers}
-              onStylesChange={setStyleModifiers}
+              selectedLoras={styleModifiers}
+              onToggleLora={handleToggleLora}
+              loraScale={loraScale}
+              onScaleChange={handleLoraScaleChange}
               disabled={isGenerating}
             />
             

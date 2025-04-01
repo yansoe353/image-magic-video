@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -312,7 +311,7 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
       // Save to Supabase if possible
       try {
         const userId = await getUserId();
-        const supabaseUrl = await uploadUrlToStorage(audioUrl, 'audio', userId);
+        const supabaseUrl = await uploadUrlToStorage(audioUrl, 'audio' as 'image' | 'video' | 'audio', userId);
         setVoiceoverUrl(supabaseUrl);
       } catch (uploadError) {
         console.error("Failed to upload audio to Supabase:", uploadError);
@@ -338,7 +337,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
     }
   };
   
-  // Utility function to convert base64 to Blob
   const base64ToBlob = (base64: string, mimeType: string) => {
     const byteCharacters = atob(base64);
     const byteNumbers = new Array(byteCharacters.length);

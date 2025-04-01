@@ -1,38 +1,41 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
 
 /**
  * Fetches an image from a URL and uploads it to Supabase storage
  */
-export const uploadUrlToStorage = async (url: string, contentType: 'image' | 'video', userId?: string): Promise<string> => {
+export const uploadUrlToStorage = async (
+  url: string, 
+  type: 'image' | 'video' | 'audio', 
+  userId?: string
+): Promise<string> => {
   try {
     // Fetch the file from the URL
     const response = await fetch(url);
     if (!response.ok) {
-      throw new Error(`Failed to fetch ${contentType} from URL: ${response.statusText}`);
+      throw new Error(`Failed to fetch ${type} from URL: ${response.statusText}`);
     }
     
     const fileBlob = await response.blob();
     
     // Generate a unique file path
-    const fileExt = contentType === 'image' ? 'png' : 'mp4';
+    const fileExt = type === 'image' ? 'png' : 'mp4';
     const fileName = `${uuidv4()}.${fileExt}`;
     
     // User ID folder structure - if no userId, store in 'anonymous' folder
     const folderPath = userId ? `${userId}` : 'anonymous';
-    const filePath = `${folderPath}/${contentType}s/${fileName}`;
+    const filePath = `${folderPath}/${type}s/${fileName}`;
     
     // Upload to Supabase
     const { data, error } = await supabase.storage
       .from('generated_content')
       .upload(filePath, fileBlob, {
-        contentType: contentType === 'image' ? 'image/png' : 'video/mp4',
+        contentType: type === 'image' ? 'image/png' : 'video/mp4',
         upsert: false
       });
     
     if (error) {
-      console.error(`Error uploading ${contentType} to Supabase:`, error);
+      console.error(`Error uploading ${type} to Supabase:`, error);
       throw error;
     }
     
@@ -43,7 +46,7 @@ export const uploadUrlToStorage = async (url: string, contentType: 'image' | 'vi
     
     return publicUrlData.publicUrl;
   } catch (error) {
-    console.error(`Error in uploadUrlToStorage for ${contentType}:`, error);
+    console.error(`Error in uploadUrlToStorage for ${type}:`, error);
     throw error;
   }
 };
@@ -65,4 +68,3 @@ export const getUserId = async (): Promise<string | undefined> => {
     return undefined;
   }
 };
-
