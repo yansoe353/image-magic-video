@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +20,6 @@ import VideoPreview from "./VideoPreview";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import ProLabel from "./ProLabel";
 import KlingAILabel from "./KlingAILabel";
-import { useVideoEditor, VideoClip } from "@/hooks/useVideoEditor";
 
 interface StoryFrame {
   text: string;
@@ -53,13 +51,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
   const { toast } = useToast();
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const [counts, setCounts] = useState(getRemainingCounts());
-  const { 
-    videoClips,
-    combinedVideoUrl,
-    isProcessing,
-    addVideoClip,
-    combineVideos
-  } = useVideoEditor();
 
   const addLog = (message: string) => {
     setLogs(prev => [...prev, message]);
@@ -142,7 +133,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
       
       let jsonResponse;
       try {
-        // Extract JSON from the response if it's wrapped in markdown or other text
         const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/) || 
                           response.match(/{[\s\S]*}/);
         
@@ -228,7 +218,7 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
             input: {
               prompt: frame.imagePrompt,
               aspect_ratio: "16:9",
-              guidance_scale: 9,
+              enable_safety_filter: true,
               negative_prompt: "low quality, bad anatomy, distorted, blurry"
             },
           });
@@ -236,7 +226,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
           if (result.data?.images?.[0]?.url) {
             const imageUrl = result.data.images[0].url;
             
-            // Upload to storage if logged in
             try {
               const userId = await getUserId();
               const supabaseUrl = await uploadUrlToStorage(imageUrl, 'image', userId);
@@ -283,6 +272,15 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
   };
 
   const generateVideo = async () => {
+    if (!isApiKeySet) {
+      toast({
+        title: "API Key Required",
+        description: "Please set your FAL.AI API key first",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (counts.remainingVideos < 1) {
       toast({
         title: "No Video Credits",
@@ -292,7 +290,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
       return;
     }
 
-    // Check if we have at least one image
     const hasImages = storyFrames.some(frame => frame.imageUrl);
     if (!hasImages) {
       toast({
@@ -306,63 +303,78 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
     setIsGeneratingVideo(true);
     setCurrentStep(3);
     setProgressPercent(70);
-    addLog("Creating slideshow video with narration...");
+    addLog("Creating final video with voiceover...");
 
     try {
-      // Reset video clips if any exist from previous attempts
-      videoClips.forEach(clip => {
-        addLog(`Preparing image: ${clip.name}`);
+      fal.config({
+        credentials: apiKey
       });
 
-      // Create a video clip for each story frame that has an image
-      const framesWithImages = storyFrames.filter(frame => frame.imageUrl);
-      for (let i = 0; i < framesWithImages.length; i++) {
-        const frame = framesWithImages[i];
-        if (frame.imageUrl) {
-          addLog(`Adding slide ${i + 1}: ${frame.text.substring(0, 40)}...`);
-          
-          // Create a new video clip for each image
-          const newClip: VideoClip = {
-            id: Date.now().toString() + i,
-            url: frame.imageUrl,
-            name: `Scene ${i + 1}`,
-          };
-          
-          addVideoClip(newClip);
-        }
+      const firstFrameWithImage = storyFrames.find(frame => frame.imageUrl);
+      if (!firstFrameWithImage || !firstFrameWithImage.imageUrl) {
+        throw new Error("No images available to create video");
       }
 
-      addLog("Combining images into slideshow video...");
-      setProgressPercent(80);
+      addLog("Using image-to-video with narration...");
       
-      // Use the video editor's combine function to create the video
-      await combineVideos();
-      
-      if (combinedVideoUrl) {
-        setGeneratedVideoUrl(combinedVideoUrl);
+      const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
+        input: {
+          prompt: "Cinematic smooth scene with gentle camera motion",
+          image_url: firstFrameWithImage.imageUrl,
+          duration: "5",
+          aspect_ratio: "16:9",
+          negative_prompt: "low quality, distorted, blurry",
+          cfg_scale: 0.6,
+          lipsync_t2v_req: {
+            text: voiceoverText.substring(0, 200)
+          }
+        },
+        logs: true,
+        onQueueUpdate: (update) => {
+          if (update.status === "IN_PROGRESS" && update.logs) {
+            const newLogs = update.logs.map(log => log.message);
+            newLogs.forEach(log => addLog(log));
+          }
+        },
+      });
+
+      if (result.data?.video?.url) {
+        const videoUrl = result.data.video.url;
         
-        if (onVideoGenerated) {
-          onVideoGenerated(combinedVideoUrl);
-        }
-        
-        // Save to history if logged in
-        if (isLoggedIn()) {
+        try {
           const userId = await getUserId();
-          await supabase
-            .from('user_content_history')
-            .insert({
-              user_id: userId,
-              content_type: 'video',
-              content_url: combinedVideoUrl,
-              prompt: storyPrompt,
-              metadata: {
-                title: storyTitle,
-                frames: storyFrames.map(frame => ({
-                  text: frame.text,
-                  imagePrompt: frame.imagePrompt
-                }))
-              }
-            });
+          const supabaseUrl = await uploadUrlToStorage(videoUrl, 'video', userId);
+          setGeneratedVideoUrl(supabaseUrl);
+          
+          if (onVideoGenerated) {
+            onVideoGenerated(supabaseUrl);
+          }
+          
+          if (isLoggedIn()) {
+            await supabase
+              .from('user_content_history')
+              .insert({
+                user_id: userId,
+                content_type: 'video',
+                content_url: supabaseUrl,
+                prompt: storyPrompt,
+                metadata: {
+                  title: storyTitle,
+                  frames: storyFrames.map(frame => ({
+                    text: frame.text,
+                    imagePrompt: frame.imagePrompt
+                  })),
+                  original_url: videoUrl
+                }
+              });
+          }
+        } catch (uploadError) {
+          console.error("Failed to upload to Supabase:", uploadError);
+          setGeneratedVideoUrl(videoUrl);
+          
+          if (onVideoGenerated) {
+            onVideoGenerated(videoUrl);
+          }
         }
         
         await incrementVideoCount();
@@ -370,11 +382,11 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
         setCounts(freshCounts);
         
         toast({
-          title: "Slideshow Created",
-          description: "Your story has been turned into a slideshow video!",
+          title: "Video Created",
+          description: "Your story has been turned into a video!",
         });
       } else {
-        throw new Error("Failed to create video slideshow");
+        throw new Error("No video URL in response");
       }
       
       setProgressPercent(100);
@@ -398,6 +410,7 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-2xl font-bold">Story to Video</h2>
             <ProLabel />
+            <KlingAILabel />
           </div>
 
           {!isApiKeySet && (
@@ -444,7 +457,7 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
               </TabsTrigger>
               <TabsTrigger value="video" disabled={!storyFrames.some(f => f.imageUrl)}>
                 <Film className="h-4 w-4 mr-2" />
-                Create Slideshow
+                Create Video
               </TabsTrigger>
             </TabsList>
 
@@ -540,33 +553,33 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
                 disabled={
                   isGeneratingVideo || 
                   !storyFrames.some(f => f.imageUrl) || 
-                  counts.remainingVideos < 1 ||
-                  isProcessing
+                  !isApiKeySet || 
+                  counts.remainingVideos < 1
                 }
                 className="w-full"
               >
-                {isGeneratingVideo || isProcessing ? (
+                {isGeneratingVideo ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating Slideshow...
+                    Creating Video...
                   </>
                 ) : (
                   <>
                     <Film className="mr-2 h-4 w-4" />
-                    Create Slideshow
+                    Create Video
                   </>
                 )}
               </Button>
             </TabsContent>
           </Tabs>
 
-          {(isGeneratingScript || isGeneratingImages || isGeneratingVideo || isProcessing) && (
+          {(isGeneratingScript || isGeneratingImages || isGeneratingVideo) && (
             <div className="mt-4">
               <Progress value={progressPercent} className="h-2" />
               <p className="text-xs text-center mt-1 text-gray-500">
                 {currentStep === 1 && "Generating story script..."}
                 {currentStep === 2 && "Creating images for each scene..."}
-                {currentStep === 3 && "Composing slideshow with narration..."}
+                {currentStep === 3 && "Composing final video with voiceover..."}
               </p>
             </div>
           )}
@@ -580,7 +593,7 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
           {generatedVideoUrl ? (
             <VideoPreview
               videoUrl={generatedVideoUrl}
-              isLoading={isGeneratingVideo || isProcessing}
+              isLoading={isGeneratingVideo}
               generationLogs={[]}
               videoRef={videoRef}
               isPlaying={isPlaying}
@@ -589,7 +602,7 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
           ) : (
             <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-6 text-center flex flex-col items-center justify-center min-h-[300px]">
               <Film className="h-12 w-12 text-slate-400 mb-4" />
-              <p className="text-slate-500">Your story slideshow will appear here</p>
+              <p className="text-slate-500">Your story video will appear here</p>
             </div>
           )}
           
