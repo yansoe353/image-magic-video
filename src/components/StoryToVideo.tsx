@@ -355,93 +355,89 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
     return new Blob([byteArray], { type: mimeType });
   };
 
-  const generateVideo = async () => {
-    if (!isApiKeySet) {
-      toast({
-        title: "API Key Required",
-        description: "Please set your FAL.AI API key first",
-        variant: "destructive",
-      });
-      return;
+  
+const generateVideo = async () => {
+  if (!isApiKeySet) {
+    toast({
+      title: "API Key Required",
+      description: "Please set your FAL.AI API key first",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  if (counts.remainingVideos < 1) {
+    toast({
+      title: "No Video Credits",
+      description: "You don't have any video generations remaining",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  const hasImages = storyFrames.some(frame => frame.imageUrl);
+  if (!hasImages) {
+    toast({
+      title: "No Images Available",
+      description: "Please generate images first",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  setIsGeneratingVideo(true);
+  setCurrentStep(3);
+  setProgressPercent(70);
+  addLog("Creating slideshow with voiceover...");
+
+  try {
+    // Extract all image URLs
+    const imageUrls = storyFrames
+      .filter(frame => frame.imageUrl)
+      .map(frame => frame.imageUrl as string);
+
+    if (imageUrls.length === 0) {
+      throw new Error("No images available to create slideshow");
     }
 
-    if (counts.remainingVideos < 1) {
-      toast({
-        title: "No Video Credits",
-        description: "You don't have any video generations remaining",
-        variant: "destructive",
-      });
-      return;
+    // Call the serverless function to generate the video
+    const response = await axios.post('/api/generate-video', {
+      imageUrls,
+      voiceoverUrl,
+    }, {
+      responseType: 'blob',
+    });
+
+    const generatedVideoUrl = URL.createObjectURL(response.data);
+    setGeneratedVideoUrl(generatedVideoUrl);
+
+    if (onVideoGenerated) {
+      onVideoGenerated(generatedVideoUrl);
     }
 
-    const hasImages = storyFrames.some(frame => frame.imageUrl);
-    if (!hasImages) {
-      toast({
-        title: "No Images Available",
-        description: "Please generate images first",
-        variant: "destructive",
-      });
-      return;
-    }
+    await incrementVideoCount();
+    const freshCounts = await getRemainingCountsAsync();
+    setCounts(freshCounts);
 
-    setIsGeneratingVideo(true);
-    setCurrentStep(3);
-    setProgressPercent(70);
-    addLog("Creating slideshow with voiceover...");
+    toast({
+      title: "Slideshow Created",
+      description: "Your images have been turned into a video with narration!",
+    });
 
-    try {
-      // Create a temporary directory to store the images
-      const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'story-to-video-'));
+    setProgressPercent(100);
 
-      // Launch Puppeteer and generate screenshots
-      const browser = await puppeteer.launch();
-      const page = await browser.newPage();
+  } catch (error) {
+    console.error("Failed to generate slideshow:", error);
+    toast({
+      title: "Video Generation Error",
+      description: error instanceof Error ? error.message : "Failed to create slideshow",
+      variant: "destructive",
+    });
+  } finally {
+    setIsGeneratingVideo(false);
+  }
+};
 
-      for (let i = 0; i < storyFrames.length; i++) {
-        const frame = storyFrames[i];
-        await page.goto(frame.imageUrl, { waitUntil: 'networkidle2' });
-        await page.screenshot({ path: path.join(tempDir, `image_${i}.png`) });
-      }
-
-      await browser.close();
-
-      // Generate the video using FFmpeg
-      const outputVideoPath = path.join(tempDir, 'output.mp4');
-      const ffmpegCommand = `ffmpeg -framerate 1 -pattern_type glob -i '${tempDir}/*.png' -i ${voiceoverUrl} -c:v libx264 -c:a aac -shortest ${outputVideoPath}`;
-
-      await exec(ffmpegCommand);
-
-      // Upload the generated video to Supabase
-      const userId = await getUserId();
-      const supabaseUrl = await uploadUrlToStorage(outputVideoPath, 'video', userId);
-      setGeneratedVideoUrl(supabaseUrl);
-
-      if (onVideoGenerated) {
-        onVideoGenerated(supabaseUrl);
-      }
-
-      await incrementVideoCount();
-      const freshCounts = await getRemainingCountsAsync();
-      setCounts(freshCounts);
-
-      toast({
-        title: "Slideshow Created",
-        description: "Your images have been turned into a video with narration!",
-      });
-
-      setProgressPercent(100);
-
-    } catch (error) {
-      console.error("Failed to generate slideshow:", error);
-      toast({
-        title: "Video Generation Error",
-        description: error instanceof Error ? error.message : "Failed to create slideshow",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGeneratingVideo(false);
-    }
-  };
 
   return (
     <div className="grid gap-8 md:grid-cols-2">
