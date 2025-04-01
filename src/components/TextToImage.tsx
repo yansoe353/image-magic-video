@@ -23,7 +23,15 @@ interface TextToImageProps {
 }
 
 type ImageSize = "square" | "portrait" | "landscape" | "widescreen";
-type AspectRatio = "1:1" | "2:3" | "3:2" | "16:9";
+type AspectRatio = "1:1" | "4:3" | "3:4" | "16:9" | "9:16";
+
+const aspectRatioMap: Record<AspectRatio, string> = {
+  "1:1": "1:1",
+  "4:3": "4:3",
+  "3:4": "3:4",
+  "16:9": "16:9",
+  "9:16": "9:16"
+};
 
 interface UserContent {
   user_id: string;
@@ -36,8 +44,8 @@ interface UserContent {
 
 const imageSizes: Record<ImageSize, { label: string, aspectRatio: AspectRatio }> = {
   square: { label: "Square (1:1)", aspectRatio: "1:1" },
-  portrait: { label: "Portrait (2:3)", aspectRatio: "2:3" },
-  landscape: { label: "Landscape (3:2)", aspectRatio: "3:2" },
+  portrait: { label: "Portrait (3:4)", aspectRatio: "3:4" },
+  landscape: { label: "Landscape (4:3)", aspectRatio: "4:3" },
   widescreen: { label: "Widescreen (16:9)", aspectRatio: "16:9" }
 };
 
@@ -57,7 +65,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [remainingImages, setRemainingImages] = useState(getRemainingCounts().remainingImages);
   
   const { toast } = useToast();
-  const { translatePrompt, isTranslating } = usePromptTranslation();
+  const { prompt: translatedPrompt, setPrompt: setTranslatedPrompt, selectedLanguage, isTranslating, handleLanguageChange } = usePromptTranslation(prompt);
   
   useEffect(() => {
     const storedApiKey = localStorage.getItem("falApiKey");
@@ -160,10 +168,9 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         addLog(`Applied style: ${styleModifier}`);
       }
       
-      // Translate prompt if needed (not implemented in this version)
-      const translatedPrompt = await translatePrompt(fullPrompt);
-      if (translatedPrompt !== fullPrompt) {
-        addLog(`Translated prompt: "${translatedPrompt}"`);
+      // Use translated prompt if available
+      if (translatedPrompt && translatedPrompt !== prompt) {
+        addLog(`Using translated prompt: "${translatedPrompt}"`);
         fullPrompt = translatedPrompt;
       }
       
@@ -276,6 +283,16 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
     }
   };
 
+  // Update handlers for component props
+  const handlePromptChange = (value: string) => {
+    setPrompt(value);
+    setTranslatedPrompt(value);
+  };
+
+  const handleNegativePromptChange = (value: string) => {
+    setNegativePrompt(value);
+  };
+
   return (
     <div className="grid gap-8 md:grid-cols-2">
       <Card className="overflow-hidden">
@@ -310,23 +327,26 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           <div className="space-y-4">
             <PromptInput
               prompt={prompt}
-              setPrompt={setPrompt}
+              onPromptChange={handlePromptChange}
               negativePrompt={negativePrompt}
-              setNegativePrompt={setNegativePrompt}
+              onNegativePromptChange={handleNegativePromptChange}
               isGenerating={isGenerating}
+              language={selectedLanguage}
+              onLanguageChange={handleLanguageChange}
+              isTranslating={isTranslating}
             />
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ImageSizeSelector
-                imageSize={imageSize}
-                setImageSize={setImageSize}
-                imageSizes={imageSizes}
+                value={imageSize}
+                onChange={setImageSize}
+                options={imageSizes}
                 disabled={isGenerating}
               />
               
               <GuidanceScaleSlider
-                guidanceScale={guidanceScale}
-                setGuidanceScale={setGuidanceScale}
+                value={guidanceScale}
+                onChange={setGuidanceScale}
                 disabled={isGenerating}
               />
             </div>

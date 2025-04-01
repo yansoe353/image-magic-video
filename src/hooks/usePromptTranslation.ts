@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { translateText, type LanguageOption } from "@/utils/translationUtils";
 
-export function usePromptTranslation(initialPrompt: string) {
+export function usePromptTranslation(initialPrompt: string = "") {
   const [prompt, setPrompt] = useState(initialPrompt);
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageOption>("en");
   const [isTranslating, setIsTranslating] = useState(false);
