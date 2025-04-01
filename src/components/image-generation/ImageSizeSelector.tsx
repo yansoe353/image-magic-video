@@ -1,44 +1,35 @@
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export const IMAGE_SIZES = {
-  square: "Square (1:1)",
-  square_hd: "Square HD (1:1)",
-  portrait_4_3: "Portrait (4:3)",
-  portrait_16_9: "Portrait (16:9)",
-  landscape_4_3: "Landscape (4:3)",
-  landscape_16_9: "Landscape (16:9)",
-};
-
-export type ImageSizeOption = keyof typeof IMAGE_SIZES;
-
-interface ImageSizeSelectorProps {
-  value: ImageSizeOption;
-  onChange: (size: ImageSizeOption) => void;
+export interface ImageSizeSelectorProps {
+  value: string;
+  onChange: (value: string) => void;
+  options: Record<string, { label: string, aspectRatio: string }>;
   disabled?: boolean;
 }
 
-export const ImageSizeSelector = ({ value, onChange, disabled }: ImageSizeSelectorProps) => {
+export const ImageSizeSelector = ({
+  value,
+  onChange,
+  options,
+  disabled = false
+}: ImageSizeSelectorProps) => {
   return (
     <div>
-      <label className="text-sm font-medium mb-2 block">Image Size</label>
-      <Select 
-        value={value} 
-        onValueChange={(newValue: ImageSizeOption) => onChange(newValue)}
+      <Label htmlFor="image-size" className="mb-2 block">Image Size</Label>
+      <Select
+        id="image-size"
+        value={value}
+        onValueChange={onChange}
         disabled={disabled}
       >
-        <SelectTrigger className="w-full">
+        <SelectTrigger>
           <SelectValue placeholder="Select size" />
         </SelectTrigger>
         <SelectContent>
-          {Object.entries(IMAGE_SIZES).map(([sizeValue, label]) => (
-            <SelectItem key={sizeValue} value={sizeValue}>
+          {Object.entries(options).map(([key, { label }]) => (
+            <SelectItem key={key} value={key}>
               {label}
             </SelectItem>
           ))}

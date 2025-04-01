@@ -1,231 +1,346 @@
 
-// Update to fix TypeScript errors
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { toast } from "@/hooks/use-toast";
-import { RotateCw, Download, ImageIcon, Loader2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { GeneratedImageDisplay } from "./image-generation/GeneratedImageDisplay";
+import { PromptInput } from "./image-generation/PromptInput";
+import { GuidanceScaleSlider } from "./image-generation/GuidanceScaleSlider";
+import { StyleModifiers } from "./image-generation/StyleModifiers";
+import { ImageSizeSelector } from "./image-generation/ImageSizeSelector";
+import { useToast } from "@/hooks/use-toast";
 import { fal } from "@fal-ai/client";
-import ApiKeyInput from "@/components/ApiKeyInput";
-import { PromptInput } from "@/components/image-generation/PromptInput";
-import { GeneratedImageDisplay } from "@/components/image-generation/GeneratedImageDisplay";
-import { ImageSizeSelector, ImageSizeOption } from "@/components/image-generation/ImageSizeSelector";
-import { GuidanceScaleSlider } from "@/components/image-generation/GuidanceScaleSlider";
-import { StyleModifiers, LoraOption } from "@/components/image-generation/StyleModifiers";
-import { UsageLimits } from "@/components/image-generation/UsageLimits";
-import { incrementImageCount, getRemainingCountsAsync, IMAGE_LIMIT } from "@/utils/usageTracker";
+import { incrementImageCount, getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT } from "@/utils/usageTracker";
 import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
+import { usePromptTranslation } from "@/hooks/usePromptTranslation";
 import { isLoggedIn } from "@/utils/authUtils";
 
 interface TextToImageProps {
   onImageGenerated?: (imageUrl: string) => void;
 }
 
+type ImageSize = "square" | "portrait" | "landscape" | "widescreen";
+type AspectRatio = "1:1" | "4:3" | "3:4" | "16:9" | "9:16";
+
+const aspectRatioMap: Record<AspectRatio, string> = {
+  "1:1": "1:1",
+  "4:3": "4:3",
+  "3:4": "3:4",
+  "16:9": "16:9",
+  "9:16": "9:16"
+};
+
+interface UserContent {
+  user_id: string;
+  content_type: "image" | "video";
+  content_url: string;
+  prompt: string;
+  timestamp?: string;
+  metadata?: Record<string, any>;
+}
+
+const imageSizes: Record<ImageSize, { label: string, aspectRatio: AspectRatio }> = {
+  square: { label: "Square (1:1)", aspectRatio: "1:1" },
+  portrait: { label: "Portrait (3:4)", aspectRatio: "3:4" },
+  landscape: { label: "Landscape (4:3)", aspectRatio: "4:3" },
+  widescreen: { label: "Widescreen (16:9)", aspectRatio: "16:9" }
+};
+
 const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [prompt, setPrompt] = useState("");
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [isApiKeySet, setIsApiKeySet] = useState<boolean>(!!localStorage.getItem("falApiKey"));
+  const [negativePrompt, setNegativePrompt] = useState("");
+  const [imageSize, setImageSize] = useState<ImageSize>("square");
+  const [guidanceScale, setGuidanceScale] = useState(8);
+  const [styleModifier, setStyleModifier] = useState("");
+  const [isApiKeyValid, setIsApiKeyValid] = useState<boolean>(false);
+  const [apiKey, setApiKey] = useState<string>("");
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [imageSize, setImageSize] = useState<ImageSizeOption>("square");
-  const [guidanceScale, setGuidanceScale] = useState<number>(7);
-  const [styleModifiers, setStyleModifiers] = useState<LoraOption[]>([]);
-  const [loraScale, setLoraScale] = useState<{ [key: string]: number }>({});
-
-  const handlePromptChange = (newPrompt: string) => {
-    setPrompt(newPrompt);
+  const [isStoring, setIsStoring] = useState(false);
+  const [customApiKey, setCustomApiKey] = useState<string>("");
+  const [logs, setLogs] = useState<string[]>([]);
+  const [remainingImages, setRemainingImages] = useState(getRemainingCounts().remainingImages);
+  
+  const { toast } = useToast();
+  const { prompt: translatedPrompt, setPrompt: setTranslatedPrompt, selectedLanguage, isTranslating, handleLanguageChange } = usePromptTranslation(prompt);
+  
+  useEffect(() => {
+    const storedApiKey = localStorage.getItem("falApiKey");
+    if (storedApiKey) {
+      setApiKey(storedApiKey);
+      setIsApiKeyValid(true);
+      fal.config({
+        credentials: storedApiKey
+      });
+    }
+    
+    const updateImageCount = async () => {
+      const counts = await getRemainingCountsAsync();
+      setRemainingImages(counts.remainingImages);
+    };
+    
+    updateImageCount();
+    
+    // Set up periodic check for usage limits
+    const interval = setInterval(updateImageCount, 5000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCustomApiKey(e.target.value);
   };
-
-  const handleToggleLora = (lora: LoraOption) => {
-    if (styleModifiers.includes(lora)) {
-      setStyleModifiers(styleModifiers.filter(style => style !== lora));
-    } else {
-      setStyleModifiers([...styleModifiers, lora]);
-      // Initialize scale if not set
-      if (!loraScale[lora]) {
-        setLoraScale({ ...loraScale, [lora]: 1.0 });
-      }
+  
+  const saveApiKey = () => {
+    if (!customApiKey.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid API key",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      localStorage.setItem("falApiKey", customApiKey);
+      setApiKey(customApiKey);
+      setIsApiKeyValid(true);
+      fal.config({
+        credentials: customApiKey
+      });
+      toast({
+        title: "Success",
+        description: "API key saved successfully"
+      });
+    } catch (error) {
+      console.error("Failed to save API key:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save API key",
+        variant: "destructive"
+      });
     }
   };
-
-  const handleLoraScaleChange = (lora: LoraOption, scale: number) => {
-    setLoraScale({ ...loraScale, [lora]: scale });
+  
+  const addLog = (message: string) => {
+    setLogs(prev => [...prev, message]);
   };
 
   const generateImage = async () => {
-    if (!prompt.trim()) {
-      toast({
-        title: "Prompt Required",
-        description: "Please enter a prompt to generate an image",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const apiKey = localStorage.getItem("falApiKey");
-    if (!apiKey) {
+    if (!isApiKeyValid) {
       toast({
         title: "API Key Required",
         description: "Please set your FAL.AI API key first",
-        variant: "destructive",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (remainingImages < 1) {
+      toast({
+        title: "Image Limit Reached",
+        description: `You've used all ${IMAGE_LIMIT} of your daily image generations.`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!prompt) {
+      toast({
+        title: "Prompt Required",
+        description: "Please enter a prompt to generate an image",
+        variant: "destructive"
       });
       return;
     }
 
+    setIsGenerating(true);
+    setLogs([]);
+    addLog(`Generating image with prompt: "${prompt}"`);
+    
     try {
-      setIsGenerating(true);
-
-      // Configure client
-      fal.config({
-        credentials: apiKey
-      });
-
-      // Calculate dimensions based on selected size
-      let aspectRatio = "1:1";
-      
-      if (imageSize === "portrait_16_9") {
-        aspectRatio = "9:16";
-      } else if (imageSize === "landscape_16_9") {
-        aspectRatio = "16:9";
-      } else if (imageSize === "portrait_4_3") {
-        aspectRatio = "3:4";
-      } else if (imageSize === "landscape_4_3") {
-        aspectRatio = "4:3";
+      // Add style modifier to prompt if selected
+      let fullPrompt = prompt;
+      if (styleModifier) {
+        fullPrompt = `${prompt}, ${styleModifier}`;
+        addLog(`Applied style: ${styleModifier}`);
       }
-
-      // Add style modifiers to prompt
-      const enhancedPrompt = styleModifiers.length > 0 
-        ? `${prompt}, ${styleModifiers.join(", ")}`
-        : prompt;
-
+      
+      // Use translated prompt if available
+      if (translatedPrompt && translatedPrompt !== prompt) {
+        addLog(`Using translated prompt: "${translatedPrompt}"`);
+        fullPrompt = translatedPrompt;
+      }
+      
+      addLog("Sending request to Fal.ai Imagen model...");
+      
+      // Get aspect ratio from selected size
+      const { aspectRatio } = imageSizes[imageSize];
+      
       const result = await fal.subscribe("fal-ai/imagen3/fast", {
         input: {
-          prompt: enhancedPrompt,
+          prompt: fullPrompt,
+          negative_prompt: negativePrompt || "low quality, bad anatomy, distorted, blurry",
+          guidance_scale: guidanceScale,
           aspect_ratio: aspectRatio,
-          negative_prompt: "low quality, bad anatomy, distorted, blurry",
-          cfg_scale: guidanceScale
         },
       });
-
+      
       if (result.data?.images?.[0]?.url) {
-        const generatedImageUrl = result.data.images[0].url;
+        const imageUrl = result.data.images[0].url;
+        addLog("Image generated successfully!");
+        setGeneratedImageUrl(imageUrl);
         
-        // Set the image URL for preview
-        setImageUrl(generatedImageUrl);
+        // Store the image in Supabase if the user is logged in
+        if (isLoggedIn()) {
+          setIsStoring(true);
+          addLog("Storing image in your personal cloud...");
+          
+          try {
+            const userId = await getUserId();
+            
+            // Upload the image to storage
+            const supabaseUrl = await uploadUrlToStorage(imageUrl, 'image', userId);
+            
+            // Update the UI with the stored image URL
+            setGeneratedImageUrl(supabaseUrl);
+            
+            // Store the prompt and image URL in the user's history
+            await supabase
+              .from('user_content_history')
+              .insert({
+                user_id: userId,
+                content_type: 'image',
+                content_url: supabaseUrl,
+                prompt: fullPrompt,
+                metadata: {
+                  negative_prompt: negativePrompt,
+                  guidance_scale: guidanceScale,
+                  size: imageSize,
+                  style: styleModifier,
+                  original_url: imageUrl
+                }
+              });
+            
+            addLog("Image stored successfully in your cloud storage.");
+          } catch (error) {
+            console.error("Failed to store image:", error);
+            addLog("Failed to store image in cloud storage. Using temporary URL.");
+          } finally {
+            setIsStoring(false);
+          }
+        }
         
-        // Update usage stats
+        // Increment the image count
         await incrementImageCount();
+        
+        // Update the remaining count
+        const counts = await getRemainingCountsAsync();
+        setRemainingImages(counts.remainingImages);
         
         toast({
           title: "Image Generated",
-          description: "Your image has been created successfully",
+          description: "Your image has been generated successfully"
         });
+      } else {
+        throw new Error("No image URL in the response");
       }
     } catch (error) {
-      console.error("Error generating image:", error);
+      console.error("Failed to generate image:", error);
+      addLog(`Error: ${error instanceof Error ? error.message : "Unknown error"}`);
+      
       toast({
         title: "Generation Failed",
         description: error instanceof Error ? error.message : "Failed to generate image",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleUseImage = async () => {
-    if (!imageUrl) return;
-    
-    try {
-      setIsUploading(true);
-      
-      // Upload to Supabase if user is logged in or we have userId
-      const userId = await getUserId();
-      if (userId) {
-        const supabaseUrl = await uploadUrlToStorage(imageUrl, 'image', userId);
-        
-        if (onImageGenerated) {
-          onImageGenerated(supabaseUrl);
-        }
-        
-        // Save to history if user is logged in
-        if (isLoggedIn()) {
-          await supabase
-            .from('user_content_history')
-            .insert({
-              user_id: userId,
-              content_type: 'image',
-              content_url: supabaseUrl,
-              prompt: prompt,
-              metadata: {
-                guidance_scale: guidanceScale,
-                styles: styleModifiers,
-                original_url: imageUrl
-              }
-            });
-        }
-        
-        toast({
-          title: "Image Saved",
-          description: "Image has been saved to your account",
-        });
-      } else if (onImageGenerated) {
-        // If not logged in but we need to pass the image back
-        onImageGenerated(imageUrl);
-      }
-    } catch (error) {
-      console.error("Error using image:", error);
-      toast({
-        title: "Error",
-        description: "Failed to process image",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
   const handleDownload = () => {
-    if (!imageUrl) return;
+    if (!generatedImageUrl) return;
     
     const link = document.createElement("a");
-    link.href = imageUrl;
-    link.download = `AI-generated-image-${Date.now()}.png`;
+    link.href = generatedImageUrl;
+    link.download = `ai-image-${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    
+    toast({
+      title: "Download Started",
+      description: "Your image download has started"
+    });
+  };
+
+  const handleUseThisImage = () => {
+    if (generatedImageUrl && onImageGenerated) {
+      onImageGenerated(generatedImageUrl);
+    }
+  };
+
+  // Update handlers for component props
+  const handlePromptChange = (value: string) => {
+    setPrompt(value);
+    setTranslatedPrompt(value);
+  };
+
+  const handleNegativePromptChange = (value: string) => {
+    setNegativePrompt(value);
   };
 
   return (
     <div className="grid gap-8 md:grid-cols-2">
       <Card className="overflow-hidden">
         <CardContent className="p-6">
-          <h2 className="text-2xl font-bold mb-4">Generate Image</h2>
+          <h2 className="text-2xl font-bold mb-4">Text to Image</h2>
           
-          {!isApiKeySet && (
-            <ApiKeyInput
-              onApiKeySet={() => setIsApiKeySet(true)}
-              className="mb-6"
-            />
+          {!isApiKeyValid && (
+            <Alert className="mb-4">
+              <AlertTitle>API Key Required</AlertTitle>
+              <AlertDescription>
+                <div className="space-y-4 mt-2">
+                  <p>Please enter your FAL.AI API key to generate images</p>
+                  <div>
+                    <Label htmlFor="apiKey">FAL.AI API Key</Label>
+                    <div className="flex gap-2 mt-1">
+                      <input
+                        id="apiKey"
+                        type="password"
+                        value={customApiKey}
+                        onChange={handleApiKeyChange}
+                        placeholder="Enter your API key"
+                        className="flex-1 px-3 py-2 bg-background border border-input rounded-md"
+                      />
+                      <Button onClick={saveApiKey}>Save Key</Button>
+                    </div>
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
           )}
-          
-          <UsageLimits 
-            remainingImages={IMAGE_LIMIT} 
-            imageLimit={IMAGE_LIMIT} 
-          />
           
           <div className="space-y-4">
             <PromptInput
               prompt={prompt}
               onPromptChange={handlePromptChange}
-              disabled={isGenerating}
+              negativePrompt={negativePrompt}
+              onNegativePromptChange={handleNegativePromptChange}
+              isGenerating={isGenerating}
+              language={selectedLanguage}
+              onLanguageChange={handleLanguageChange}
+              isTranslating={isTranslating}
             />
             
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ImageSizeSelector
                 value={imageSize}
                 onChange={setImageSize}
+                options={imageSizes}
                 disabled={isGenerating}
               />
               
@@ -237,16 +352,14 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             </div>
             
             <StyleModifiers
-              selectedLoras={styleModifiers}
-              onToggleLora={handleToggleLora}
-              loraScale={loraScale}
-              onScaleChange={handleLoraScaleChange}
+              styleModifier={styleModifier}
+              setStyleModifier={setStyleModifier}
               disabled={isGenerating}
             />
             
             <Button
               onClick={generateImage}
-              disabled={isGenerating || !prompt.trim() || !isApiKeySet}
+              disabled={isGenerating || !prompt || !isApiKeyValid || remainingImages < 1}
               className="w-full"
             >
               {isGenerating ? (
@@ -255,23 +368,36 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
                   Generating...
                 </>
               ) : (
-                <>
-                  <RotateCw className="mr-2 h-4 w-4" />
-                  Generate Image
-                </>
+                "Generate Image"
               )}
             </Button>
+            
+            <p className="text-xs text-center text-muted-foreground">
+              {remainingImages} / {IMAGE_LIMIT} daily image generations remaining
+            </p>
+          </div>
+          
+          <div className="mt-4 h-[200px] overflow-y-auto p-2 text-xs bg-black/70 text-green-400 font-mono rounded border border-slate-700 shadow-inner">
+            {logs.length > 0 ? logs.map((log, i) => (
+              <div key={i} className="mb-1">
+                <span className="opacity-50">[{new Date().toLocaleTimeString()}]:</span> {log}
+              </div>
+            )) : (
+              <div className="h-full flex items-center justify-center text-slate-500">
+                <p>Generation logs will appear here</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
       
-      <Card className="overflow-hidden">
+      <Card>
         <CardContent className="p-6">
           <GeneratedImageDisplay
-            imageUrl={imageUrl}
+            imageUrl={generatedImageUrl}
             isLoading={isGenerating}
-            isUploading={isUploading}
-            onUseImage={handleUseImage}
+            isUploading={isStoring}
+            onUseImage={handleUseThisImage}
             onDownload={handleDownload}
           />
         </CardContent>

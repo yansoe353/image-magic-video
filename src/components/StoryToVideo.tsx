@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
 import { fal } from "@fal-ai/client";
 import { incrementImageCount, incrementVideoCount, getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
@@ -18,9 +19,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { isLoggedIn } from "@/utils/authUtils";
 import VideoPreview from "./VideoPreview";
 import { useVideoControls } from "@/hooks/useVideoControls";
-import { useVideoEditor } from "@/hooks/useVideoEditor";
 import ProLabel from "./ProLabel";
 import KlingAILabel from "./KlingAILabel";
+import { useVideoEditor, VideoClip } from "@/hooks/useVideoEditor";
 
 interface StoryFrame {
   text: string;
@@ -37,25 +38,28 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
-  const [isGeneratingVoiceover, setIsGeneratingVoiceover] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [storyFrames, setStoryFrames] = useState<StoryFrame[]>([]);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [storyTitle, setStoryTitle] = useState("");
-  const [narratorVoice, setNarratorVoice] = useState("alloy");
+  const [narratorVoice, setNarratorVoice] = useState("en-US-Neural2-F");
   const [voiceoverText, setVoiceoverText] = useState("");
-  const [voiceoverUrl, setVoiceoverUrl] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string>(localStorage.getItem("falApiKey") || "");
   const [isApiKeySet, setIsApiKeySet] = useState<boolean>(!!localStorage.getItem("falApiKey"));
   const [progressPercent, setProgressPercent] = useState(0);
   const [logs, setLogs] = useState<string[]>([]);
-  const [slideDuration, setSlideDuration] = useState(5);
   
   const { generateResponse } = useGeminiAPI();
   const { toast } = useToast();
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
-  const { createSlideshowFromImages, isProcessing } = useVideoEditor();
   const [counts, setCounts] = useState(getRemainingCounts());
+  const { 
+    videoClips,
+    combinedVideoUrl,
+    isProcessing,
+    addVideoClip,
+    combineVideos
+  } = useVideoEditor();
 
   const addLog = (message: string) => {
     setLogs(prev => [...prev, message]);
@@ -138,6 +142,7 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
       
       let jsonResponse;
       try {
+        // Extract JSON from the response if it's wrapped in markdown or other text
         const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/) || 
                           response.match(/{[\s\S]*}/);
         
@@ -223,6 +228,7 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
             input: {
               prompt: frame.imagePrompt,
               aspect_ratio: "16:9",
+              guidance_scale: 9,
               negative_prompt: "low quality, bad anatomy, distorted, blurry"
             },
           });
@@ -230,6 +236,7 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
           if (result.data?.images?.[0]?.url) {
             const imageUrl = result.data.images[0].url;
             
+            // Upload to storage if logged in
             try {
               const userId = await getUserId();
               const supabaseUrl = await uploadUrlToStorage(imageUrl, 'image', userId);
@@ -275,90 +282,7 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
     }
   };
 
-  const generateVoiceover = async () => {
-    if (!voiceoverText.trim()) {
-      toast({
-        title: "No Text to Narrate",
-        description: "Please ensure there is narration text for the voiceover",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsGeneratingVoiceover(true);
-    addLog("Generating voiceover audio...");
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { 
-          text: voiceoverText,
-          voice: narratorVoice
-        }
-      });
-      
-      if (error) {
-        throw new Error(`Voiceover generation failed: ${error.message}`);
-      }
-      
-      if (!data || !data.audioContent) {
-        throw new Error("No audio content received from the server");
-      }
-      
-      // Convert base64 to URL
-      const audioBlob = base64ToBlob(data.audioContent, 'audio/mp3');
-      const audioUrl = URL.createObjectURL(audioBlob);
-      
-      // Save to Supabase if possible
-      try {
-        const userId = await getUserId();
-        const supabaseUrl = await uploadUrlToStorage(audioUrl, 'audio' as 'image' | 'video' | 'audio', userId);
-        setVoiceoverUrl(supabaseUrl);
-      } catch (uploadError) {
-        console.error("Failed to upload audio to Supabase:", uploadError);
-        setVoiceoverUrl(audioUrl);
-      }
-      
-      toast({
-        title: "Voiceover Generated",
-        description: "AI narration has been created successfully",
-      });
-      
-      addLog("Voiceover audio created successfully");
-      
-    } catch (error) {
-      console.error("Failed to generate voiceover:", error);
-      toast({
-        title: "Voiceover Error",
-        description: error instanceof Error ? error.message : "Failed to create voiceover",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGeneratingVoiceover(false);
-    }
-  };
-  
-  const base64ToBlob = (base64: string, mimeType: string) => {
-    const byteCharacters = atob(base64);
-    const byteNumbers = new Array(byteCharacters.length);
-    
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    
-    const byteArray = new Uint8Array(byteNumbers);
-    return new Blob([byteArray], { type: mimeType });
-  };
-
   const generateVideo = async () => {
-    if (!isApiKeySet) {
-      toast({
-        title: "API Key Required",
-        description: "Please set your FAL.AI API key first",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (counts.remainingVideos < 1) {
       toast({
         title: "No Video Credits",
@@ -368,6 +292,7 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
       return;
     }
 
+    // Check if we have at least one image
     const hasImages = storyFrames.some(frame => frame.imageUrl);
     if (!hasImages) {
       toast({
@@ -381,33 +306,46 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
     setIsGeneratingVideo(true);
     setCurrentStep(3);
     setProgressPercent(70);
-    addLog("Creating slideshow with voiceover...");
+    addLog("Creating slideshow video with narration...");
 
     try {
-      // Extract all image URLs
-      const imageUrls = storyFrames
-        .filter(frame => frame.imageUrl)
-        .map(frame => frame.imageUrl as string);
+      // Reset video clips if any exist from previous attempts
+      videoClips.forEach(clip => {
+        addLog(`Preparing image: ${clip.name}`);
+      });
 
-      if (imageUrls.length === 0) {
-        throw new Error("No images available to create slideshow");
+      // Create a video clip for each story frame that has an image
+      const framesWithImages = storyFrames.filter(frame => frame.imageUrl);
+      for (let i = 0; i < framesWithImages.length; i++) {
+        const frame = framesWithImages[i];
+        if (frame.imageUrl) {
+          addLog(`Adding slide ${i + 1}: ${frame.text.substring(0, 40)}...`);
+          
+          // Create a new video clip for each image
+          const newClip: VideoClip = {
+            id: Date.now().toString() + i,
+            url: frame.imageUrl,
+            name: `Scene ${i + 1}`,
+          };
+          
+          addVideoClip(newClip);
+        }
       }
 
-      // Create slideshow using the useVideoEditor hook
-      const videoUrl = await createSlideshowFromImages(
-        imageUrls,
-        voiceoverUrl || undefined,
-        slideDuration
-      );
+      addLog("Combining images into slideshow video...");
+      setProgressPercent(80);
       
-      if (videoUrl) {
-        setGeneratedVideoUrl(videoUrl);
+      // Use the video editor's combine function to create the video
+      await combineVideos();
+      
+      if (combinedVideoUrl) {
+        setGeneratedVideoUrl(combinedVideoUrl);
         
         if (onVideoGenerated) {
-          onVideoGenerated(videoUrl);
+          onVideoGenerated(combinedVideoUrl);
         }
         
-        // Store video in user history if logged in
+        // Save to history if logged in
         if (isLoggedIn()) {
           const userId = await getUserId();
           await supabase
@@ -415,7 +353,7 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
             .insert({
               user_id: userId,
               content_type: 'video',
-              content_url: videoUrl,
+              content_url: combinedVideoUrl,
               prompt: storyPrompt,
               metadata: {
                 title: storyTitle,
@@ -433,19 +371,19 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
         
         toast({
           title: "Slideshow Created",
-          description: "Your images have been turned into a video with narration!",
+          description: "Your story has been turned into a slideshow video!",
         });
       } else {
-        throw new Error("Failed to create slideshow");
+        throw new Error("Failed to create video slideshow");
       }
       
       setProgressPercent(100);
       
     } catch (error) {
-      console.error("Failed to generate slideshow:", error);
+      console.error("Failed to generate video:", error);
       toast({
         title: "Video Generation Error",
-        description: error instanceof Error ? error.message : "Failed to create slideshow",
+        description: error instanceof Error ? error.message : "Failed to create video",
         variant: "destructive",
       });
     } finally {
@@ -495,7 +433,7 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
           </Alert>
 
           <Tabs defaultValue="story" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="story">
                 <BookOpenText className="h-4 w-4 mr-2" />
                 Create Story
@@ -503,10 +441,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
               <TabsTrigger value="images" disabled={storyFrames.length === 0}>
                 <ImageIcon className="h-4 w-4 mr-2" />
                 Generate Images
-              </TabsTrigger>
-              <TabsTrigger value="voiceover" disabled={storyFrames.length === 0}>
-                <Mic className="h-4 w-4 mr-2" />
-                Voiceover
               </TabsTrigger>
               <TabsTrigger value="video" disabled={!storyFrames.some(f => f.imageUrl)}>
                 <Film className="h-4 w-4 mr-2" />
@@ -587,8 +521,8 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
                 )}
               </Button>
             </TabsContent>
-            
-            <TabsContent value="voiceover" className="mt-4 space-y-4">
+
+            <TabsContent value="video" className="mt-4 space-y-4">
               <div>
                 <Label htmlFor="voiceoverText">Narration Script</Label>
                 <Textarea
@@ -597,70 +531,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
                   onChange={(e) => setVoiceoverText(e.target.value)}
                   className="min-h-[150px]"
                   placeholder="Enter narration text for the video..."
-                  disabled={isGeneratingVoiceover}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="narratorVoice">Narrator Voice</Label>
-                <Select 
-                  value={narratorVoice}
-                  onValueChange={setNarratorVoice}
-                  disabled={isGeneratingVoiceover}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select voice" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="alloy">Alloy (Balanced)</SelectItem>
-                    <SelectItem value="echo">Echo (Male)</SelectItem>
-                    <SelectItem value="fable">Fable (Male)</SelectItem>
-                    <SelectItem value="onyx">Onyx (Male)</SelectItem>
-                    <SelectItem value="nova">Nova (Female)</SelectItem>
-                    <SelectItem value="shimmer">Shimmer (Female)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                onClick={generateVoiceover}
-                disabled={isGeneratingVoiceover || !voiceoverText.trim()}
-                className="w-full"
-              >
-                {isGeneratingVoiceover ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating Voiceover...
-                  </>
-                ) : (
-                  <>
-                    <Mic className="mr-2 h-4 w-4" />
-                    Generate Voiceover
-                  </>
-                )}
-              </Button>
-              
-              {voiceoverUrl && (
-                <div className="mt-2">
-                  <p className="text-sm mb-2">Preview Voiceover:</p>
-                  <audio controls className="w-full">
-                    <source src={voiceoverUrl} type="audio/mp3" />
-                    Your browser does not support the audio element.
-                  </audio>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="video" className="mt-4 space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="slideDuration">Slide Duration (seconds)</Label>
-                <Input
-                  id="slideDuration"
-                  type="number"
-                  min="2"
-                  max="10"
-                  value={slideDuration}
-                  onChange={(e) => setSlideDuration(Number(e.target.value))}
                   disabled={isGeneratingVideo}
                 />
               </div>
@@ -670,7 +540,6 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
                 disabled={
                   isGeneratingVideo || 
                   !storyFrames.some(f => f.imageUrl) || 
-                  !isApiKeySet || 
                   counts.remainingVideos < 1 ||
                   isProcessing
                 }
@@ -691,14 +560,13 @@ const StoryToVideo = ({ onVideoGenerated }: StoryToVideoProps) => {
             </TabsContent>
           </Tabs>
 
-          {(isGeneratingScript || isGeneratingImages || isGeneratingVideo || isGeneratingVoiceover || isProcessing) && (
+          {(isGeneratingScript || isGeneratingImages || isGeneratingVideo || isProcessing) && (
             <div className="mt-4">
               <Progress value={progressPercent} className="h-2" />
               <p className="text-xs text-center mt-1 text-gray-500">
                 {currentStep === 1 && "Generating story script..."}
                 {currentStep === 2 && "Creating images for each scene..."}
-                {currentStep === 3 && "Composing slideshow with voiceover..."}
-                {isGeneratingVoiceover && "Generating voiceover..."}
+                {currentStep === 3 && "Composing slideshow with narration..."}
               </p>
             </div>
           )}
