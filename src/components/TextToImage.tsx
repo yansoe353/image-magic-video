@@ -195,7 +195,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       const result = await fal.subscribe("fal-ai/imagen3/fast", {
         input: {
           prompt: promptToUse,
-          aspect_ratio: `${dimensions.width}:${dimensions.height}`,
+          aspect_ratio: dimensions.width > dimensions.height ? "16:9" : dimensions.height > dimensions.width ? "9:16" : "1:1",
           enable_safety_filter: true,
           guidance_scale: guidanceScale,
           negative_prompt: selectedLoras.length > 0 ? "low quality, bad anatomy" : ""
