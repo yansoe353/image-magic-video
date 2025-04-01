@@ -8,19 +8,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { fal } from "@fal-ai/client";
-import { Languages, AlertCircle, Mic, Eye, EyeOff } from "lucide-react";
+import { Languages, AlertCircle, Mic } from "lucide-react";
 import { LANGUAGES, translateText, type LanguageOption } from "@/utils/translationUtils";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import { usePromptTranslation } from "@/hooks/usePromptTranslation";
 import { incrementVideoCount, getRemainingCounts, getRemainingCountsAsync, VIDEO_LIMIT } from "@/utils/usageTracker";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Switch } from "@/components/ui/switch";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
 import { supabase } from "@/integrations/supabase/client";
 import { isLoggedIn } from "@/utils/authUtils";
-import { uploadUrlToStorage, getUserId, type StorageMetadata } from "@/utils/storageUtils";
+import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
 import ProLabel from "./ProLabel";
 import KlingAILabel from "./KlingAILabel";
 
@@ -56,7 +55,6 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
   const [isStoringVideo, setIsStoringVideo] = useState(false);
   const [enableLipsync, setEnableLipsync] = useState(false);
   const [audioPrompt, setAudioPrompt] = useState("");
-  const [isPublic, setIsPublic] = useState(false);
 
   const [duration] = useState<string>("5");
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
@@ -106,8 +104,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
             cfgScale,
             original_url: originalUrl,
             enableLipsync,
-            audioPrompt: enableLipsync ? audioPrompt : null,
-            isPublic
+            audioPrompt: enableLipsync ? audioPrompt : null
           }
         });
 
@@ -210,19 +207,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
         setIsStoringVideo(true);
         try {
           const userId = await getUserId();
-          const metadata: StorageMetadata = {
-            isPublic,
-            prompt,
-            generationParams: {
-              negativePrompt,
-              aspectRatio,
-              cfgScale,
-              enableLipsync,
-              audioPrompt: enableLipsync ? audioPrompt : null
-            }
-          };
-          
-          const supabaseUrl = await uploadUrlToStorage(falVideoUrl, 'video', userId, metadata);
+          const supabaseUrl = await uploadUrlToStorage(falVideoUrl, 'video', userId);
           setSupabaseVideoUrl(supabaseUrl);
           setVideoUrl(supabaseUrl); // Set the Supabase URL as the video URL
 
@@ -299,28 +284,6 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
           )}
 
           <div className="space-y-4">
-            <div className="flex items-center space-x-2 mb-3">
-              <Switch 
-                id="public-mode" 
-                checked={isPublic} 
-                onCheckedChange={setIsPublic} 
-                disabled={isLoading}
-              />
-              <Label htmlFor="public-mode" className="flex items-center cursor-pointer">
-                {isPublic ? (
-                  <>
-                    <Eye className="h-4 w-4 mr-1 text-green-500" />
-                    <span>Public Gallery</span>
-                  </>
-                ) : (
-                  <>
-                    <EyeOff className="h-4 w-4 mr-1 text-slate-500" />
-                    <span>Private</span>
-                  </>
-                )}
-              </Label>
-            </div>
-
             <div>
               <div className="flex items-center justify-between mb-2">
                 <Label htmlFor="prompt">Prompt</Label>

@@ -1,5 +1,5 @@
 
-import { useState, ChangeEvent } from "react";
+import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Languages } from "lucide-react";
 import { LANGUAGES, translateText, LanguageOption } from "@/utils/translationUtils";
@@ -12,7 +12,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 
-export interface PromptInputProps {
+interface PromptInputProps {
   prompt: string;
   onPromptChange: (prompt: string) => void;
   disabled?: boolean;
