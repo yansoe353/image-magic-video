@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, ChangeEvent } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Languages } from "lucide-react";
 import { LANGUAGES, translateText, LanguageOption } from "@/utils/translationUtils";
@@ -22,6 +22,10 @@ export const PromptInput = ({ prompt, onPromptChange, disabled }: PromptInputPro
   const [isTranslating, setIsTranslating] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageOption>("en");
   const { toast } = useToast();
+
+  const handlePromptChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    onPromptChange(e.target.value);
+  };
 
   const handleLanguageChange = async (language: LanguageOption) => {
     if (language === selectedLanguage || !prompt.trim()) {
@@ -74,7 +78,7 @@ export const PromptInput = ({ prompt, onPromptChange, disabled }: PromptInputPro
       <Textarea
         placeholder="Describe the image you want to create... (e.g., A stylish woman walks down a Tokyo street filled with warm glowing neon and animated city signage)"
         value={prompt}
-        onChange={(e) => onPromptChange(e.target.value)}
+        onChange={handlePromptChange}
         className="min-h-[120px]"
         disabled={isTranslating || disabled}
       />

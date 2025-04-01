@@ -9,7 +9,7 @@ interface UsageLimitsProps {
 
 export const UsageLimits = ({ remainingImages, imageLimit }: UsageLimitsProps) => {
   return (
-    <div className="mb-4">
+    <>
       {remainingImages <= 10 && (
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
@@ -25,6 +25,6 @@ export const UsageLimits = ({ remainingImages, imageLimit }: UsageLimitsProps) =
           {remainingImages} of {imageLimit} image generations remaining
         </p>
       )}
-    </div>
+    </>
   );
 };
