@@ -2,7 +2,7 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import { Check, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const plans = [
@@ -14,7 +14,8 @@ const plans = [
       "5 image generations per day",
       "2 video generations per day",
       "Standard resolution",
-      "Basic editing tools"
+      "Basic editing tools",
+      "Access to public gallery"
     ],
     buttonText: "Get Started",
     buttonLink: "/create",
@@ -31,11 +32,30 @@ const plans = [
       "HD resolution",
       "Advanced editing tools",
       "Priority rendering",
+      "Story to video generation",
       "Email support"
     ],
     buttonText: "Upgrade to Pro",
     buttonLink: "/buy-account",
     highlighted: true
+  },
+  {
+    name: "Premium",
+    price: "$49.99",
+    period: "monthly",
+    description: "For serious creators",
+    features: [
+      "Everything in Pro",
+      "Unlimited video generations",
+      "4K resolution",
+      "Advanced AI story generation",
+      "Commercial usage rights",
+      "Dedicated account manager",
+      "24/7 priority support"
+    ],
+    buttonText: "Get Premium",
+    buttonLink: "/buy-account",
+    highlighted: false
   },
   {
     name: "Enterprise",
@@ -68,7 +88,7 @@ const Pricing = () => {
           </p>
         </div>
 
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
           {plans.map((plan) => (
             <Card 
               key={plan.name} 
@@ -79,7 +99,10 @@ const Pricing = () => {
               }`}
             >
               <CardHeader>
-                <CardTitle className="text-white text-2xl">{plan.name}</CardTitle>
+                <div className="flex justify-between items-start">
+                  <CardTitle className="text-white text-2xl">{plan.name}</CardTitle>
+                  {plan.name === "Premium" && <Zap className="h-5 w-5 text-yellow-400" />}
+                </div>
                 <div className="flex items-baseline mt-2">
                   <span className="text-3xl font-bold text-white">{plan.price}</span>
                   {plan.period && (
@@ -104,7 +127,9 @@ const Pricing = () => {
                     className={`w-full ${
                       plan.highlighted 
                         ? "bg-brand-600 hover:bg-brand-500" 
-                        : "bg-slate-800 hover:bg-slate-700"
+                        : plan.name === "Premium"
+                          ? "bg-gradient-to-r from-yellow-600 to-amber-500 hover:from-yellow-500 hover:to-amber-400" 
+                          : "bg-slate-800 hover:bg-slate-700"
                     }`}
                   >
                     {plan.buttonText}

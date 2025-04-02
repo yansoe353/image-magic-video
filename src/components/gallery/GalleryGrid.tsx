@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,7 +16,7 @@ interface GalleryItem {
   is_public?: boolean;
 }
 
-// Using a union type to avoid the infinite type recursion
+// Define content type as a string literal type instead of self-referential type
 type ContentType = "all" | "image" | "video";
 
 interface GalleryGridProps {
