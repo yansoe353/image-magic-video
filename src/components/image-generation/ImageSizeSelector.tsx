@@ -38,7 +38,7 @@ export const ImageSizeSelector = ({ value, onChange, disabled }: ImageSizeSelect
         </SelectTrigger>
         <SelectContent>
           {Object.entries(IMAGE_SIZES).map(([sizeValue, label]) => (
-            <SelectItem key={sizeValue} value={sizeValue || "default"}>
+            <SelectItem key={sizeValue} value={sizeValue}>
               {label}
             </SelectItem>
           ))}

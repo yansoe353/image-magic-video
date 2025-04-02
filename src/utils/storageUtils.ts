@@ -2,67 +2,58 @@
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
 
-/**
- * Fetches an image from a URL and uploads it to Supabase storage
- */
-export const uploadUrlToStorage = async (url: string, contentType: 'image' | 'video', userId?: string): Promise<string> => {
+export const getUserId = async (): Promise<string | null> => {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user?.id || null;
+};
+
+export const uploadUrlToStorage = async (
+  url: string, 
+  contentType: "image" | "video" | "audio", 
+  userId?: string | null,
+  isPublic: boolean = false
+): Promise<string> => {
   try {
-    // Fetch the file from the URL
+    if (!userId) {
+      userId = await getUserId();
+    }
+
+    // Create a folder structure based on content type and user id
+    const folderPath = isPublic 
+      ? `public/${contentType}s/` 
+      : `${userId}/${contentType}s/`;
+    
+    // Generate a unique file name
+    const fileName = `${uuidv4()}.${contentType === 'image' ? 'png' : contentType === 'audio' ? 'mp3' : 'mp4'}`;
+    const fullPath = `${folderPath}${fileName}`;
+
+    // Fetch the file content from the URL
     const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch ${contentType} from URL: ${response.statusText}`);
-    }
-    
-    const fileBlob = await response.blob();
-    
-    // Generate a unique file path
-    const fileExt = contentType === 'image' ? 'png' : 'mp4';
-    const fileName = `${uuidv4()}.${fileExt}`;
-    
-    // User ID folder structure - if no userId, store in 'anonymous' folder
-    const folderPath = userId ? `${userId}` : 'anonymous';
-    const filePath = `${folderPath}/${contentType}s/${fileName}`;
-    
-    // Upload to Supabase
+    if (!response.ok) throw new Error('Failed to fetch file from URL');
+    const blob = await response.blob();
+
+    // Upload the file to Supabase storage
     const { data, error } = await supabase.storage
-      .from('generated_content')
-      .upload(filePath, fileBlob, {
-        contentType: contentType === 'image' ? 'image/png' : 'video/mp4',
-        upsert: false
+      .from('user_content')
+      .upload(fullPath, blob, {
+        contentType: contentType === 'image' 
+          ? 'image/png' 
+          : contentType === 'audio' 
+            ? 'audio/mpeg' 
+            : 'video/mp4',
+        upsert: true
       });
-    
-    if (error) {
-      console.error(`Error uploading ${contentType} to Supabase:`, error);
-      throw error;
-    }
-    
-    // Get the public URL
+
+    if (error) throw error;
+
+    // Get the public URL for the uploaded file
     const { data: publicUrlData } = supabase.storage
-      .from('generated_content')
-      .getPublicUrl(filePath);
-    
+      .from('user_content')
+      .getPublicUrl(fullPath);
+
     return publicUrlData.publicUrl;
   } catch (error) {
-    console.error(`Error in uploadUrlToStorage for ${contentType}:`, error);
+    console.error('Error uploading file to Supabase:', error);
     throw error;
   }
 };
-
-/**
- * Get user ID from Supabase auth session
- */
-export const getUserId = async (): Promise<string | undefined> => {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      console.log("No active session found when getting user ID");
-      return undefined;
-    }
-    
-    return session.user.id;
-  } catch (error) {
-    console.error("Error getting user ID from session:", error);
-    return undefined;
-  }
-};
-

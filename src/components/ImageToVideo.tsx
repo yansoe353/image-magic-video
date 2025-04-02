@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,6 +20,7 @@ import { isLoggedIn } from "@/utils/authUtils";
 import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
 import ProLabel from "./ProLabel";
 import KlingAILabel from "./KlingAILabel";
+import PublicPrivateToggle from "./PublicPrivateToggle";
 
 // Initialize fal.ai client with proper environment variable handling for browser
 try {
@@ -52,6 +52,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
   const [originalVideoUrl, setOriginalVideoUrl] = useState("");
   const [supabaseVideoUrl, setSupabaseVideoUrl] = useState("");
   const [isStoringVideo, setIsStoringVideo] = useState(false);
+  const [isPublic, setIsPublic] = useState(false);
 
   const [duration] = useState<string>("5");
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
@@ -94,6 +95,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
           content_type: 'video',
           content_url: videoUrl,
           prompt: prompt,
+          is_public: isPublic,
           metadata: {
             duration,
             aspectRatio,
@@ -174,7 +176,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
         setIsStoringVideo(true);
         try {
           const userId = await getUserId();
-          const supabaseUrl = await uploadUrlToStorage(falVideoUrl, 'video', userId);
+          const supabaseUrl = await uploadUrlToStorage(falVideoUrl, 'video', userId, isPublic);
           setSupabaseVideoUrl(supabaseUrl);
           setVideoUrl(supabaseUrl); // Set the Supabase URL as the video URL
 
@@ -337,6 +339,12 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
                 />
               </div>
             </div>
+
+            <PublicPrivateToggle
+              isPublic={isPublic}
+              onChange={setIsPublic}
+              disabled={isLoading}
+            />
 
             <Button
               onClick={generateVideo}

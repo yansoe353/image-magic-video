@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,6 +20,7 @@ import { translateText } from "@/utils/translationUtils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import ProLabel from "./ProLabel";
+import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 
 type SupportedLanguage = "en" | "my" | "th";
 
@@ -48,6 +50,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [guidanceScale, setGuidanceScale] = useState(9);
   const [apiKey, setApiKey] = useState<string>(localStorage.getItem("falApiKey") || "");
   const [isApiKeySet, setIsApiKeySet] = useState<boolean>(!!localStorage.getItem("falApiKey"));
+  const [isPublic, setIsPublic] = useState(false);
 
   useEffect(() => {
     const updateCounts = async () => {
@@ -126,6 +129,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           content_type: 'image',
           content_url: imageUrl,
           prompt: prompt,
+          is_public: isPublic,
           metadata: {
             size: imageSize,
             original_url: originalUrl,
@@ -208,7 +212,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         setIsUploading(true);
         try {
           const userId = await getUserId();
-          const supabaseUrl = await uploadUrlToStorage(falImageUrl, 'image', userId);
+          const supabaseUrl = await uploadUrlToStorage(falImageUrl, 'image', userId, isPublic);
           setSupabaseImageUrl(supabaseUrl);
           setGeneratedImage(supabaseUrl);
 
@@ -346,6 +350,12 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             <GuidanceScaleSlider
               value={guidanceScale}
               onChange={setGuidanceScale}
+              disabled={isLoading}
+            />
+
+            <PublicPrivateToggle
+              isPublic={isPublic}
+              onChange={setIsPublic}
               disabled={isLoading}
             />
 

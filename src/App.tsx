@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Examples from "./pages/Examples";
 import History from "./pages/History";
+import UserGallery from "./pages/UserGallery";
 import Login from "./components/Login";
 import AddUser from "./components/AddUser";
 import UserList from "./components/UserList";
@@ -63,6 +64,7 @@ const App = () => {
             <Route path="/login" element={<Login />} />
             <Route path="/buy-account" element={<BuyAccount />} />
             <Route path="/faq" element={<FAQ />} />
+            <Route path="/gallery" element={<UserGallery />} />
             <Route 
               path="/create" 
               element={
