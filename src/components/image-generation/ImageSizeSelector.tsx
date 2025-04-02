@@ -29,7 +29,7 @@ export const ImageSizeSelector = ({ value, onChange, disabled }: ImageSizeSelect
     <div>
       <label className="text-sm font-medium mb-2 block">Image Size</label>
       <Select 
-        value={value} 
+        value={value || "square_hd"} 
         onValueChange={(newValue: ImageSizeOption) => onChange(newValue)}
         disabled={disabled}
       >
@@ -38,7 +38,7 @@ export const ImageSizeSelector = ({ value, onChange, disabled }: ImageSizeSelect
         </SelectTrigger>
         <SelectContent>
           {Object.entries(IMAGE_SIZES).map(([sizeValue, label]) => (
-            <SelectItem key={sizeValue} value={sizeValue}>
+            <SelectItem key={sizeValue} value={sizeValue || "default"}>
               {label}
             </SelectItem>
           ))}

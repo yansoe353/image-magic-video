@@ -1,3 +1,4 @@
+
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 
@@ -21,7 +22,7 @@ interface StyleModifiersProps {
   disabled?: boolean;
 }
 
-export const StyleModifiers = ({ selectedLoras, onToggleLora, loraScale, onScaleChange, disabled }: StyleModifiersProps) => {
+export const StyleModifiers = ({ selectedLoras = [], onToggleLora, loraScale = {}, onScaleChange, disabled }: StyleModifiersProps) => {
   return (
     <div>
       <label className="text-sm font-medium mb-2 block">Style Modifiers (LoRAs)</label>
@@ -30,7 +31,7 @@ export const StyleModifiers = ({ selectedLoras, onToggleLora, loraScale, onScale
           <div key={lora.id} className="flex items-start space-x-2">
             <Checkbox
               id={`lora-${lora.id}`}
-              checked={selectedLoras.includes(lora.id as LoraOption)}
+              checked={selectedLoras && selectedLoras.includes(lora.id as LoraOption)}
               onCheckedChange={() => onToggleLora(lora.id as LoraOption)}
               disabled={disabled}
             />
@@ -44,13 +45,13 @@ export const StyleModifiers = ({ selectedLoras, onToggleLora, loraScale, onScale
               <p className="text-xs text-slate-500">
                 {lora.description}
               </p>
-              {selectedLoras.includes(lora.id as LoraOption) && (
+              {selectedLoras && selectedLoras.includes(lora.id as LoraOption) && (
                 <div className="flex items-center space-x-2">
                   <label htmlFor={`scale-${lora.id}`} className="text-xs">Scale:</label>
                   <input
                     type="number"
                     id={`scale-${lora.id}`}
-                    value={loraScale[lora.id]}
+                    value={loraScale[lora.id] || 1.0}
                     onChange={(e) => onScaleChange(lora.id as LoraOption, parseFloat(e.target.value))}
                     disabled={disabled}
                     className="text-xs border rounded px-2 py-1"
@@ -61,7 +62,7 @@ export const StyleModifiers = ({ selectedLoras, onToggleLora, loraScale, onScale
           </div>
         ))}
       </div>
-      {selectedLoras.length > 0 && (
+      {selectedLoras && selectedLoras.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
           {selectedLoras.map(lora => (
             <Badge key={lora} variant="outline" onClick={() => !disabled && onToggleLora(lora)} className={disabled ? "opacity-50" : "cursor-pointer"}>
