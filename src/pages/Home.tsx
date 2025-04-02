@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link } from "react-router-dom";
 import Header from "@/components/Header";
@@ -12,7 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Gallery } from "lucide-react";
+import { ImageIcon } from "lucide-react";
 
 const Home = () => {
   return (
@@ -80,7 +81,7 @@ const Home = () => {
               </CardHeader>
               <CardContent>
                 <div className="h-44 bg-gradient-to-br from-purple-900/40 to-slate-900 rounded-md flex items-center justify-center">
-                  <Gallery className="h-16 w-16 text-purple-400 opacity-80" />
+                  <ImageIcon className="h-16 w-16 text-purple-400 opacity-80" />
                 </div>
               </CardContent>
               <CardFooter>
