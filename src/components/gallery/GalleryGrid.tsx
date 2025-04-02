@@ -5,7 +5,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Image as ImageIcon, Film } from "lucide-react";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
-import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface GalleryItem {
@@ -14,6 +13,7 @@ interface GalleryItem {
   content_url: string;
   prompt: string;
   created_at: string;
+  is_public?: boolean;
 }
 
 type ContentType = "all" | "image" | "video";
@@ -31,17 +31,26 @@ export const GalleryGrid = () => {
       try {
         let query = supabase
           .from('user_content_history')
-          .select('*')
-          .eq('is_public', true)
-          .order('created_at', { ascending: false });
+          .select('*');
+        
+        // Always filter for public content regardless of other filters
+        query = query.eq('is_public', true);
         
         if (activeTab !== "all") {
           query = query.eq('content_type', activeTab);
         }
         
+        // Add sorting to get the latest content
+        query = query.order('created_at', { ascending: false });
+        
         const { data, error } = await query;
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error details:", error);
+          throw error;
+        }
+        
+        console.log("Fetched gallery items:", data ? data.length : 0);
         setGalleryItems(data || []);
       } catch (error) {
         console.error("Error fetching gallery items:", error);

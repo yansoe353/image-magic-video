@@ -197,7 +197,6 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         input: {
           prompt: promptToUse,
           aspect_ratio: getAspectRatio(imageSize) as "16:9" | "9:16" | "1:1",
-          enable_safety_filter: true,
           guidance_scale: guidanceScale,
           negative_prompt: selectedLoras.length > 0 ? "low quality, bad anatomy" : ""
         },
