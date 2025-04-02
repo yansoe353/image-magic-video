@@ -20,7 +20,7 @@ import { isLoggedIn } from "@/utils/authUtils";
 import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
 import ProLabel from "./ProLabel";
 import KlingAILabel from "./KlingAILabel";
-import PublicPrivateToggle from "./image-generation/PublicPrivateToggle";
+import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 
 // Initialize fal.ai client with proper environment variable handling for browser
 try {
