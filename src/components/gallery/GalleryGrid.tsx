@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,7 +18,11 @@ interface GalleryItem {
 // Using a union type to avoid the infinite type recursion
 type ContentType = "all" | "image" | "video";
 
-export const GalleryGrid = () => {
+interface GalleryGridProps {
+  searchQuery?: string;
+}
+
+export const GalleryGrid = ({ searchQuery = "" }: GalleryGridProps) => {
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ContentType>("all");
@@ -30,7 +33,7 @@ export const GalleryGrid = () => {
     const fetchPublicContent = async () => {
       setIsLoading(true);
       try {
-        console.log("Fetching public content with filter:", activeTab);
+        console.log("Fetching public content with filter:", activeTab, "search:", searchQuery);
         
         let query = supabase
           .from('user_content_history')
@@ -39,6 +42,11 @@ export const GalleryGrid = () => {
         
         if (activeTab !== "all") {
           query = query.eq('content_type', activeTab);
+        }
+        
+        // Add search functionality
+        if (searchQuery) {
+          query = query.ilike('prompt', `%${searchQuery}%`);
         }
         
         // Add sorting to get the latest content
@@ -65,7 +73,7 @@ export const GalleryGrid = () => {
     };
 
     fetchPublicContent();
-  }, [activeTab]);
+  }, [activeTab, searchQuery]);
 
   const handleItemClick = (item: GalleryItem) => {
     setSelectedItem(item);

@@ -36,6 +36,7 @@ export type Database = {
           content_url: string
           created_at: string
           id: string
+          is_public: boolean | null
           metadata: Json | null
           prompt: string | null
           user_id: string
@@ -45,6 +46,7 @@ export type Database = {
           content_url: string
           created_at?: string
           id?: string
+          is_public?: boolean | null
           metadata?: Json | null
           prompt?: string | null
           user_id: string
@@ -54,6 +56,7 @@ export type Database = {
           content_url?: string
           created_at?: string
           id?: string
+          is_public?: boolean | null
           metadata?: Json | null
           prompt?: string | null
           user_id?: string

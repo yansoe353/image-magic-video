@@ -194,12 +194,11 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         credentials: apiKey
       });
 
-      // Update the parameters to match the expected Imagen3FastInput type
+      // Remove guidance_scale which is not supported by the model
       const result = await fal.subscribe("fal-ai/imagen3/fast", {
         input: {
           prompt: promptToUse,
           aspect_ratio: getAspectRatio(imageSize) as "16:9" | "9:16" | "1:1",
-          // Remove guidance_scale which is not supported
           negative_prompt: selectedLoras.length > 0 ? "low quality, bad anatomy" : ""
         },
       });
@@ -216,6 +215,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           setSupabaseImageUrl(supabaseUrl);
           setGeneratedImage(supabaseUrl);
 
+          // Save to history with the is_public flag
           await saveToHistory(supabaseUrl, falImageUrl);
 
           toast({
@@ -225,11 +225,14 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         } catch (uploadError) {
           console.error("Failed to upload to Supabase:", uploadError);
           setGeneratedImage(falImageUrl);
+          
+          // Even if upload fails, try to save to history
           await saveToHistory(falImageUrl, falImageUrl);
         } finally {
           setIsUploading(false);
         }
 
+        // Increment the count after successful generation
         if (await incrementImageCount()) {
           toast({
             title: "Success",
