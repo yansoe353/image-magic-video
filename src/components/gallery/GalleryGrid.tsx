@@ -16,13 +16,12 @@ interface GalleryItem {
   is_public?: boolean;
 }
 
-// Define ContentType as a literal type instead of string to avoid recursive type issues
+// Using a union type to avoid the infinite type recursion
 type ContentType = "all" | "image" | "video";
 
 export const GalleryGrid = () => {
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  // Explicitly type the state value to prevent deep type recursion
   const [activeTab, setActiveTab] = useState<ContentType>("all");
   const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -31,12 +30,12 @@ export const GalleryGrid = () => {
     const fetchPublicContent = async () => {
       setIsLoading(true);
       try {
+        console.log("Fetching public content with filter:", activeTab);
+        
         let query = supabase
           .from('user_content_history')
-          .select('*');
-        
-        // Always filter for public content regardless of other filters
-        query = query.eq('is_public', true);
+          .select('*')
+          .eq('is_public', true);
         
         if (activeTab !== "all") {
           query = query.eq('content_type', activeTab);
@@ -48,11 +47,15 @@ export const GalleryGrid = () => {
         const { data, error } = await query;
         
         if (error) {
-          console.error("Error details:", error);
+          console.error("Error fetching gallery items:", error);
           throw error;
         }
         
         console.log("Fetched gallery items:", data ? data.length : 0);
+        if (data) {
+          console.log("Sample item:", data.length > 0 ? data[0] : "No items");
+        }
+        
         setGalleryItems(data || []);
       } catch (error) {
         console.error("Error fetching gallery items:", error);
@@ -83,7 +86,7 @@ export const GalleryGrid = () => {
 
   return (
     <div className="space-y-6">
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ContentType)}>
+      <Tabs defaultValue={activeTab} onValueChange={(value) => setActiveTab(value as ContentType)}>
         <TabsList className="w-full max-w-md mx-auto bg-slate-800/50">
           <TabsTrigger value="all" className="flex-1">All</TabsTrigger>
           <TabsTrigger value="image" className="flex-1">Images</TabsTrigger>
