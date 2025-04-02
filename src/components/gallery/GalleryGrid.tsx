@@ -16,11 +16,13 @@ interface GalleryItem {
   is_public?: boolean;
 }
 
+// Define ContentType as a literal type instead of string to avoid recursive type issues
 type ContentType = "all" | "image" | "video";
 
 export const GalleryGrid = () => {
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Explicitly type the state value to prevent deep type recursion
   const [activeTab, setActiveTab] = useState<ContentType>("all");
   const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);

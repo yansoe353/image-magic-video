@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -193,11 +194,12 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         credentials: apiKey
       });
 
+      // Update the parameters to match the expected Imagen3FastInput type
       const result = await fal.subscribe("fal-ai/imagen3/fast", {
         input: {
           prompt: promptToUse,
           aspect_ratio: getAspectRatio(imageSize) as "16:9" | "9:16" | "1:1",
-          guidance_scale: guidanceScale,
+          // Remove guidance_scale which is not supported
           negative_prompt: selectedLoras.length > 0 ? "low quality, bad anatomy" : ""
         },
       });
