@@ -3,7 +3,7 @@ import React from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Image, Video, Edit } from "lucide-react";
+import { Image, Video, Edit, BookOpen } from "lucide-react";
 
 interface FeatureCardProps {
   title: string;
@@ -21,6 +21,8 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon, lin
         return <Video className="h-16 w-16 text-blue-400 opacity-80" />;
       case "edit":
         return <Edit className="h-16 w-16 text-green-400 opacity-80" />;
+      case "book":
+        return <BookOpen className="h-16 w-16 text-amber-400 opacity-80" />;
       default:
         return <Image className="h-16 w-16 text-purple-400 opacity-80" />;
     }

@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, BookOpen } from "lucide-react";
 
 const Home = () => {
   return (
@@ -71,6 +71,13 @@ const Home = () => {
               description="Edit and enhance your videos with AI-powered tools."
               icon="edit"
               link="/create"
+            />
+            
+            <FeatureCard
+              title="Story to Video"
+              description="Generate entire stories with matching visuals and videos."
+              icon="book"
+              link="/create?tab=story-to-video"
             />
             
             <Card className="bg-slate-900/50 border-slate-700 hover:border-brand-600 transition-colors">

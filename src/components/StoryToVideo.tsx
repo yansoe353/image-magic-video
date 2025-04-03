@@ -13,6 +13,13 @@ import { incrementImageCount, incrementVideoCount, getRemainingCountsAsync } fro
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue 
+} from "@/components/ui/select";
 
 interface StoryScene {
   text: string;
@@ -29,6 +36,7 @@ const StoryToVideo = () => {
   const [currentGeneratingIndex, setCurrentGeneratingIndex] = useState<number | null>(null);
   const [videoUrls, setVideoUrls] = useState<string[]>([]);
   const [counts, setCounts] = useState({ remainingImages: 0, remainingVideos: 0 });
+  const [sceneCount, setSceneCount] = useState("3");
   
   const { generateResponse, isLoading: isGeminiLoading } = useGeminiAPI();
   const { toast } = useToast();
@@ -57,8 +65,9 @@ const StoryToVideo = () => {
     setVideoUrls([]);
     
     try {
+      const numScenes = parseInt(sceneCount);
       const geminiPrompt = `Create a short story based on this prompt: "${storyPrompt}".
-Break it down into exactly 3 scenes. For each scene:
+Break it down into exactly ${numScenes} scenes. For each scene:
 1. Write a paragraph of narrative
 2. Create a detailed image prompt that visualizes that scene (for AI image generation)
 
@@ -117,7 +126,7 @@ Only return valid JSON without any additional text, explanations or markdown.`;
         
         // Attempt to generate with a simplified prompt as fallback
         try {
-          const fallbackPrompt = `Write a simple 3-scene story about "${storyPrompt}" with clear image descriptions for each scene. Format as JSON array with "text" and "imagePrompt" properties for each scene. Only return valid JSON.`;
+          const fallbackPrompt = `Write a simple ${sceneCount}-scene story about "${storyPrompt}" with clear image descriptions for each scene. Format as JSON array with "text" and "imagePrompt" properties for each scene. Only return valid JSON.`;
           
           const fallbackResponse = await generateResponse(fallbackPrompt);
           console.log("Fallback response:", fallbackResponse);
@@ -172,7 +181,7 @@ Only return valid JSON without any additional text, explanations or markdown.`;
     setCurrentGeneratingIndex(sceneIndex);
     
     try {
-      // Use the same API as in TextToImage component
+      // Fixed API endpoint and parameters
       const response = await fetch("https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image", {
         method: "POST",
         headers: {
@@ -195,7 +204,9 @@ Only return valid JSON without any additional text, explanations or markdown.`;
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to generate image: ${await response.text()}`);
+        const errorText = await response.text();
+        console.error("Image generation API error:", errorText);
+        throw new Error(`Failed to generate image: ${errorText}`);
       }
 
       const data = await response.json();
@@ -213,6 +224,11 @@ Only return valid JSON without any additional text, explanations or markdown.`;
         await incrementImageCount();
         const freshCounts = await getRemainingCountsAsync();
         setCounts(freshCounts);
+        
+        toast({
+          title: "Success",
+          description: "Image generated successfully!",
+        });
       }
     } catch (error) {
       console.error("Error generating image:", error);
@@ -267,7 +283,9 @@ Only return valid JSON without any additional text, explanations or markdown.`;
       });
 
       if (!result.ok) {
-        throw new Error(`Failed to generate video: ${await result.text()}`);
+        const errorText = await result.text();
+        console.error("Video generation API error:", errorText);
+        throw new Error(`Failed to generate video: ${errorText}`);
       }
 
       const data = await result.json();
@@ -323,6 +341,12 @@ Only return valid JSON without any additional text, explanations or markdown.`;
     }
   };
 
+  const renderSceneTabs = () => {
+    return generatedStory.map((_, index) => (
+      <TabsTrigger key={index} value={index.toString()}>Scene {index + 1}</TabsTrigger>
+    ));
+  };
+
   return (
     <div className="space-y-8">
       <Card className="overflow-hidden">
@@ -343,6 +367,25 @@ Only return valid JSON without any additional text, explanations or markdown.`;
                 className="min-h-[80px]"
                 disabled={isGeneratingStory}
               />
+            </div>
+            
+            <div>
+              <Label htmlFor="sceneCount">Number of Scenes</Label>
+              <Select 
+                value={sceneCount} 
+                onValueChange={setSceneCount}
+                disabled={isGeneratingStory}
+              >
+                <SelectTrigger className="w-full" id="sceneCount">
+                  <SelectValue placeholder="Select number of scenes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2">2 Scenes</SelectItem>
+                  <SelectItem value="3">3 Scenes</SelectItem>
+                  <SelectItem value="4">4 Scenes</SelectItem>
+                  <SelectItem value="5">5 Scenes</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             
             <PublicPrivateToggle 
@@ -378,10 +421,8 @@ Only return valid JSON without any additional text, explanations or markdown.`;
             <h2 className="text-xl font-bold mb-4">{storyTitle}</h2>
             
             <Tabs defaultValue="0" className="w-full">
-              <TabsList className="w-full grid grid-cols-3">
-                <TabsTrigger value="0">Scene 1</TabsTrigger>
-                <TabsTrigger value="1">Scene 2</TabsTrigger>
-                <TabsTrigger value="2">Scene 3</TabsTrigger>
+              <TabsList className="w-full grid" style={{ gridTemplateColumns: `repeat(${generatedStory.length}, 1fr)` }}>
+                {renderSceneTabs()}
               </TabsList>
               
               {generatedStory.map((scene, index) => (
