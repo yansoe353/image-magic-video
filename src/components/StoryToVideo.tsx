@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -261,33 +262,43 @@ Only return valid JSON without any additional text, explanations or markdown.`;
     setCurrentGeneratingIndex(sceneIndex);
     
     try {
-      // Use the same API as in ImageToVideo component
-      const result = await fetch("https://api.kling.gg/api/v1/image2video/task/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_KLING_API_KEY || ""}`,
-        },
-        body: JSON.stringify({
-          image_url: scene.imageUrl,
-          prompt: scene.imagePrompt,
-          duration: "5",
-          aspect_ratio: "1:1",
-          negative_prompt: "blur, distort, and low quality",
-          cfg_scale: 0.5,
-        }),
-      });
-
-      if (!result.ok) {
-        const errorText = await result.text();
-        console.error("Video generation API error:", errorText);
-        throw new Error(`Failed to generate video: ${errorText}`);
+      // Get API key from localStorage for fal.ai
+      const apiKey = localStorage.getItem("falApiKey");
+      if (!apiKey) {
+        toast({
+          title: "API Key Required",
+          description: "Please set your Infinity API key first using the button in the header.",
+          variant: "destructive",
+        });
+        setCurrentGeneratingIndex(null);
+        return;
       }
 
-      const data = await result.json();
-      const videoUrl = data.download_url || data.output_url;
-      
-      if (videoUrl) {
+      // Configure fal.ai with the API key
+      fal.config({
+        credentials: apiKey
+      });
+
+      // Use fal.ai for video generation from image
+      const result = await fal.subscribe("fal-ai/imagen3/video", {
+        input: {
+          image_url: scene.imageUrl,
+          prompt: scene.imagePrompt,
+          negative_prompt: "low quality, bad anatomy, distorted",
+          num_frames: 25,
+          guidance_scale: 2.5,
+        },
+        pollInterval: 5000, // Poll every 5 seconds
+        onQueueUpdate: (update) => {
+          console.log("Queue update:", update);
+        }
+      });
+
+      console.log("Video generation result:", result);
+
+      if (result.data?.video?.url) {
+        const videoUrl = result.data.video.url;
+        
         // Save to user's content history
         const userId = await getUserId();
         if (userId) {
@@ -324,6 +335,8 @@ Only return valid JSON without any additional text, explanations or markdown.`;
           title: "Success",
           description: "Video generated successfully!",
         });
+      } else {
+        throw new Error("No video URL in response");
       }
     } catch (error) {
       console.error("Error generating video:", error);
