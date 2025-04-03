@@ -74,29 +74,81 @@ Only return valid JSON without any additional text, explanations or markdown.`;
       const response = await generateResponse(geminiPrompt);
       console.log("Gemini response:", response);
       
-      // Parse the JSON response
+      // Parse the JSON response with improved error handling
       try {
-        const jsonResponse = JSON.parse(response);
+        // Clean the response before parsing
+        const cleanedResponse = response.trim();
+        
+        // Try to extract JSON if wrapped in backticks or other markdown
+        let jsonString = cleanedResponse;
+        
+        // Check if response is wrapped in markdown code blocks
+        const codeBlockMatch = cleanedResponse.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (codeBlockMatch) {
+          jsonString = codeBlockMatch[1].trim();
+        }
+        
+        const jsonResponse = JSON.parse(jsonString);
         
         if (Array.isArray(jsonResponse) && jsonResponse.length > 0) {
-          setGeneratedStory(jsonResponse);
-          setStoryTitle(`Story: ${storyPrompt.slice(0, 30)}${storyPrompt.length > 30 ? '...' : ''}`);
+          // Validate each scene has the required properties
+          const validStory = jsonResponse.every(scene => 
+            typeof scene === 'object' && 
+            typeof scene.text === 'string' && 
+            typeof scene.imagePrompt === 'string'
+          );
+          
+          if (validStory) {
+            setGeneratedStory(jsonResponse);
+            setStoryTitle(`Story: ${storyPrompt.slice(0, 30)}${storyPrompt.length > 30 ? '...' : ''}`);
+          } else {
+            throw new Error("Invalid scene structure in response");
+          }
         } else {
-          throw new Error("Invalid response format");
+          throw new Error("Invalid response format - not an array or empty array");
         }
       } catch (parseError) {
         console.error("Failed to parse JSON response:", parseError);
         toast({
           title: "Error parsing story",
-          description: "The AI returned an invalid format. Please try again.",
+          description: "The AI returned an invalid format. Please try again with a different prompt.",
           variant: "destructive"
         });
+        
+        // Attempt to generate with a simplified prompt as fallback
+        try {
+          const fallbackPrompt = `Write a simple 3-scene story about "${storyPrompt}" with clear image descriptions for each scene. Format as JSON array with "text" and "imagePrompt" properties for each scene. Only return valid JSON.`;
+          
+          const fallbackResponse = await generateResponse(fallbackPrompt);
+          console.log("Fallback response:", fallbackResponse);
+          
+          // Clean and parse fallback response
+          const cleanedFallback = fallbackResponse.trim();
+          let fallbackJson = cleanedFallback;
+          
+          const fallbackMatch = cleanedFallback.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+          if (fallbackMatch) {
+            fallbackJson = fallbackMatch[1].trim();
+          }
+          
+          const parsedFallback = JSON.parse(fallbackJson);
+          
+          if (Array.isArray(parsedFallback) && parsedFallback.length > 0 && 
+              parsedFallback.every(scene => typeof scene.text === 'string' && typeof scene.imagePrompt === 'string')) {
+            setGeneratedStory(parsedFallback);
+            setStoryTitle(`Story: ${storyPrompt.slice(0, 30)}${storyPrompt.length > 30 ? '...' : ''}`);
+          } else {
+            throw new Error("Fallback response also invalid");
+          }
+        } catch (fallbackError) {
+          console.error("Fallback also failed:", fallbackError);
+        }
       }
     } catch (error) {
       console.error("Error generating story:", error);
       toast({
         title: "Error",
-        description: "Failed to generate story. Please try again.",
+        description: "Failed to generate story. Please try again with a different prompt.",
         variant: "destructive"
       });
     } finally {

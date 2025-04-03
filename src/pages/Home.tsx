@@ -2,7 +2,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import Header from "@/components/Header";
-import Pricing from "@/components/Pricing";
 import FeatureCard from "@/components/FeatureCard";
 import {
   Card,
@@ -94,8 +93,6 @@ const Home = () => {
             </Card>
           </div>
         </section>
-        
-        <Pricing />
       </main>
       
       <footer className="py-6 border-t border-slate-700/50 bg-slate-900/70 backdrop-blur-sm">
