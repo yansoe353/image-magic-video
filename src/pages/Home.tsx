@@ -75,7 +75,7 @@ const Home = () => {
             
             <FeatureCard
               title="Story to Video"
-              description="Generate entire stories with matching visuals and videos."
+              description="Turn your story ideas into complete videos with AI-generated scenes."
               icon="book"
               link="/create?tab=story-to-video"
             />

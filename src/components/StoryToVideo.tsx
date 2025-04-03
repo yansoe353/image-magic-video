@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +12,7 @@ import { incrementImageCount, incrementVideoCount, getRemainingCountsAsync } fro
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
+import { fal } from "@fal-ai/client";
 import { 
   Select,
   SelectContent,
@@ -181,40 +181,34 @@ Only return valid JSON without any additional text, explanations or markdown.`;
     setCurrentGeneratingIndex(sceneIndex);
     
     try {
-      // Fixed API endpoint and parameters
-      const response = await fetch("https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_STABILITY_API_KEY}`,
-        },
-        body: JSON.stringify({
-          text_prompts: [
-            {
-              text: scene.imagePrompt,
-              weight: 1,
-            }
-          ],
-          cfg_scale: 7,
-          height: 1024,
-          width: 1024,
-          samples: 1,
-          steps: 30,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Image generation API error:", errorText);
-        throw new Error(`Failed to generate image: ${errorText}`);
+      // Get API key from localStorage for fal.ai
+      const apiKey = localStorage.getItem("falApiKey");
+      if (!apiKey) {
+        toast({
+          title: "API Key Required",
+          description: "Please set your Infinity API key first using the button in the header.",
+          variant: "destructive",
+        });
+        setCurrentGeneratingIndex(null);
+        return;
       }
 
-      const data = await response.json();
-      
-      // Get the image URL from the response
-      if (data.artifacts && data.artifacts.length > 0) {
-        const imageBase64 = data.artifacts[0].base64;
-        const imageUrl = `data:image/png;base64,${imageBase64}`;
+      // Configure fal.ai with the API key
+      fal.config({
+        credentials: apiKey
+      });
+
+      // Use fal.ai for image generation
+      const result = await fal.subscribe("fal-ai/imagen3/fast", {
+        input: {
+          prompt: scene.imagePrompt,
+          aspect_ratio: "1:1",
+          negative_prompt: "low quality, bad anatomy, distorted"
+        },
+      });
+
+      if (result.data?.images?.[0]?.url) {
+        const imageUrl = result.data.images[0].url;
         
         // Update the generatedStory with the image URL
         const updatedStory = [...generatedStory];
@@ -229,6 +223,8 @@ Only return valid JSON without any additional text, explanations or markdown.`;
           title: "Success",
           description: "Image generated successfully!",
         });
+      } else {
+        throw new Error("No image URL in response");
       }
     } catch (error) {
       console.error("Error generating image:", error);
