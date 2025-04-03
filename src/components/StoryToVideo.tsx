@@ -279,19 +279,20 @@ Only return valid JSON without any additional text, explanations or markdown.`;
         credentials: apiKey
       });
 
-      // Use fal.ai for video generation from image
-      const result = await fal.subscribe("fal-ai/imagen3/video", {
+      // Use fal.ai for video generation from image - using the Kling model
+      const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
         input: {
-          image_url: scene.imageUrl,
           prompt: scene.imagePrompt,
-          negative_prompt: "low quality, bad anatomy, distorted",
-          num_frames: 25,
-          guidance_scale: 2.5,
+          image_url: scene.imageUrl,
+          duration: "5",
+          aspect_ratio: "1:1",
+          negative_prompt: "blur, distort, and low quality",
+          cfg_scale: 0.5,
         },
-        pollInterval: 5000, // Poll every 5 seconds
+        logs: true,
         onQueueUpdate: (update) => {
-          console.log("Queue update:", update);
-        }
+          console.log("Kling video queue update:", update);
+        },
       });
 
       console.log("Video generation result:", result);
