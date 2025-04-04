@@ -96,11 +96,15 @@ const RunwayImageToVideo = () => {
           'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          prompt: prompt,
-          image: imageData,
-          guidance_scale: guidanceScale,
-          num_frames: numFrames,
-          fps: fps
+          text_prompt: prompt,
+          img_prompt: `data:image/jpeg;base64,${imageData}`,
+          model: "gen3",
+          image_as_end_frame: false,
+          flip: false,
+          motion: guidanceScale,
+          seed: 0,
+          callback_url: "",
+          time: 5
         })
       });
 
@@ -111,7 +115,7 @@ const RunwayImageToVideo = () => {
 
       const data = await response.json();
       console.log("Video generation response:", data);
-      
+
       if (!data.video) {
         throw new Error("No video was generated. Please try again.");
       }
@@ -181,7 +185,7 @@ const RunwayImageToVideo = () => {
 
   const handleDownload = () => {
     if (!generatedVideoUrl) return;
-    
+
     const link = document.createElement('a');
     link.href = generatedVideoUrl;
     link.download = `runway-video-${Date.now()}.mp4`;
@@ -195,7 +199,7 @@ const RunwayImageToVideo = () => {
       <Card className="overflow-hidden border-0 shadow-lg glass-morphism">
         <CardContent className="p-6">
           <h2 className="text-2xl font-bold mb-4">Image & Settings</h2>
-          
+
           <div className="space-y-4">
             <div>
               <Label htmlFor="api-key">Runway API Key</Label>
