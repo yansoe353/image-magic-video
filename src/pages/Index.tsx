@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TextToImage from "@/components/TextToImage";
 import ImageToVideo from "@/components/ImageToVideo";
 import StoryToVideo from "@/components/StoryToVideo";
+import RunwayImageToVideo from "@/components/RunwayImageToVideo";
 import Header from "@/components/Header";
 import { getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
 import { Card, CardContent } from "@/components/ui/card";
@@ -99,7 +100,7 @@ const Index = () => {
           className="w-full"
           onValueChange={(value) => setActiveTab(value)}
         >
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md rounded-xl overflow-x-auto">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md rounded-xl overflow-x-auto">
             <TabsTrigger 
               value="text-to-image" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
@@ -111,6 +112,12 @@ const Index = () => {
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
               {isMobile ? "Image→Video" : "Image to Video"}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="runway-video" 
+              className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
+            >
+              {isMobile ? "Runway Video" : "Runway Video"}
             </TabsTrigger>
             <TabsTrigger 
               value="story-to-video" 
@@ -148,6 +155,10 @@ const Index = () => {
               onVideoGenerated={handleVideoGenerated}
               onSwitchToEditor={() => setActiveTab("video-editor")}
             />
+          </TabsContent>
+
+          <TabsContent value="runway-video" className="mt-0">
+            <RunwayImageToVideo />
           </TabsContent>
           
           <TabsContent value="story-to-video" className="mt-0">

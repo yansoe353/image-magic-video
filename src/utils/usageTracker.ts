@@ -4,11 +4,13 @@ import { getCurrentUser } from "./authUtils";
 // Define constants for usage limits
 export const IMAGE_LIMIT = 100;
 export const VIDEO_LIMIT = 20;
+export const RUNWAY_VIDEO_LIMIT = 5;
 
 // Define interface for usage tracking
 export interface ApiKeyUsage {
   imageCount: number;
   videoCount: number;
+  runwayVideoCount?: number;
   userId?: string;
 }
 
@@ -35,9 +37,20 @@ export const getApiKeyUsage = async (): Promise<ApiKeyUsage | null> => {
     
     if (videoError) throw videoError;
     
+    // Get count of Runway generations specifically
+    const { data: runwayVideoData, error: runwayVideoError } = await supabase
+      .from('user_content_history')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('content_type', 'video')
+      .eq('metadata->>source', 'runway');
+    
+    if (runwayVideoError) throw runwayVideoError;
+    
     return {
       imageCount: imageData?.length || 0,
       videoCount: videoData?.length || 0,
+      runwayVideoCount: runwayVideoData?.length || 0,
       userId: user.id
     };
   } catch (error) {
@@ -73,23 +86,40 @@ export const incrementVideoCount = async (): Promise<boolean> => {
 };
 
 // Get remaining counts (synchronous version with default values)
-export const getRemainingCounts = (): { remainingImages: number; remainingVideos: number } => {
+export const getRemainingCounts = (): { 
+  remainingImages: number; 
+  remainingVideos: number; 
+  remainingRunwayVideos?: number;
+} => {
   // Default values when not initialized
-  return { remainingImages: IMAGE_LIMIT, remainingVideos: VIDEO_LIMIT };
+  return { 
+    remainingImages: IMAGE_LIMIT, 
+    remainingVideos: VIDEO_LIMIT,
+    remainingRunwayVideos: RUNWAY_VIDEO_LIMIT
+  };
 };
 
 // Asynchronous version for when we need to wait for actual counts
-export const getRemainingCountsAsync = async (): Promise<{ remainingImages: number; remainingVideos: number }> => {
+export const getRemainingCountsAsync = async (): Promise<{ 
+  remainingImages: number; 
+  remainingVideos: number;
+  remainingRunwayVideos?: number; 
+}> => {
   const usage = await getApiKeyUsage();
   const { imageLimit, videoLimit } = await getUserLimits();
   
   if (!usage) {
-    return { remainingImages: imageLimit, remainingVideos: videoLimit };
+    return { 
+      remainingImages: imageLimit, 
+      remainingVideos: videoLimit,
+      remainingRunwayVideos: RUNWAY_VIDEO_LIMIT
+    };
   }
   
   return {
     remainingImages: Math.max(0, imageLimit - usage.imageCount),
-    remainingVideos: Math.max(0, videoLimit - usage.videoCount)
+    remainingVideos: Math.max(0, videoLimit - usage.videoCount),
+    remainingRunwayVideos: Math.max(0, RUNWAY_VIDEO_LIMIT - (usage.runwayVideoCount || 0))
   };
 };
 
