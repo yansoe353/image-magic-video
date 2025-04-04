@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,23 +8,29 @@ import { Label } from "@/components/ui/label";
 import { AlertCircle, Film, Loader2, Upload } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PublicPrivateToggle } from "@/components/image-generation/PublicPrivateToggle";
+import { GeneratedImageDisplay } from "@/components/image-generation/GeneratedImageDisplay";
 import { useToast } from "@/hooks/use-toast";
 import { incrementRunwayVideoCount } from "@/utils/usageTracker";
 import { uploadUrlToStorage } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
-import { Switch } from "@/components/ui/switch";
+
+interface RunwayGenerationOptions {
+  prompt: string;
+  height?: number;
+  width?: number;
+  fps?: number;
+  numFrames?: number;
+  guidanceScale?: number;
+}
 
 const RunwayImageToVideo = () => {
   const [apiKey, setApiKey] = useState<string>("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [prompt, setPrompt] = useState("");
-  const [motion, setMotion] = useState(5);
-  const [time, setTime] = useState(5);
-  const [seed, setSeed] = useState(0);
-  const [useRandomSeed, setUseRandomSeed] = useState(true);
-  const [flip, setFlip] = useState(false);
-  const [imageAsEndFrame, setImageAsEndFrame] = useState(false);
+  const [fps, setFps] = useState(24);
+  const [numFrames, setNumFrames] = useState(24);
+  const [guidanceScale, setGuidanceScale] = useState(7);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -52,12 +57,9 @@ const RunwayImageToVideo = () => {
     setImagePreview(null);
     setImageFile(null);
     setPrompt("");
-    setMotion(5);
-    setTime(5);
-    setSeed(0);
-    setUseRandomSeed(true);
-    setFlip(false);
-    setImageAsEndFrame(false);
+    setFps(24);
+    setNumFrames(24);
+    setGuidanceScale(7);
     setGeneratedVideoUrl(null);
     setError(null);
   };
@@ -94,14 +96,11 @@ const RunwayImageToVideo = () => {
           'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          text_prompt: prompt,
-          img_prompt: base64Image,
-          model: "gen3",
-          motion: motion,
-          seed: useRandomSeed ? 0 : seed,
-          time: time,
-          image_as_end_frame: imageAsEndFrame,
-          flip: flip
+          prompt: prompt,
+          image: imageData,
+          guidance_scale: guidanceScale,
+          num_frames: numFrames,
+          fps: fps
         })
       });
 
@@ -146,12 +145,9 @@ const RunwayImageToVideo = () => {
             is_public: isPublic,
             metadata: {
               source: "runway",
-              model: "gen3",
-              motion,
-              time,
-              seed: useRandomSeed ? 0 : seed,
-              flip,
-              imageAsEndFrame
+              fps,
+              numFrames,
+              guidanceScale
             }
           });
 
@@ -248,7 +244,7 @@ const RunwayImageToVideo = () => {
             </div>
 
             <div>
-              <Label htmlFor="prompt">Text Prompt</Label>
+              <Label htmlFor="prompt">Description</Label>
               <Textarea
                 id="prompt"
                 placeholder="Describe your video (e.g., 'A beautiful sunset over the ocean with waves crashing')"
@@ -261,80 +257,50 @@ const RunwayImageToVideo = () => {
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between">
-                  <Label htmlFor="motion">Motion Intensity: {motion}</Label>
+                  <Label htmlFor="fps">Frames Per Second: {fps}</Label>
                 </div>
                 <Slider
-                  id="motion"
-                  min={1}
-                  max={10}
+                  id="fps"
+                  min={15}
+                  max={30}
                   step={1}
-                  value={[motion]}
-                  onValueChange={(value) => setMotion(value[0])}
+                  value={[fps]}
+                  onValueChange={(value) => setFps(value[0])}
                   className="mt-2"
                 />
-                <p className="text-xs text-slate-500 mt-1">
-                  Higher values result in more motion.
-                </p>
               </div>
 
               <div>
                 <div className="flex justify-between">
-                  <Label htmlFor="time">Video Length: {time}s</Label>
+                  <Label htmlFor="numFrames">Number of Frames: {numFrames}</Label>
                 </div>
                 <Slider
-                  id="time"
-                  min={5}
-                  max={10}
-                  step={5}
-                  value={[time]}
-                  onValueChange={(value) => setTime(value[0])}
+                  id="numFrames"
+                  min={16}
+                  max={48}
+                  step={4}
+                  value={[numFrames]}
+                  onValueChange={(value) => setNumFrames(value[0])}
                   className="mt-2"
                 />
               </div>
 
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="random-seed"
-                  checked={useRandomSeed}
-                  onCheckedChange={setUseRandomSeed}
-                />
-                <Label htmlFor="random-seed">Use Random Seed</Label>
-              </div>
-
-              {!useRandomSeed && (
-                <div>
-                  <div className="flex justify-between">
-                    <Label htmlFor="seed">Seed: {seed}</Label>
-                  </div>
-                  <Input
-                    id="seed"
-                    type="number"
-                    value={seed}
-                    onChange={(e) => setSeed(parseInt(e.target.value) || 0)}
-                    className="mt-2"
-                  />
+              <div>
+                <div className="flex justify-between">
+                  <Label htmlFor="guidanceScale">Guidance Scale: {guidanceScale}</Label>
                 </div>
-              )}
-
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="flip"
-                  checked={flip}
-                  onCheckedChange={setFlip}
+                <Slider
+                  id="guidanceScale"
+                  min={1}
+                  max={20}
+                  step={0.5}
+                  value={[guidanceScale]}
+                  onValueChange={(value) => setGuidanceScale(value[0])}
+                  className="mt-2"
                 />
-                <Label htmlFor="flip">Portrait Mode (Flip)</Label>
-                <p className="text-xs text-slate-500 ml-2">
-                  Use portrait (768x1280) instead of landscape (1280x768)
+                <p className="text-xs text-slate-500 mt-1">
+                  Higher values make the video adhere more closely to the prompt.
                 </p>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="image-as-end-frame"
-                  checked={imageAsEndFrame}
-                  onCheckedChange={setImageAsEndFrame}
-                />
-                <Label htmlFor="image-as-end-frame">Use Image as End Frame</Label>
               </div>
             </div>
 

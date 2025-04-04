@@ -39,13 +39,12 @@ export const getApiKeyUsage = async (): Promise<ApiKeyUsage | null> => {
     if (videoError) throw videoError;
     
     // Get count of Runway generations specifically
-    // Fix the excessive type depth error by using a simpler query
     const { data: runwayVideoData, error: runwayVideoError } = await supabase
       .from('user_content_history')
-      .select('id, metadata')
+      .select('id')
       .eq('user_id', user.id)
       .eq('content_type', 'video')
-      .filter('metadata->source', 'eq', 'runway');
+      .eq('metadata->>source', 'runway');
     
     if (runwayVideoError) throw runwayVideoError;
     
