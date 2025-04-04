@@ -110,10 +110,7 @@ const StoryToVideo = () => {
   };
 
   const cleanJsonResponse = (response: string): string => {
-    // Remove markdown code blocks
     let cleaned = response.replace(/```json|```/g, '').trim();
-    
-    // Handle cases where response might have text before/after JSON
     const firstBrace = cleaned.indexOf('{');
     const lastBrace = cleaned.lastIndexOf('}');
     
@@ -126,13 +123,11 @@ const StoryToVideo = () => {
 
   const parseStoryResponse = (response: string): StoryScene[] => {
     try {
-      // First attempt: direct JSON parse
       const directParse = JSON.parse(response.trim());
       if (Array.isArray(directParse)) return directParse;
     } catch (e) {}
 
     try {
-      // Second attempt: extract from possible code block
       const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       if (codeBlockMatch) {
         const extracted = codeBlockMatch[1].trim();
@@ -142,7 +137,6 @@ const StoryToVideo = () => {
     } catch (e) {}
 
     try {
-      // Third attempt: find array between brackets
       const firstBracket = response.indexOf('[');
       const lastBracket = response.lastIndexOf(']');
       if (firstBracket >= 0 && lastBracket > firstBracket) {
@@ -209,11 +203,10 @@ const StoryToVideo = () => {
       try {
         const parsedStory = parseStoryResponse(response);
         
-        if (!Array.isArray(parsedStory) {
+        if (!Array.isArray(parsedStory)) {
           throw new Error("Response was not an array");
         }
 
-        // Validate each scene has required fields
         const isValidStory = parsedStory.every(scene => 
           typeof scene.text === 'string' && 
           typeof scene.imagePrompt === 'string'
@@ -223,7 +216,6 @@ const StoryToVideo = () => {
           throw new Error("Invalid scene structure");
         }
 
-        // Enhance prompts with character details
         const enhancedStory = parsedStory.map(scene => ({
           text: scene.text,
           imagePrompt: characterDetails.mainCharacter 
@@ -320,7 +312,6 @@ const StoryToVideo = () => {
 
       fal.config({ credentials: apiKey });
 
-      // Enhance prompt with character details
       const enhancedPrompt = characterDetails.mainCharacter 
         ? `${characterDetails.mainCharacter}. ${scene.imagePrompt} in ${imageStyle} style`
         : `${scene.imagePrompt} in ${imageStyle} style`;
@@ -410,7 +401,6 @@ const StoryToVideo = () => {
         newVideoUrls[sceneIndex] = result.data.video.url;
         setVideoUrls(newVideoUrls);
 
-        // Save to database
         const userId = await getUserId();
         if (userId) {
           await supabase.from('user_content_history').insert({
