@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUser } from "./authUtils";
 
@@ -38,12 +39,13 @@ export const getApiKeyUsage = async (): Promise<ApiKeyUsage | null> => {
     if (videoError) throw videoError;
     
     // Get count of Runway generations specifically
+    // Fix the excessive type depth error by using a simpler query
     const { data: runwayVideoData, error: runwayVideoError } = await supabase
       .from('user_content_history')
-      .select('id')
+      .select('id, metadata')
       .eq('user_id', user.id)
       .eq('content_type', 'video')
-      .eq('metadata->source', 'runway');
+      .filter('metadata->source', 'eq', 'runway');
     
     if (runwayVideoError) throw runwayVideoError;
     
