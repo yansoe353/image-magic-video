@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PublicPrivateToggle } from "@/components/image-generation/PublicPrivateToggle";
 import { GeneratedImageDisplay } from "@/components/image-generation/GeneratedImageDisplay";
 import { useToast } from "@/hooks/use-toast";
-import { incrementVideoCount } from "@/utils/usageTracker";
+import { incrementRunwayVideoCount } from "@/utils/usageTracker";
 import { uploadUrlToStorage } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -74,13 +73,11 @@ const RunwayImageToVideo = () => {
     setError(null);
 
     try {
-      // Check if the user can generate more videos
-      const canGenerateMore = await incrementVideoCount();
+      const canGenerateMore = await incrementRunwayVideoCount();
       if (!canGenerateMore) {
-        throw new Error("You've reached your video generation limit.");
+        throw new Error("You've reached your Runway video generation limit.");
       }
 
-      // First, convert the image to base64
       const reader = new FileReader();
       const base64Promise = new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve(reader.result as string);
@@ -89,29 +86,21 @@ const RunwayImageToVideo = () => {
       });
 
       const base64Image = await base64Promise;
-      const imageData = base64Image.split(',')[1]; // Remove the data URL prefix
+      const imageData = base64Image.split(',')[1];
 
-      // Set up the generation options
-      const generationOptions: RunwayGenerationOptions = {
-        prompt,
-        guidanceScale,
-        fps,
-        numFrames
-      };
-
-      // Call the Runway API - updating this to use the correct endpoint
-      const response = await fetch('https://api.runwayml.com/v1/inference/runway/gen-2-image-to-video', {
+      const response = await fetch('https://api.aivideoapi.com/runway/generate/imageDescription', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'accept': 'application/json',
+          'content-type': 'application/json',
           'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          prompt: generationOptions.prompt,
+          prompt: prompt,
           image: imageData,
-          guidance_scale: generationOptions.guidanceScale,
-          num_frames: generationOptions.numFrames,
-          fps: generationOptions.fps
+          guidance_scale: guidanceScale,
+          num_frames: numFrames,
+          fps: fps
         })
       });
 
@@ -123,12 +112,11 @@ const RunwayImageToVideo = () => {
       const data = await response.json();
       console.log("Video generation response:", data);
       
-      // Check if the video URL is available
-      if (!data.output?.video) {
+      if (!data.video) {
         throw new Error("No video was generated. Please try again.");
       }
 
-      setGeneratedVideoUrl(data.output.video);
+      setGeneratedVideoUrl(data.video);
       setRemainingGenerations(prev => Math.max(0, prev - 1));
 
       toast({
@@ -136,7 +124,6 @@ const RunwayImageToVideo = () => {
         description: "Your video has been created and is ready to use.",
       });
 
-      // Store the generated video to Supabase storage
       setIsUploading(true);
       try {
         const user = await supabase.auth.getUser();
@@ -144,13 +131,12 @@ const RunwayImageToVideo = () => {
 
         if (userId) {
           const storedUrl = await uploadUrlToStorage(
-            data.output.video,
+            data.video,
             "video",
             userId,
             isPublic
           );
 
-          // Add entry to user_content_history
           await supabase.from("user_content_history").insert({
             user_id: userId,
             content_type: "video",
