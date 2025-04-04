@@ -135,13 +135,13 @@ const Index = () => {
               value="image-playground" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
-              {isMobile ? "Free Image" : "Free Image"}
+              {isMobile ? "Image Play" : "Image Playground"}
             </TabsTrigger>
             <TabsTrigger 
               value="video-playground" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
-              {isMobile ? "Free Video" : "Free Video"}
+              {isMobile ? "Video Play" : "Video Playground"}
             </TabsTrigger>
           </TabsList>
           
