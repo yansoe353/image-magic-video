@@ -99,8 +99,8 @@ const RunwayImageToVideo = () => {
         numFrames
       };
 
-      // Call the Runway API
-      const response = await fetch('https://api.runwayml.com/v1/generate/image+description', {
+      // Call the Runway API - updating this to use the correct endpoint
+      const response = await fetch('https://api.runwayml.com/v1/inference/runway/gen-2-image-to-video', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -117,18 +117,18 @@ const RunwayImageToVideo = () => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `API error: ${response.status}`);
+        throw new Error(errorData.error || `API error: ${response.status} - ${errorData.detail || 'Unknown error'}`);
       }
 
       const data = await response.json();
       console.log("Video generation response:", data);
       
       // Check if the video URL is available
-      if (!data.video) {
+      if (!data.output?.video) {
         throw new Error("No video was generated. Please try again.");
       }
 
-      setGeneratedVideoUrl(data.video);
+      setGeneratedVideoUrl(data.output.video);
       setRemainingGenerations(prev => Math.max(0, prev - 1));
 
       toast({
@@ -144,7 +144,7 @@ const RunwayImageToVideo = () => {
 
         if (userId) {
           const storedUrl = await uploadUrlToStorage(
-            data.video,
+            data.output.video,
             "video",
             userId,
             isPublic

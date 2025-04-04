@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUser } from "./authUtils";
 
@@ -43,7 +44,7 @@ export const getApiKeyUsage = async (): Promise<ApiKeyUsage | null> => {
       .select('id')
       .eq('user_id', user.id)
       .eq('content_type', 'video')
-      .eq('metadata->>source', 'runway');
+      .eq('metadata->source', 'runway');
     
     if (runwayVideoError) throw runwayVideoError;
     
@@ -83,6 +84,13 @@ export const incrementVideoCount = async (): Promise<boolean> => {
   // Just check if user can generate more videos
   const { remainingVideos } = await getRemainingCountsAsync();
   return remainingVideos > 0;
+};
+
+export const incrementRunwayVideoCount = async (): Promise<boolean> => {
+  // Don't increment count, as it will be handled by history entries
+  // Just check if user can generate more Runway videos
+  const { remainingRunwayVideos } = await getRemainingCountsAsync();
+  return (remainingRunwayVideos || 0) > 0;
 };
 
 // Get remaining counts (synchronous version with default values)
