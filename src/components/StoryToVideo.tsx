@@ -61,54 +61,87 @@ const StoryToVideo = () => {
     fetchCounts();
   }, []);
 
-  const generateCharacterTemplate = async () => {
-    if (!storyPrompt) {
-      toast({
-        title: "Error",
-        description: "Please enter a story prompt first",
-        variant: "destructive"
-      });
-      return;
+ const generateCharacterTemplate = async () => {
+  if (!storyPrompt) {
+    toast({
+      title: "Error",
+      description: "Please enter a story prompt first",
+      variant: "destructive"
+    });
+    return;
+  }
+
+  setIsGeneratingStory(true);
+  try {
+    const response = await generateResponse(
+      `Create detailed character descriptions for a story about: "${storyPrompt}". 
+      Provide this information in valid JSON format only:
+      {
+        "mainCharacter": "Detailed description including age, gender, appearance, clothing and distinctive features",
+        "secondaryCharacters": "Descriptions of other important characters",
+        "environment": "Description of the main setting/environment",
+        "styleNotes": "Specific visual style requirements"
+      }
+      
+      Important: Only return valid JSON without any additional text or explanations.`
+    );
+
+    // Multiple parsing attempts
+    let parsedResponse;
+    try {
+      // Attempt 1: Direct JSON parse
+      parsedResponse = JSON.parse(response.trim());
+    } catch (e) {
+      // Attempt 2: Extract JSON from markdown code block
+      const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) {
+        parsedResponse = JSON.parse(codeBlockMatch[1].trim());
+      } else {
+        // Attempt 3: Find JSON between curly braces
+        const firstBrace = response.indexOf('{');
+        const lastBrace = response.lastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace > firstBrace) {
+          parsedResponse = JSON.parse(response.slice(firstBrace, lastBrace + 1));
+        } else {
+          throw new Error("Could not extract valid JSON");
+        }
+      }
     }
 
-    setIsGeneratingStory(true);
-    try {
-      const response = await generateResponse(
-        `Create detailed character descriptions for a story about: "${storyPrompt}". 
-        Provide:
-        1. Main character appearance (age, gender, clothing, distinctive features)
-        2. Secondary characters if any
-        3. Environment/setting details
-        4. Visual style notes
-        
-        Format as JSON:
-        {
-          "mainCharacter": "...",
-          "secondaryCharacters": "...",
-          "environment": "...",
-          "styleNotes": "..."
-        }`
-      );
-
-      const cleaned = cleanJsonResponse(response);
-      const details = JSON.parse(cleaned);
-      setCharacterDetails(details);
+    // Validate the response structure
+    if (
+      typeof parsedResponse === 'object' && 
+      parsedResponse !== null &&
+      (parsedResponse.mainCharacter || 
+       parsedResponse.secondaryCharacters ||
+       parsedResponse.environment ||
+       parsedResponse.styleNotes)
+    ) {
+      setCharacterDetails({
+        mainCharacter: parsedResponse.mainCharacter || '',
+        secondaryCharacters: parsedResponse.secondaryCharacters || '',
+        environment: parsedResponse.environment || '',
+        styleNotes: parsedResponse.styleNotes || ''
+      });
       toast({
         title: "Character template created!",
         description: "Review and edit the character details before generating story."
       });
-    } catch (error) {
-      console.error("Error generating character template:", error);
-      toast({
-        title: "Error",
-        description: "Failed to generate character template",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGeneratingStory(false);
+    } else {
+      throw new Error("Invalid character template format");
     }
-  };
-
+  } catch (error) {
+    console.error("Error generating character template:", error);
+    toast({
+      title: "Error",
+      description: "Failed to generate character template. Please try again or enter details manually.",
+      variant: "destructive"
+    });
+  } finally {
+    setIsGeneratingStory(false);
+  }
+};
+  
   const cleanJsonResponse = (response: string): string => {
     let cleaned = response.replace(/```json|```/g, '').trim();
     const firstBrace = cleaned.indexOf('{');
