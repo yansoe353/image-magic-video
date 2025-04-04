@@ -89,7 +89,7 @@ Only return valid JSON without any additional text, explanations or markdown.`;
       try {
         const cleanedResponse = response.trim();
         let jsonString = cleanedResponse;
-        const codeBlockMatch = cleanedResponse.match(/```(?\:json)?\s*([\s\S]*?)\s*```/);
+        const codeBlockMatch = cleanedResponse.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
         if (codeBlockMatch) {
           jsonString = codeBlockMatch[1].trim();
         }
@@ -128,7 +128,7 @@ Only return valid JSON without any additional text, explanations or markdown.`;
 
           const cleanedFallback = fallbackResponse.trim();
           let fallbackJson = cleanedFallback;
-          const fallbackMatch = cleanedFallback.match(/```(?\:json)?\s*([\s\S]*?)\s*```/);
+          const fallbackMatch = cleanedFallback.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
           if (fallbackMatch) {
             fallbackJson = fallbackMatch[1].trim();
           }
@@ -145,6 +145,11 @@ Only return valid JSON without any additional text, explanations or markdown.`;
           }
         } catch (fallbackError) {
           console.error("Fallback also failed:", fallbackError);
+          toast({
+            title: "Error",
+            description: "Failed to parse story response. Please try again with a different prompt.",
+            variant: "destructive"
+          });
         }
       }
     } catch (error) {
@@ -433,17 +438,19 @@ Only return valid JSON without any additional text, explanations or markdown.`;
             <h2 className="text-xl font-bold mb-4">{storyTitle}</h2>
 
             <Button
-              onClick={() => setEditMode(true)}
+              onClick={() => setEditMode(!editMode)}
               disabled={isGeneratingStory}
               className="w-full mt-4"
+              variant={editMode ? "default" : "outline"}
             >
-              Edit Story
+              {editMode ? "Cancel Editing" : "Edit Story"}
             </Button>
 
             {editMode && (
-              <div className="space-y-4">
+              <div className="space-y-4 mt-4">
                 {editedStory.map((scene, index) => (
                   <div key={index} className="space-y-2">
+                    <Label>Scene {index + 1} Text</Label>
                     <Textarea
                       value={scene.text}
                       onChange={(e) => {
@@ -451,8 +458,9 @@ Only return valid JSON without any additional text, explanations or markdown.`;
                         updatedStory[index] = { ...updatedStory[index], text: e.target.value };
                         setEditedStory(updatedStory);
                       }}
-                      className="min-h-[80px]"
+                      className="min-h-[120px]"
                     />
+                    <Label>Scene {index + 1} Image Prompt</Label>
                     <Textarea
                       value={scene.imagePrompt}
                       onChange={(e) => {
@@ -460,7 +468,7 @@ Only return valid JSON without any additional text, explanations or markdown.`;
                         updatedStory[index] = { ...updatedStory[index], imagePrompt: e.target.value };
                         setEditedStory(updatedStory);
                       }}
-                      className="min-h-[80px]"
+                      className="min-h-[120px]"
                     />
                   </div>
                 ))}
@@ -468,6 +476,10 @@ Only return valid JSON without any additional text, explanations or markdown.`;
                   onClick={() => {
                     setGeneratedStory(editedStory);
                     setEditMode(false);
+                    toast({
+                      title: "Success",
+                      description: "Story edits saved successfully!",
+                    });
                   }}
                   className="w-full"
                 >
@@ -476,87 +488,89 @@ Only return valid JSON without any additional text, explanations or markdown.`;
               </div>
             )}
 
-            <Tabs defaultValue="0" className="w-full">
-              <TabsList className="w-full grid" style={{ gridTemplateColumns: `repeat(${generatedStory.length}, 1fr)` }}>
-                {renderSceneTabs()}
-              </TabsList>
+            {!editMode && (
+              <Tabs defaultValue="0" className="w-full mt-4">
+                <TabsList className="w-full grid" style={{ gridTemplateColumns: `repeat(${generatedStory.length}, 1fr)` }}>
+                  {renderSceneTabs()}
+                </TabsList>
 
-              {generatedStory.map((scene, index) => (
-                <TabsContent key={index} value={index.toString()} className="space-y-4">
-                  <div className="p-4 bg-slate-800/50 rounded-md">
-                    <p className="text-slate-200">{scene.text}</p>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="mb-2 block">Scene Image</Label>
-                      <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
-                        {scene.imageUrl ? (
-                          <img
-                            src={scene.imageUrl}
-                            alt={`Scene ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <ImageIcon className="h-16 w-16 text-slate-600" />
-                          </div>
-                        )}
-
-                        {currentGeneratingIndex === index && !scene.imageUrl && (
-                          <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                            <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
-                          </div>
-                        )}
-                      </div>
-
-                      <Button
-                        onClick={() => generateImageForScene(index)}
-                        disabled={!!currentGeneratingIndex || counts.remainingImages <= 0}
-                        className="mt-2 w-full"
-                        variant="outline"
-                      >
-                        <ImageIcon className="mr-2 h-4 w-4" />
-                        Generate Image
-                      </Button>
+                {generatedStory.map((scene, index) => (
+                  <TabsContent key={index} value={index.toString()} className="space-y-4">
+                    <div className="p-4 bg-slate-800/50 rounded-md">
+                      <p className="text-slate-200">{scene.text}</p>
                     </div>
 
-                    <div>
-                      <Label className="mb-2 block">Scene Video</Label>
-                      <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
-                        {videoUrls[index] ? (
-                          <video
-                            src={videoUrls[index]}
-                            controls
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <Film className="h-16 w-16 text-slate-600" />
-                          </div>
-                        )}
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="mb-2 block">Scene Image</Label>
+                        <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
+                          {scene.imageUrl ? (
+                            <img
+                              src={scene.imageUrl}
+                              alt={`Scene ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <ImageIcon className="h-16 w-16 text-slate-600" />
+                            </div>
+                          )}
 
-                        {currentGeneratingIndex === index && scene.imageUrl && !videoUrls[index] && (
-                          <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                            <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
-                          </div>
-                        )}
+                          {currentGeneratingIndex === index && !scene.imageUrl && (
+                            <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                              <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
+                            </div>
+                          )}
+                        </div>
+
+                        <Button
+                          onClick={() => generateImageForScene(index)}
+                          disabled={currentGeneratingIndex !== null || counts.remainingImages <= 0}
+                          className="mt-2 w-full"
+                          variant="outline"
+                        >
+                          <ImageIcon className="mr-2 h-4 w-4" />
+                          Generate Image ({counts.remainingImages} remaining)
+                        </Button>
                       </div>
 
-                      <Button
-                        onClick={() => generateVideoForScene(index)}
-                        disabled={!!currentGeneratingIndex || !scene.imageUrl || counts.remainingVideos <= 0}
-                        className="mt-2 w-full"
-                        variant={scene.imageUrl ? "default" : "outline"}
-                      >
-                        <Film className="mr-2 h-4 w-4" />
-                        Generate Video
-                      </Button>
+                      <div>
+                        <Label className="mb-2 block">Scene Video</Label>
+                        <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
+                          {videoUrls[index] ? (
+                            <video
+                              src={videoUrls[index]}
+                              controls
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <Film className="h-16 w-16 text-slate-600" />
+                            </div>
+                          )}
+
+                          {currentGeneratingIndex === index && scene.imageUrl && !videoUrls[index] && (
+                            <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                              <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
+                            </div>
+                          )}
+                        </div>
+
+                        <Button
+                          onClick={() => generateVideoForScene(index)}
+                          disabled={currentGeneratingIndex !== null || !scene.imageUrl || counts.remainingVideos <= 0}
+                          className="mt-2 w-full"
+                          variant={scene.imageUrl ? "default" : "outline"}
+                        >
+                          <Film className="mr-2 h-4 w-4" />
+                          Generate Video ({counts.remainingVideos} remaining)
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </TabsContent>
-              ))}
-            </Tabs>
+                  </TabsContent>
+                ))}
+              </Tabs>
+            )}
           </CardContent>
         </Card>
       )}
