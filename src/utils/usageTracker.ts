@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUser } from "./authUtils";
 
@@ -44,7 +43,7 @@ export const getApiKeyUsage = async (): Promise<ApiKeyUsage | null> => {
       .select('id')
       .eq('user_id', user.id)
       .eq('content_type', 'video')
-      .eq('metadata->>source', 'runway');
+      .eq('metadata->source', 'runway');
     
     if (runwayVideoError) throw runwayVideoError;
     
