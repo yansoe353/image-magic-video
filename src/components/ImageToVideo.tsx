@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,8 +8,9 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { ApiKeyDialog } from "@/components/api-key/ApiKeyDialog";
+import { MultipleApiKeyManager } from "@/components/api-key/MultipleApiKeyManager";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, ImageIcon, Film } from "lucide-react";
+import { Loader2, Upload, ImageIcon, Film, Settings } from "lucide-react";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
 import { useVideoControls } from "@/hooks/useVideoControls";
@@ -29,6 +31,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
   const [imageUrl, setImageUrl] = useState<string | null>(initialImageUrl);
   const [prompt, setPrompt] = useState("");
   const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
+  const [isMultiApiKeyManagerOpen, setIsMultiApiKeyManagerOpen] = useState(false);
   const [motion, setMotion] = useState<number>(5);
   const [videoDuration, setVideoDuration] = useState<number>(5);
   const [imageAsEndFrame, setImageAsEndFrame] = useState<boolean>(false);
@@ -88,7 +91,9 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
     });
     
     if (result) {
-      onVideoGenerated(result);
+      if (onVideoGenerated) {
+        onVideoGenerated(result);
+      }
       
       try {
         const userId = await getUserId();
@@ -122,11 +127,26 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
     setImageUrl(imageUrl);
   };
 
+  const openApiKeyManager = () => {
+    setIsMultiApiKeyManagerOpen(true);
+  };
+
   return (
     <div className="space-y-8">
       <Card className="overflow-hidden">
         <CardContent className="p-6">
-          <h2 className="text-2xl font-bold mb-4">Image to Video</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">Image to Video</h2>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={openApiKeyManager}
+              className="flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              API Keys
+            </Button>
+          </div>
           
           {error && (
             <div className="mb-4 p-4 bg-red-100 border border-red-300 text-red-700 rounded-md">
@@ -297,6 +317,14 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
         keyName="aiVideoApiKey"
         title="AI Video API Key Required"
         description="Please enter your AI Video API key to generate videos."
+        learnMoreLink="https://aivideoapi.readme.io/"
+      />
+      
+      <MultipleApiKeyManager
+        isOpen={isMultiApiKeyManagerOpen}
+        onClose={() => setIsMultiApiKeyManagerOpen(false)}
+        serviceName="AI Video"
+        storageKeyPrefix="aiVideoApiKey"
         learnMoreLink="https://aivideoapi.readme.io/"
       />
     </div>

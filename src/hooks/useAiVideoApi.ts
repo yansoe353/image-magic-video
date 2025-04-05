@@ -26,7 +26,8 @@ export const useAiVideoApi = () => {
     setError(null);
     setVideoUrl(null);
 
-    const apiKey = localStorage.getItem("aiVideoApiKey");
+    // Get the API key from localStorage
+    const apiKey = localStorage.getItem("aiVideoApiKey") || localStorage.getItem("fallbackVideoApiKey");
     
     if (!apiKey) {
       setIsGenerating(false);
@@ -41,6 +42,10 @@ export const useAiVideoApi = () => {
 
     try {
       setProgress(30);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
       const response = await fetch("https://api.aivideoapi.com/runway/generate/imageDescription", {
         method: "POST",
         headers: {
@@ -57,13 +62,23 @@ export const useAiVideoApi = () => {
           seed: 0,
           time: options.time || 5
         }),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       setProgress(50);
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to generate video");
+        let errorMessage = "Failed to generate video";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -88,12 +103,37 @@ export const useAiVideoApi = () => {
       return videoUrl;
     } catch (err) {
       console.error("Error generating video:", err);
-      setError(err.message || "An error occurred while generating the video");
+      
+      // Specific error handling for network issues
+      let errorMessage = err.message || "An error occurred while generating the video";
+      
+      if (err.name === 'AbortError') {
+        errorMessage = "Request timed out. The server is taking too long to respond.";
+      } else if (err.message?.includes('Failed to fetch') || !navigator.onLine) {
+        errorMessage = "Network error. Please check your internet connection and try again.";
+      }
+      
+      setError(errorMessage);
       toast({
         title: "Error",
-        description: err.message || "Failed to generate video",
+        description: errorMessage,
         variant: "destructive",
       });
+      
+      // Try fallback key if main key failed
+      if (apiKey === localStorage.getItem("aiVideoApiKey") && localStorage.getItem("fallbackVideoApiKey")) {
+        toast({
+          title: "Retrying",
+          description: "Trying with fallback API key...",
+        });
+        
+        // Switch to fallback key
+        localStorage.setItem("currentUsingVideoApiKey", "fallback");
+        
+        // Retry with fallback key (must be a separate call to avoid recursion issues)
+        return null;
+      }
+      
       return null;
     } finally {
       setIsGenerating(false);
@@ -104,11 +144,17 @@ export const useAiVideoApi = () => {
     return new Promise((resolve, reject) => {
       const checkStatus = async () => {
         try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+          
           const response = await fetch(`https://api.aivideoapi.com/status/${uuid}`, {
             headers: {
               "x-api-key": apiKey,
             },
+            signal: controller.signal
           });
+          
+          clearTimeout(timeoutId);
           
           if (!response.ok) {
             throw new Error("Failed to check video status");
@@ -138,7 +184,13 @@ export const useAiVideoApi = () => {
           // Check again after delay
           setTimeout(checkStatus, 2000);
         } catch (err) {
-          reject(err);
+          console.error("Error polling video status:", err);
+          if (err.name === 'AbortError') {
+            // Continue polling even if a single status check times out
+            setTimeout(checkStatus, 3000); // Longer delay after timeout
+          } else {
+            reject(err);
+          }
         }
       };
       

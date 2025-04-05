@@ -100,7 +100,7 @@ const Index = () => {
           className="w-full"
           onValueChange={(value) => setActiveTab(value)}
         >
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md rounded-xl overflow-x-auto">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md rounded-xl overflow-x-auto">
             <TabsTrigger 
               value="text-to-image" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
@@ -125,12 +125,6 @@ const Index = () => {
             >
               {isMobile ? "Editor" : "Video Editor"}
             </TabsTrigger>
-            <TabsTrigger 
-              value="ai-voice" 
-              className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
-            >
-              {isMobile ? "AI Voice" : "AI Voice"}
-            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="text-to-image" className="mt-0">
@@ -151,24 +145,6 @@ const Index = () => {
           
           <TabsContent value="video-editor" className="mt-0">
             <VideoEditor generatedVideoUrl={generatedVideoUrl} />
-          </TabsContent>
-          
-          <TabsContent value="ai-voice" className="mt-0">
-            <Card className="border-0 shadow-lg glass-morphism overflow-hidden">
-              <CardContent className="p-0">
-                <div className="w-full overflow-hidden rounded-lg">
-                  <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
-                    <iframe
-                      src="https://waloneai-wl-tts-text-to-speech.hf.space/"
-                      title="AI Voice Generator"
-                      className="w-full h-full border-0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
         </Tabs>
       </main>
