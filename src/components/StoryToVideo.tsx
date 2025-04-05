@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -50,7 +49,6 @@ const StoryToVideo = () => {
   const [editedStory, setEditedStory] = useState<StoryScene[]>([]);
   const [characterDetails, setCharacterDetails] = useState<CharacterDetails>({});
   const [showCharacterForm, setShowCharacterForm] = useState(false);
-  const [currentTabIndex, setCurrentTabIndex] = useState("0");
 
   const { generateResponse, isLoading: isGeminiLoading } = useGeminiAPI();
   const { toast } = useToast();
@@ -541,13 +539,7 @@ const StoryToVideo = () => {
 
   const renderSceneTabs = () => {
     return generatedStory.map((_, index) => (
-      <TabsTrigger 
-        key={index} 
-        value={index.toString()} 
-        className="text-xs md:text-sm"
-      >
-        Scene {index + 1}
-      </TabsTrigger>
+      <TabsTrigger key={index} value={index.toString()}>Scene {index + 1}</TabsTrigger>
     ));
   };
 
@@ -602,9 +594,6 @@ const StoryToVideo = () => {
                   <SelectItem value="3">3 Scenes</SelectItem>
                   <SelectItem value="4">4 Scenes</SelectItem>
                   <SelectItem value="5">5 Scenes</SelectItem>
-                  <SelectItem value="6">6 Scenes</SelectItem>
-                  <SelectItem value="7">7 Scenes</SelectItem>
-                  <SelectItem value="8">8 Scenes</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -711,20 +700,14 @@ const StoryToVideo = () => {
                 </Button>
               </div>
             ) : (
-              <Tabs 
-                value={currentTabIndex} 
-                onValueChange={setCurrentTabIndex}
-                className="w-full mt-4"
-              >
-                <div className="overflow-x-auto pb-2">
-                  <TabsList className="w-full inline-flex whitespace-nowrap">
-                    {renderSceneTabs()}
-                  </TabsList>
-                </div>
+              <Tabs defaultValue="0" className="w-full mt-4">
+                <TabsList className="w-full grid" style={{ gridTemplateColumns: `repeat(${generatedStory.length}, 1fr)` }}>
+                  {renderSceneTabs()}
+                </TabsList>
 
                 {generatedStory.map((scene, index) => (
                   <TabsContent key={index} value={index.toString()} className="space-y-4">
-                    <div className="p-4 bg-slate-800/50 rounded-md overflow-auto max-h-[200px]">
+                    <div className="p-4 bg-slate-800/50 rounded-md">
                       <p className="text-slate-200">{scene.text}</p>
                     </div>
 

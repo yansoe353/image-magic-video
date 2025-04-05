@@ -1,5 +1,5 @@
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,37 +8,22 @@ import { useToast } from "@/hooks/use-toast";
 import { fal } from "@fal-ai/client";
 
 interface ImageUploaderProps {
-  // Original props
-  imagePreview?: string;
-  setImagePreview?: (url: string) => void;
-  setImageUrl?: (url: string) => void;
-  isUploading?: boolean;
-  setIsUploading?: (value: boolean) => void;
-  
-  // New prop for simplified usage
-  onImageSelected?: (url: string) => void;
+  imagePreview: string;
+  setImagePreview: (url: string) => void;
+  setImageUrl: (url: string) => void;
+  isUploading: boolean;
+  setIsUploading: (value: boolean) => void;
 }
 
 const ImageUploader = ({
-  imagePreview: propImagePreview,
-  setImagePreview: propSetImagePreview,
-  setImageUrl: propSetImageUrl,
-  isUploading: propIsUploading,
-  setIsUploading: propSetIsUploading,
-  onImageSelected
+  imagePreview,
+  setImagePreview,
+  setImageUrl,
+  isUploading,
+  setIsUploading
 }: ImageUploaderProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  
-  // Internal state for when component is used in simplified mode
-  const [internalImagePreview, setInternalImagePreview] = useState<string>("");
-  const [internalIsUploading, setInternalIsUploading] = useState(false);
-  
-  // Use either prop values or internal state
-  const imagePreview = propImagePreview !== undefined ? propImagePreview : internalImagePreview;
-  const setImagePreview = propSetImagePreview || setInternalImagePreview;
-  const isUploading = propIsUploading !== undefined ? propIsUploading : internalIsUploading;
-  const setIsUploading = propSetIsUploading || setInternalIsUploading;
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -56,15 +41,7 @@ const ImageUploader = ({
       reader.readAsDataURL(file);
 
       const uploadedUrl = await fal.storage.upload(file);
-      
-      // Use either the original or new pattern
-      if (propSetImageUrl) {
-        propSetImageUrl(uploadedUrl);
-      }
-      
-      if (onImageSelected) {
-        onImageSelected(uploadedUrl);
-      }
+      setImageUrl(uploadedUrl);
       
       toast({
         title: "Success",

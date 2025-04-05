@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ImageIcon, BookOpen } from "lucide-react";
 
 const Home = () => {
   return (
@@ -79,12 +80,24 @@ const Home = () => {
               link="/create?tab=story-to-video"
             />
             
-            <FeatureCard
-              title="AI Voice"
-              description="Create natural-sounding AI voiceovers for your videos."
-              icon="mic"
-              link="/create?tab=ai-voice"
-            />
+            <Card className="bg-slate-900/50 border-slate-700 hover:border-brand-600 transition-colors">
+              <CardHeader>
+                <CardTitle className="text-white">User Gallery</CardTitle>
+                <CardDescription>Explore public AI creations from our community</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-44 bg-gradient-to-br from-purple-900/40 to-slate-900 rounded-md flex items-center justify-center">
+                  <ImageIcon className="h-16 w-16 text-purple-400 opacity-80" />
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Link to="/gallery" className="w-full">
+                  <Button variant="secondary" className="w-full">
+                    Browse Gallery
+                  </Button>
+                </Link>
+              </CardFooter>
+            </Card>
           </div>
         </section>
       </main>

@@ -4,7 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { fal } from "@fal-ai/client";
 import { isLoggedIn } from "@/utils/authUtils";
 import { useNavigate } from "react-router-dom";
-import { ApiKeyDialog } from "./api-key/ApiKeyDialog";
+import ApiKeyDialog from "./api-key/ApiKeyDialog";
 import InvalidApiKeyAlert from "./api-key/InvalidApiKeyAlert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,7 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Try to initialize the fal client with the stored API key
   const storedApiKey = localStorage.getItem("falApiKey");
   if (storedApiKey) {
     try {
@@ -69,6 +70,7 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
     try {
       localStorage.setItem("falApiKey", apiKey);
 
+      // Configure fal client with the new API key
       fal.config({
         credentials: apiKey
       });
@@ -145,12 +147,8 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
       </Dialog>
 
       <ApiKeyDialog
-        isOpen={open}
-        onClose={() => setOpen(false)}
-        keyName="falApiKey"
-        title="Set Your Infinity API Key"
-        description="Enter your Infinity API key to generate images and videos."
-        learnMoreLink="https://m.me/infinitytechmyanmar"
+        open={open}
+        setOpen={setOpen}
       />
 
       <InvalidApiKeyAlert

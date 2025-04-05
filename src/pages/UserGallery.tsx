@@ -39,7 +39,7 @@ const UserGallery = () => {
       <main className="flex-1 container max-w-7xl py-8 px-4 md:px-6 mt-16">
         <section className="mb-8 text-center">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-gradient mb-4">
-            Public Gallery
+            User Gallery
           </h1>
           <p className="text-slate-300 text-lg max-w-2xl mx-auto mb-2">
             Explore public AI-generated images and videos created by our community

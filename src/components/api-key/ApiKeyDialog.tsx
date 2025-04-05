@@ -1,95 +1,39 @@
 
-import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ExternalLink } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
+import BuyApiKeyPopover from "./BuyApiKeyPopover";
 
 interface ApiKeyDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  keyName: string;
-  title: string;
-  description: string;
-  learnMoreLink?: string;
+  open: boolean;
+  setOpen: (value: boolean) => void;
 }
 
-export const ApiKeyDialog = ({
-  isOpen,
-  onClose,
-  keyName,
-  title,
-  description,
-  learnMoreLink
-}: ApiKeyDialogProps) => {
-  const [apiKey, setApiKey] = useState("");
-  const { toast } = useToast();
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!apiKey.trim()) {
-      toast({
-        title: "API Key Required",
-        description: "Please enter a valid API key",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Save the API key to localStorage
-    localStorage.setItem(keyName, apiKey);
-    
-    toast({
-      title: "API Key Saved",
-      description: "Your API key has been saved successfully",
-    });
-    
-    onClose();
-  };
-
+const ApiKeyDialog = ({ open, setOpen }: ApiKeyDialogProps) => {
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>API Usage Information</DialogTitle>
           <DialogDescription>
-            {description}
+            Your account has access to our API for image and video generation.
           </DialogDescription>
         </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="apiKey">API Key</Label>
-            <Input
-              id="apiKey"
-              placeholder="Enter your API key"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="w-full"
-            />
+        <div className="space-y-4 py-4">
+          <div className="text-sm text-slate-500">
+            <p className="mt-1">Account limits: {IMAGE_LIMIT} image generations and {VIDEO_LIMIT} video generations.</p>
+            <p className="mt-2">Your usage is tracked based on your user account.</p>
+            <p className="mt-2">
+              <BuyApiKeyPopover />
+            </p>
           </div>
-          
-          {learnMoreLink && (
-            <div className="text-sm">
-              <a
-                href={learnMoreLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-500 hover:text-blue-700 flex items-center"
-              >
-                Learn more about getting an API key <ExternalLink className="ml-1 h-3 w-3" />
-              </a>
-            </div>
-          )}
-          
-          <DialogFooter className="sm:justify-start">
-            <Button type="submit" className="mt-2 w-full">Save API Key</Button>
-          </DialogFooter>
-        </form>
+        </div>
+        <DialogFooter>
+          <Button onClick={() => setOpen(false)}>Close</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 };
+
+export default ApiKeyDialog;

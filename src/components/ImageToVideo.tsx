@@ -1,332 +1,394 @@
-
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { ApiKeyDialog } from "@/components/api-key/ApiKeyDialog";
-import { MultipleApiKeyManager } from "@/components/api-key/MultipleApiKeyManager";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, ImageIcon, Film, Settings } from "lucide-react";
+import { fal } from "@fal-ai/client";
+import { Languages, AlertCircle } from "lucide-react";
+import { LANGUAGES, translateText, type LanguageOption } from "@/utils/translationUtils";
+import { useVideoControls } from "@/hooks/useVideoControls";
+import { usePromptTranslation } from "@/hooks/usePromptTranslation";
+import { incrementVideoCount, getRemainingCounts, getRemainingCountsAsync, VIDEO_LIMIT } from "@/utils/usageTracker";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
-import { useVideoControls } from "@/hooks/useVideoControls";
-import { useAiVideoApi } from "@/hooks/useAiVideoApi";
-import { getRemainingCounts } from "@/utils/usageTracker";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 import { supabase } from "@/integrations/supabase/client";
-import { getUserId } from "@/utils/storageUtils";
+import { isLoggedIn } from "@/utils/authUtils";
+import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
+import ProLabel from "./ProLabel";
+import KlingAILabel from "./KlingAILabel";
+import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
+
+// Initialize fal.ai client with proper environment variable handling for browser
+try {
+  const apiKey = import.meta.env.VITE_FAL_API_KEY;
+  if (apiKey) {
+    fal.config({
+      credentials: apiKey
+    });
+  }
+} catch (error) {
+  console.error("Error initializing fal.ai client:", error);
+}
 
 interface ImageToVideoProps {
   initialImageUrl?: string | null;
   onVideoGenerated?: (videoUrl: string) => void;
-  onSwitchToEditor?: () => void;
+  onSwitchToEditor?: (videoUrl: string) => void;
 }
 
 const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: ImageToVideoProps) => {
-  const [imageUrl, setImageUrl] = useState<string | null>(initialImageUrl);
-  const [prompt, setPrompt] = useState("");
-  const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
-  const [isMultiApiKeyManagerOpen, setIsMultiApiKeyManagerOpen] = useState(false);
-  const [motion, setMotion] = useState<number>(5);
-  const [videoDuration, setVideoDuration] = useState<number>(5);
-  const [imageAsEndFrame, setImageAsEndFrame] = useState<boolean>(false);
-  const [isPortrait, setIsPortrait] = useState<boolean>(false);
+  const { prompt, setPrompt, selectedLanguage, isTranslating, handleLanguageChange } =
+    usePromptTranslation("A stylish woman walks down a Tokyo street filled with warm glowing neon and animated city signage.");
+  const [imageUrl, setImageUrl] = useState("");
+  const [imagePreview, setImagePreview] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [generationLogs, setGenerationLogs] = useState<string[]>([]);
+  const [originalVideoUrl, setOriginalVideoUrl] = useState("");
+  const [supabaseVideoUrl, setSupabaseVideoUrl] = useState("");
+  const [isStoringVideo, setIsStoringVideo] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
-  const [model, setModel] = useState<string>("gen3");
-  
-  const { generateVideo, isGenerating, progress, videoUrl, error } = useAiVideoApi();
+
+  const [duration] = useState<string>("5");
+  const [aspectRatio, setAspectRatio] = useState<string>("16:9");
+  const [negativePrompt, setNegativePrompt] = useState<string>("blur, distort, and low quality");
+  const [cfgScale, setCfgScale] = useState<number>(0.5);
+
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
-  
-  const counts = getRemainingCounts();
-  const remainingVideos = counts.remainingVideos;
-  
-  const handleGenerateVideo = async () => {
-    if (!imageUrl) {
+  const [counts, setCounts] = useState(getRemainingCounts());
+
+  useEffect(() => {
+    const updateCounts = async () => {
+      const freshCounts = await getRemainingCountsAsync();
+      setCounts(freshCounts);
+    };
+    updateCounts();
+  }, []);
+
+  useEffect(() => {
+    if (initialImageUrl) {
+      setImagePreview(initialImageUrl);
+      setImageUrl(initialImageUrl);
+    }
+  }, [initialImageUrl]);
+
+  const saveToHistory = async (videoUrl: string, originalUrl: string) => {
+    if (!isLoggedIn()) return;
+
+    try {
+      const userId = await getUserId();
+      if (!userId) {
+        console.error("No user ID found");
+        return;
+      }
+
+      const { error } = await supabase
+        .from('user_content_history')
+        .insert({
+          user_id: userId,
+          content_type: 'video',
+          content_url: videoUrl,
+          prompt: prompt,
+          is_public: isPublic,
+          metadata: {
+            duration,
+            aspectRatio,
+            negativePrompt,
+            cfgScale,
+            original_url: originalUrl
+          }
+        });
+
+      if (error) {
+        console.error("Error saving to history:", error);
+      } else {
+        console.log("Successfully saved video to history");
+      }
+    } catch (err) {
+      console.error("Failed to save to history:", err);
+    }
+  };
+
+  const generateVideo = async () => {
+    if (!imageUrl || !prompt.trim()) {
       toast({
-        title: "Missing Image",
-        description: "Please upload or generate an image first",
+        title: "Error",
+        description: "Please upload an image and provide a prompt",
         variant: "destructive",
       });
       return;
     }
 
-    if (!prompt.trim()) {
-      toast({
-        title: "Missing Prompt",
-        description: "Please provide a text description for your video",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (remainingVideos <= 0) {
+    if (counts.remainingVideos <= 0) {
       toast({
         title: "Usage Limit Reached",
-        description: "You've reached your daily limit for video generations",
+        description: `You've reached the limit of ${VIDEO_LIMIT} video generations.`,
         variant: "destructive",
       });
       return;
     }
 
-    const apiKey = localStorage.getItem("aiVideoApiKey");
-    if (!apiKey) {
-      setIsApiKeyDialogOpen(true);
-      return;
-    }
-    
-    const result = await generateVideo({
-      textPrompt: prompt,
-      imgPrompt: imageUrl,
-      motion: motion,
-      time: videoDuration,
-      imageAsEndFrame: imageAsEndFrame,
-      flip: isPortrait,
-      model: model
-    });
-    
-    if (result) {
-      if (onVideoGenerated) {
-        onVideoGenerated(result);
+    setIsLoading(true);
+    setGenerationLogs([]);
+
+    try {
+      setGenerationLogs(prev => [...prev, "Initializing model..."]);
+
+      let promptToUse = prompt;
+      if (selectedLanguage !== "en") {
+        try {
+          promptToUse = await translateText(prompt, selectedLanguage, "en");
+          setGenerationLogs(prev => [...prev, "Translated prompt to English for better results."]);
+        } catch (error) {
+          console.error("Failed to translate to English:", error);
+        }
       }
-      
-      try {
-        const userId = await getUserId();
-        if (userId) {
-          await supabase.from('user_content_history').insert({
-            user_id: userId,
-            content_type: 'video',
-            content_url: result,
-            prompt: prompt,
-            is_public: isPublic,
-            metadata: {
-              source: 'aivideo',
-              image_url: imageUrl,
-              settings: {
-                motion,
-                duration: videoDuration,
-                imageAsEndFrame,
-                isPortrait,
-                model
-              }
-            }
+
+      const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
+        input: {
+          prompt: promptToUse,
+          image_url: imageUrl,
+          duration: "5",
+          aspect_ratio: aspectRatio as "16:9" | "9:16" | "1:1",
+          negative_prompt: negativePrompt,
+          cfg_scale: cfgScale,
+        },
+        logs: true,
+        onQueueUpdate: (update) => {
+          if (update.status === "IN_PROGRESS") {
+            const newLogs = update.logs.map(log => log.message);
+            setGenerationLogs(prev => [...prev, ...newLogs]);
+          }
+        },
+      });
+
+      if (result.data?.video?.url) {
+        const falVideoUrl = result.data.video.url;
+        setOriginalVideoUrl(falVideoUrl);
+        setVideoUrl(""); // Clear any existing URL
+
+        setIsStoringVideo(true);
+        try {
+          const userId = await getUserId();
+          const supabaseUrl = await uploadUrlToStorage(falVideoUrl, 'video', userId, isPublic);
+          setSupabaseVideoUrl(supabaseUrl);
+          setVideoUrl(supabaseUrl); // Set the Supabase URL as the video URL
+
+          await saveToHistory(supabaseUrl, falVideoUrl);
+
+          if (onVideoGenerated) {
+            onVideoGenerated(supabaseUrl);
+          }
+
+          toast({
+            title: "Video Stored",
+            description: "Video uploaded to your storage",
+          });
+        } catch (uploadError) {
+          console.error("Failed to upload to Supabase:", uploadError);
+          setVideoUrl(falVideoUrl);
+          
+          if (onVideoGenerated) {
+            onVideoGenerated(falVideoUrl);
+          }
+          
+          await saveToHistory(falVideoUrl, falVideoUrl);
+        } finally {
+          setIsStoringVideo(false);
+        }
+
+        if (await incrementVideoCount()) {
+          toast({
+            title: "Success",
+            description: "Video generated successfully!",
+          });
+          const freshCounts = await getRemainingCountsAsync();
+          setCounts(freshCounts);
+        } else {
+          toast({
+            title: "Usage Limit Reached",
+            description: "You've reached your video generation limit.",
+            variant: "destructive",
           });
         }
-      } catch (error) {
-        console.error("Error saving to history:", error);
+      } else {
+        throw new Error("No video URL in response");
       }
+    } catch (error) {
+      console.error("Failed to generate video:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate video. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  };
-
-  const handleImageUploaded = (imageUrl: string) => {
-    setImageUrl(imageUrl);
-  };
-
-  const openApiKeyManager = () => {
-    setIsMultiApiKeyManagerOpen(true);
   };
 
   return (
-    <div className="space-y-8">
+    <div className="grid gap-8 md:grid-cols-2">
       <Card className="overflow-hidden">
         <CardContent className="p-6">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center gap-2 mb-4">
             <h2 className="text-2xl font-bold">Image to Video</h2>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={openApiKeyManager}
-              className="flex items-center gap-2"
-            >
-              <Settings className="h-4 w-4" />
-              API Keys
-            </Button>
+            <ProLabel />
+            <KlingAILabel />
           </div>
-          
-          {error && (
-            <div className="mb-4 p-4 bg-red-100 border border-red-300 text-red-700 rounded-md">
-              {error}
-            </div>
+
+          {counts.remainingVideos <= 5 && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Usage Limit Warning</AlertTitle>
+              <AlertDescription>
+                You have {counts.remainingVideos} video generation{counts.remainingVideos === 1 ? '' : 's'} remaining.
+              </AlertDescription>
+            </Alert>
           )}
-          
+
           <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="image-upload">Upload or Select Image</Label>
-                  <div className="mt-2">
-                    {imageUrl ? (
-                      <div className="relative aspect-square rounded-md overflow-hidden bg-slate-100">
-                        <img
-                          src={imageUrl}
-                          alt="Uploaded"
-                          className="w-full h-full object-cover"
-                        />
-                        <Button 
-                          variant="secondary" 
-                          size="sm" 
-                          className="absolute top-2 right-2"
-                          onClick={() => setImageUrl(null)}
-                        >
-                          Replace
-                        </Button>
-                      </div>
-                    ) : (
-                      <ImageUploader onImageSelected={handleImageUploaded} />
-                    )}
-                  </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label htmlFor="prompt">Prompt</Label>
+                <Select
+                  value={selectedLanguage}
+                  onValueChange={(value: LanguageOption) => handleLanguageChange(value)}
+                  disabled={isTranslating}
+                >
+                  <SelectTrigger className="h-7 w-36">
+                    <Languages className="mr-2 h-4 w-4" />
+                    <SelectValue placeholder="Language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(LANGUAGES).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Textarea
+                id="prompt"
+                placeholder="Describe how you want the image to animate..."
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                className="min-h-[100px]"
+                disabled={isTranslating}
+              />
+            </div>
+
+            <ImageUploader
+              imagePreview={imagePreview}
+              setImagePreview={setImagePreview}
+              setImageUrl={setImageUrl}
+              isUploading={isUploading}
+              setIsUploading={setIsUploading}
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="duration">Duration</Label>
+                <div className="bg-slate-800/60 px-3 py-2 rounded-md border border-slate-700/50 text-slate-300">
+                  5 seconds
                 </div>
               </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="prompt">Text Prompt</Label>
-                  <Textarea
-                    id="prompt"
-                    placeholder="Describe the motion and scene for your video..."
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    className="min-h-[120px]"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="model">Model</Label>
-                  <Select 
-                    value={model}
-                    onValueChange={setModel}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select model" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="gen3">Gen3 (Higher Quality)</SelectItem>
-                      <SelectItem value="gen2">Gen2 (Faster)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label>Motion Intensity: {motion}</Label>
-                  <Slider 
-                    value={[motion]} 
-                    onValueChange={(values) => setMotion(values[0])} 
-                    min={1} 
-                    max={10} 
-                    step={1} 
-                    className="mt-2"
-                  />
-                </div>
-                
-                <div>
-                  <Label>Video Duration: {videoDuration}s</Label>
-                  <Slider 
-                    value={[videoDuration]} 
-                    onValueChange={(values) => setVideoDuration(values[0])} 
-                    min={model === "gen3" ? 5 : 4} 
-                    max={10} 
-                    step={model === "gen3" ? 5 : 1} 
-                    className="mt-2"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {model === "gen3" ? "Gen3 supports 5s or 10s duration" : "Gen2 supports 4-10s duration"}
-                  </p>
-                </div>
-                
-                <div className="flex items-center space-x-8">
-                  <div className="flex items-center space-x-2">
-                    <Switch 
-                      id="image-end-frame"
-                      checked={imageAsEndFrame}
-                      onCheckedChange={setImageAsEndFrame}
-                    />
-                    <Label htmlFor="image-end-frame">Use Image as End Frame</Label>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Switch 
-                      id="portrait-mode"
-                      checked={isPortrait}
-                      onCheckedChange={setIsPortrait}
-                    />
-                    <Label htmlFor="portrait-mode">Portrait Mode</Label>
-                  </div>
-                </div>
-                
-                <PublicPrivateToggle
-                  isPublic={isPublic}
-                  onChange={setIsPublic}
-                  disabled={isGenerating}
+
+              <div>
+                <Label htmlFor="aspectRatio">Aspect Ratio</Label>
+                <Select value={aspectRatio} onValueChange={setAspectRatio}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select aspect ratio" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="16:9">16:9</SelectItem>
+                    <SelectItem value="9:16">9:16</SelectItem>
+                    <SelectItem value="1:1">1:1</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="negativePrompt">Negative Prompt</Label>
+                <Textarea
+                  id="negativePrompt"
+                  placeholder="Enter negative prompt..."
+                  value={negativePrompt}
+                  onChange={(e) => setNegativePrompt(e.target.value)}
+                  className="min-h-[50px]"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="cfgScale">CFG Scale</Label>
+                <Slider
+                  value={[cfgScale]}
+                  min={0.1}
+                  max={1.0}
+                  step={0.1}
+                  onValueChange={(values) => setCfgScale(values[0])}
+                  className="py-2"
                 />
               </div>
             </div>
-            
-            <div className="pt-4">
-              <Button
-                onClick={handleGenerateVideo}
-                disabled={isGenerating || !imageUrl || !prompt.trim() || remainingVideos <= 0}
-                className="w-full"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating Video ({progress}%)
-                  </>
-                ) : (
-                  <>
-                    <Film className="mr-2 h-4 w-4" />
-                    Generate Video ({remainingVideos} remaining)
-                  </>
-                )}
-              </Button>
-            </div>
+
+            <PublicPrivateToggle
+              isPublic={isPublic}
+              onChange={setIsPublic}
+              disabled={isLoading}
+            />
+
+            <Button
+              onClick={generateVideo}
+              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || counts.remainingVideos <= 0}
+              className="w-full"
+            >
+              Generate Video
+            </Button>
+
+            {counts.remainingVideos > 0 && (
+              <p className="text-xs text-slate-500 text-center">
+                {counts.remainingVideos} of {VIDEO_LIMIT} video generations remaining
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
-      
-      {videoUrl && (
-        <Card>
+
+      <div className="space-y-8">
+        <Card className="overflow-hidden">
           <CardContent className="p-6">
-            <h3 className="text-xl font-bold mb-4">Generated Video</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Video Preview</h2>
+              {videoUrl && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => onSwitchToEditor && onSwitchToEditor(videoUrl)}
+                >
+                  Edit in Video Editor
+                </Button>
+              )}
+            </div>
             <VideoPreview
-              videoUrl={videoUrl}
-              isLoading={false}
-              generationLogs={[]}
+              videoUrl={supabaseVideoUrl || videoUrl}
+              isLoading={isLoading || isStoringVideo}
+              generationLogs={generationLogs}
               videoRef={videoRef}
               isPlaying={isPlaying}
               handlePlayPause={handlePlayPause}
+              isStoring={isStoringVideo}
             />
-            
-            <div className="mt-4">
-              <Button onClick={onSwitchToEditor} variant="outline" className="w-full">
-                Open in Video Editor
-              </Button>
-            </div>
           </CardContent>
         </Card>
-      )}
-      
-      <ApiKeyDialog 
-        isOpen={isApiKeyDialogOpen} 
-        onClose={() => setIsApiKeyDialogOpen(false)}
-        keyName="aiVideoApiKey"
-        title="AI Video API Key Required"
-        description="Please enter your AI Video API key to generate videos."
-        learnMoreLink="https://aivideoapi.readme.io/"
-      />
-      
-      <MultipleApiKeyManager
-        isOpen={isMultiApiKeyManagerOpen}
-        onClose={() => setIsMultiApiKeyManagerOpen(false)}
-        serviceName="AI Video"
-        storageKeyPrefix="aiVideoApiKey"
-        learnMoreLink="https://aivideoapi.readme.io/"
-      />
+      </div>
     </div>
   );
 };

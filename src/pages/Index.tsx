@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,7 +9,6 @@ import { getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT }
 import { Card, CardContent } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AIAssistant } from "@/components/AIAssistant";
-import VideoEditor from "@/components/VideoEditor";
 
 interface SelectedContent {
   url: string;
@@ -100,7 +98,7 @@ const Index = () => {
           className="w-full"
           onValueChange={(value) => setActiveTab(value)}
         >
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md rounded-xl overflow-x-auto">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md rounded-xl overflow-x-auto">
             <TabsTrigger 
               value="text-to-image" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
@@ -123,7 +121,25 @@ const Index = () => {
               value="video-editor" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
-              {isMobile ? "Editor" : "Video Editor"}
+              {isMobile ? "Merge Videos" : "Video Merger"}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="image-playground" 
+              className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
+            >
+              {isMobile ? "Free Image" : "Free Image"}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="video-playground" 
+              className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
+            >
+              {isMobile ? "Free Video" : "Free Video"}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="ai-voice" 
+              className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
+            >
+              {isMobile ? "AI Voice" : "AI Voice"}
             </TabsTrigger>
           </TabsList>
           
@@ -144,7 +160,75 @@ const Index = () => {
           </TabsContent>
           
           <TabsContent value="video-editor" className="mt-0">
-            <VideoEditor generatedVideoUrl={generatedVideoUrl} />
+            <Card className="border-0 shadow-lg glass-morphism overflow-hidden">
+              <CardContent className="p-0">
+                <div className="w-full overflow-hidden rounded-lg">
+                  <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
+                    <iframe
+                      src="https://ezgif.com/merge-videos"
+                      title="Video Merger"
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="image-playground" className="mt-0">
+            <Card className="border-0 shadow-lg glass-morphism overflow-hidden">
+              <CardContent className="p-0">
+                <div className="w-full overflow-hidden rounded-lg">
+                  <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
+                    <iframe
+                      src="https://waloneai-zerocodewl.hf.space"
+                      title="Image Playground"
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="video-playground" className="mt-0">
+            <Card className="border-0 shadow-lg glass-morphism overflow-hidden">
+              <CardContent className="p-0">
+                <div className="w-full overflow-hidden rounded-lg">
+                  <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
+                    <iframe
+                      src="https://alibaba-pai-easyanimate.hf.space"
+                      title="Video Playground"
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="ai-voice" className="mt-0">
+            <Card className="border-0 shadow-lg glass-morphism overflow-hidden">
+              <CardContent className="p-0">
+                <div className="w-full overflow-hidden rounded-lg">
+                  <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
+                    <iframe
+                      src="https://waloneai-wl-tts-text-to-speech.hf.space/"
+                      title="AI Voice Generator"
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>
