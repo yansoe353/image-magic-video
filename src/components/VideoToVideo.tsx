@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,16 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Music, Upload, Video } from "lucide-react";
+import { Loader2, Upload, Video } from "lucide-react";
 import VideoPreview from "@/components/VideoPreview";
 import { useVideoControls } from "@/hooks/useVideoControls";
-import VideoUploader from "@/components/VideoUploader";
-import { falClient, type VideoClip } from "@/hooks/useFalClient";
+import { fal } from "@fal-ai/client";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { incrementVideoCount } from "@/utils/usageTracker";
 import { cn } from "@/lib/utils";
-import { v4 as uuidv4 } from "uuid";
 
 const VideoToVideo = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -27,6 +24,8 @@ const VideoToVideo = () => {
   const [generationLogs, setGenerationLogs] = useState<string[]>([]);
   const [progress, setProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [requestId, setRequestId] = useState<string | null>(null);
   const [config, setConfig] = useState({
     numSteps: 25,
     duration: 8,
@@ -39,20 +38,14 @@ const VideoToVideo = () => {
   const { toast } = useToast();
   const videoInputRef = useRef<HTMLInputElement>(null);
   
-  const handleVideoUpload = (clip: VideoClip) => {
-    setVideoUrl(clip.url);
-    toast({
-      title: "Video uploaded",
-      description: "Your video has been uploaded successfully.",
-    });
-  };
-  
   const handleFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    setError(null);
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
       if (!file.type.startsWith("video/")) {
+        setError("Invalid file type. Please upload a video file.");
         toast({
           title: "Invalid file type",
           description: "Please upload a video file.",
@@ -67,35 +60,112 @@ const VideoToVideo = () => {
   };
   
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
+      if (!file.type.startsWith("video/")) {
+        setError("Invalid file type. Please upload a video file.");
+        return;
+      }
       setVideoFile(file);
       setVideoUrl(URL.createObjectURL(file));
     }
   };
   
+  const checkRequestStatus = async (requestId: string) => {
+    try {
+      const status = await fal.queue.status("fal-ai/mmaudio-v2", {
+        requestId,
+        logs: true,
+      });
+      
+      if (status.logs) {
+        const newLogs = status.logs.map(log => log.message);
+        setGenerationLogs(prev => [...prev, ...newLogs.filter(log => !prev.includes(log))]);
+      }
+      
+      if (status.status === "COMPLETED") {
+        const result = await fal.queue.result("fal-ai/mmaudio-v2", { requestId });
+        if (result.data?.video?.url) {
+          handleGenerationSuccess(result.data.video.url);
+        } else {
+          throw new Error("No video URL in response");
+        }
+      } else if (status.status === "FAILED") {
+        throw new Error("Video generation failed");
+      } else {
+        // Still in progress, check again after delay
+        setTimeout(() => checkRequestStatus(requestId), 2000);
+      }
+    } catch (error) {
+      handleGenerationError(error);
+    }
+  };
+  
+  const handleGenerationSuccess = async (resultUrl: string) => {
+    setGeneratedVideoUrl(resultUrl);
+    setProgress(100);
+    
+    // Store video generation history in Supabase if user is logged in
+    const userId = await getUserId();
+    if (userId) {
+      await supabase.from('user_content_history').insert({
+        user_id: userId,
+        content_type: 'video',
+        content_url: resultUrl,
+        prompt: prompt,
+        metadata: {
+          model: 'fal-ai/mmaudio-v2',
+          config: {
+            ...config,
+            negative_prompt: negativePrompt,
+          }
+        }
+      });
+    }
+    
+    // Update usage count
+    await incrementVideoCount();
+    
+    toast({
+      title: "Success",
+      description: "Video generated successfully!",
+    });
+    
+    setIsGenerating(false);
+  };
+  
+  const handleGenerationError = (error: any) => {
+    console.error("Video generation failed:", error);
+    const errorMessage = error.message || "Failed to generate video. Please try again.";
+    setError(errorMessage);
+    setGenerationLogs(prev => [...prev, `Error: ${errorMessage}`]);
+    
+    toast({
+      title: "Error",
+      description: errorMessage,
+      variant: "destructive",
+    });
+    
+    setIsGenerating(false);
+  };
+  
   const handleGenerateVideo = async () => {
     if (!videoUrl) {
-      toast({
-        title: "Missing video",
-        description: "Please upload a video first.",
-        variant: "destructive",
-      });
+      setError("Please upload a video first.");
       return;
     }
     
     if (!prompt) {
-      toast({
-        title: "Missing prompt",
-        description: "Please enter a prompt for the audio generation.",
-        variant: "destructive",
-      });
+      setError("Please enter a prompt for the video generation.");
       return;
     }
     
     setIsGenerating(true);
+    setError(null);
     setGenerationLogs([]);
     setProgress(0);
+    setRequestId(null);
     
     try {
       // Upload video file if we have a local file
@@ -106,7 +176,7 @@ const VideoToVideo = () => {
         setIsUploading(true);
         
         try {
-          uploadedVideoUrl = await falClient.storage.upload(videoFile);
+          uploadedVideoUrl = await fal.storage.upload(videoFile);
           setGenerationLogs(prev => [...prev, "Video uploaded successfully."]);
         } catch (error) {
           console.error("Error uploading video:", error);
@@ -116,7 +186,7 @@ const VideoToVideo = () => {
         }
       }
       
-      setGenerationLogs(prev => [...prev, "Starting audio generation with fal.ai..."]);
+      setGenerationLogs(prev => [...prev, "Starting video generation with fal.ai..."]);
       setProgress(10);
       
       // Prepare input for the model
@@ -135,7 +205,7 @@ const VideoToVideo = () => {
       setProgress(20);
       
       // Submit request to fal.ai
-      const result = await falClient.subscribe("fal-ai/mmaudio-v2", {
+      const result = await fal.subscribe("fal-ai/mmaudio-v2", {
         input: modelInput,
         logs: true,
         onQueueUpdate: (update) => {
@@ -153,53 +223,15 @@ const VideoToVideo = () => {
         },
       });
       
-      setProgress(90);
-      setGenerationLogs(prev => [...prev, "Video generation completed successfully!"]);
+      setRequestId(result.requestId);
       
       if (result.data?.video?.url) {
-        setGeneratedVideoUrl(result.data.video.url);
-        
-        // Store video generation history in Supabase if user is logged in
-        const userId = await getUserId();
-        if (userId) {
-          await supabase.from('user_content_history').insert({
-            user_id: userId,
-            content_type: 'video',
-            content_url: result.data.video.url,
-            prompt: prompt,
-            metadata: {
-              model: 'fal-ai/mmaudio-v2',
-              config: {
-                ...config,
-                negative_prompt: negativePrompt,
-              }
-            }
-          });
-        }
-        
-        // Update usage count
-        await incrementVideoCount();
-        
-        toast({
-          title: "Success",
-          description: "Video with audio generated successfully!",
-        });
+        await handleGenerationSuccess(result.data.video.url);
       } else {
         throw new Error("No video URL in response");
       }
-      
-      setProgress(100);
     } catch (error: any) {
-      console.error("Video generation failed:", error);
-      setGenerationLogs(prev => [...prev, `Error: ${error.message || "Unknown error occurred"}`]);
-      
-      toast({
-        title: "Error",
-        description: error.message || "Failed to generate video. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGenerating(false);
+      handleGenerationError(error);
     }
   };
   
@@ -219,9 +251,15 @@ const VideoToVideo = () => {
       <Card>
         <CardContent className="p-6">
           <h2 className="text-2xl font-bold mb-4 flex items-center">
-            <Music className="mr-2 h-6 w-6" />
-            Video to Video with Audio
+            <Video className="mr-2 h-6 w-6" />
+            Video to Video Generation
           </h2>
+          
+          {error && (
+            <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+              {error}
+            </div>
+          )}
           
           <div className="space-y-4">
             <div className="space-y-2">
@@ -272,16 +310,16 @@ const VideoToVideo = () => {
             </div>
             
             <div>
-              <Label htmlFor="prompt">Audio Prompt</Label>
+              <Label htmlFor="prompt">Video Prompt</Label>
               <Input
                 id="prompt"
-                placeholder="e.g., 'Indian holy music', 'Jazz piano solo', 'Epic orchestral soundtrack'"
+                placeholder="e.g., 'A futuristic cityscape', 'Anime style animation', 'Watercolor painting coming to life'"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 className="mb-2"
               />
               <p className="text-xs text-slate-500">
-                Describe the audio you want to generate for the video
+                Describe the video style you want to generate
               </p>
             </div>
             
@@ -289,13 +327,13 @@ const VideoToVideo = () => {
               <Label htmlFor="negativePrompt">Negative Prompt (Optional)</Label>
               <Input
                 id="negativePrompt"
-                placeholder="e.g., 'scratchy', 'distorted', 'loud'"
+                placeholder="e.g., 'blurry', 'low quality', 'distorted'"
                 value={negativePrompt}
                 onChange={(e) => setNegativePrompt(e.target.value)}
                 className="mb-2"
               />
               <p className="text-xs text-slate-500">
-                Describe what you want to avoid in the generated audio
+                Describe what you want to avoid in the generated video
               </p>
             </div>
             
@@ -328,7 +366,7 @@ const VideoToVideo = () => {
                   className="my-2"
                 />
                 <p className="text-xs text-slate-500">
-                  How long the generated audio should be (in seconds)
+                  How long the generated video should be (in seconds)
                 </p>
               </div>
               
@@ -378,7 +416,7 @@ const VideoToVideo = () => {
                   onChange={(e) => handleConfigChange('maskAwayClip', e.target.checked)}
                   className="h-4 w-4"
                 />
-                <Label htmlFor="maskAwayClip">Mask Away Original Audio</Label>
+                <Label htmlFor="maskAwayClip">Mask Away Original Content</Label>
               </div>
             </div>
             
@@ -390,12 +428,12 @@ const VideoToVideo = () => {
               {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating Audio for Video...
+                  Generating Video...
                 </>
               ) : (
                 <>
-                  <Music className="mr-2 h-4 w-4" />
-                  Generate Audio for Video
+                  <Video className="mr-2 h-4 w-4" />
+                  Generate Video
                 </>
               )}
             </Button>
@@ -419,7 +457,7 @@ const VideoToVideo = () => {
                   />
                 </div>
                 <p className="text-sm text-slate-600">
-                  {isUploading ? "Uploading video..." : "Generating audio..."}
+                  {isUploading ? "Uploading video..." : "Generating video..."}
                 </p>
                 
                 <div className="mt-4 p-4 bg-slate-100 rounded-lg max-h-40 overflow-y-auto">
