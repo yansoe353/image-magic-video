@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,9 +20,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 
 interface ImageToVideoProps {
-  initialImageUrl: string | null;
-  onVideoGenerated: (videoUrl: string) => void;
-  onSwitchToEditor: () => void;
+  initialImageUrl?: string | null;
+  onVideoGenerated?: (videoUrl: string) => void;
+  onSwitchToEditor?: () => void;
 }
 
 const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: ImageToVideoProps) => {
@@ -41,7 +40,6 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
   
-  // Remaining count
   const counts = getRemainingCounts();
   const remainingVideos = counts.remainingVideos;
   
@@ -92,7 +90,6 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
     if (result) {
       onVideoGenerated(result);
       
-      // Save to history if user is logged in
       try {
         const userId = await getUserId();
         if (userId) {
@@ -160,7 +157,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
                         </Button>
                       </div>
                     ) : (
-                      <ImageUploader onImageUploaded={handleImageUploaded} />
+                      <ImageUploader onImageSelected={handleImageUploaded} />
                     )}
                   </div>
                 </div>
