@@ -13,6 +13,7 @@ interface ImageUploaderProps {
   setImageUrl: (url: string) => void;
   isUploading: boolean;
   setIsUploading: (value: boolean) => void;
+  onImageSelected?: (imageUrl: string) => void;
 }
 
 const ImageUploader = ({
@@ -20,7 +21,8 @@ const ImageUploader = ({
   setImagePreview,
   setImageUrl,
   isUploading,
-  setIsUploading
+  setIsUploading,
+  onImageSelected
 }: ImageUploaderProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -42,6 +44,11 @@ const ImageUploader = ({
 
       const uploadedUrl = await fal.storage.upload(file);
       setImageUrl(uploadedUrl);
+      
+      // Call the onImageSelected callback if provided
+      if (onImageSelected) {
+        onImageSelected(uploadedUrl);
+      }
       
       toast({
         title: "Success",
