@@ -52,7 +52,6 @@ const RunwayVideo = () => {
       const keyName = `Key ${apiKeyList.length + 1}`;
       const newKeyItem = { key: apiKey, name: keyName };
       
-      // Update the current API key list
       const newApiKeyList = [...apiKeyList];
       if (!apiKeyList.some(item => item.key === apiKey)) {
         newApiKeyList.push(newKeyItem);
@@ -97,9 +96,7 @@ const RunwayVideo = () => {
       setApiKeyList(newApiKeyList);
       localStorage.setItem("aiVideoApiKeyList", JSON.stringify(newApiKeyList));
       
-      // If we removed the currently selected key
       if (selectedApiKey === indexToRemove) {
-        // Select the first available key or clear if none left
         if (newApiKeyList.length > 0) {
           setApiKey(newApiKeyList[0].key);
           setSelectedApiKey(0);
@@ -110,7 +107,6 @@ const RunwayVideo = () => {
           localStorage.removeItem("aiVideoApiKey");
         }
       } else if (selectedApiKey > indexToRemove) {
-        // Adjust selected index if we removed a key before the selected one
         setSelectedApiKey(selectedApiKey - 1);
       }
       
@@ -156,7 +152,7 @@ const RunwayVideo = () => {
     try {
       setGenerationLogs(prev => [...prev, "Starting video generation with Runway..."]);
       
-      // Prepare request body according to API documentation
+      // Prepare request body
       const requestBody = {
         image_url: imageUrl,
         description: prompt,
@@ -167,18 +163,25 @@ const RunwayVideo = () => {
       };
 
       setGenerationLogs(prev => [...prev, "Sending request to Runway API..."]);
-      
+
+      // Add timeout to the fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
+
       const response = await fetch("https://aivideoapi.com/api/v1/runway/generate/imagedescription", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${apiKey}`
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || `API error: ${response.statusText}`);
       }
 
@@ -192,7 +195,7 @@ const RunwayVideo = () => {
       }
       setGeneratedVideoUrl(videoUrl);
 
-      // Store video generation history in Supabase if user is logged in
+      // Store video generation history in Supabase
       const userId = await getUserId();
       if (userId) {
         await supabase.from('user_content_history').insert({
@@ -218,9 +221,12 @@ const RunwayVideo = () => {
       });
     } catch (error: any) {
       console.error("Video generation failed:", error);
-      setGenerationLogs(prev => [...prev, `Error: ${error.message}`]);
+      const errorMessage = error.name === "AbortError" 
+        ? "Request timed out. Please try again." 
+        : error.message || "Failed to fetch. Check your network connection.";
       
-      // Try with a different API key if available
+      setGenerationLogs(prev => [...prev, `Error: ${errorMessage}`]);
+      
       if (apiKeyList.length > 1) {
         const nextKeyIndex = (selectedApiKey + 1) % apiKeyList.length;
         setGenerationLogs(prev => [...prev, `Trying with ${apiKeyList[nextKeyIndex].name}...`]);
@@ -234,7 +240,7 @@ const RunwayVideo = () => {
       } else {
         toast({
           title: "Error",
-          description: error.message || "Failed to generate video. Please try again.",
+          description: errorMessage,
           variant: "destructive",
         });
       }
