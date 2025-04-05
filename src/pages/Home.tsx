@@ -84,9 +84,9 @@ const Home = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
-                      <span className="text-slate-300 text-sm">AI-Audio Generation</span>
+                      <span className="text-slate-300 text-sm">AI-Video Generation</span>
                     </div>
-                    <span className="text-slate-400 text-xs">fal.ai powered</span>
+                    <span className="text-slate-400 text-xs">Made in Myanmar</span>
                   </div>
                 </div>
               </div>
