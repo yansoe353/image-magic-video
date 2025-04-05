@@ -53,8 +53,8 @@ const Home = () => {
                 </div>
                 <h2 className="text-3xl md:text-4xl font-bold text-white">AI Video Service</h2>
                 <p className="text-slate-300">
-                  Transform any video with AI-powered audio generation. Add compelling soundtracks, voice narrations, 
-                  or sound effects to your videos with our cutting-edge technology powered by fal.ai.
+                  Transform any image to video. Add compelling soundtracks, voice narrations, 
+                  or sound effects to your videos with our cutting-edge technology powered by Infinity Tech.
                 </p>
                 <div className="flex flex-wrap gap-4">
                   <div className="flex items-center gap-2">
@@ -72,7 +72,7 @@ const Home = () => {
                 </div>
                 <Link to="/create">
                   <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white">
-                    Try Video to Audio
+                    Try Image to Video
                   </Button>
                 </Link>
               </div>
