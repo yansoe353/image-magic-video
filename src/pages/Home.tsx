@@ -72,7 +72,7 @@ const Home = () => {
                 </div>
                 <Link to="/create">
                   <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white">
-                    Try Image to Video
+                    Start Creations
                   </Button>
                 </Link>
               </div>
