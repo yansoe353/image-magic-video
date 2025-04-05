@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,7 +12,12 @@ import { Loader2, Film } from "lucide-react";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
-import { incrementVideoCount, getRemainingCountsAsync } from "@/utils/usageTracker";
+import { incrementVideoCount } from "@/utils/usageTracker";
+
+interface ApiKeyListItem {
+  key: string;
+  name: string;
+}
 
 const RunwayVideo = () => {
   const [prompt, setPrompt] = useState("");
@@ -25,10 +29,16 @@ const RunwayVideo = () => {
   const [isPublic, setIsPublic] = useState(false);
   const [generationLogs, setGenerationLogs] = useState<string[]>([]);
   const [apiKey, setApiKey] = useState(localStorage.getItem("aiVideoApiKey") || "");
-  const [apiKeyList, setApiKeyList] = useState<string[]>(
+  const [apiKeyList, setApiKeyList] = useState<ApiKeyListItem[]>(
     JSON.parse(localStorage.getItem("aiVideoApiKeyList") || "[]")
   );
   const [selectedApiKey, setSelectedApiKey] = useState(0);
+  const [videoConfig, setVideoConfig] = useState({
+    seed: Math.floor(Math.random() * 10000),
+    cfgScale: 10,
+    steps: 30,
+    interpolation: true,
+  });
   
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
@@ -39,17 +49,20 @@ const RunwayVideo = () => {
 
   const saveApiKey = () => {
     if (apiKey) {
+      const keyName = `Key ${apiKeyList.length + 1}`;
+      const newKeyItem = { key: apiKey, name: keyName };
+      
       // Update the current API key list
       const newApiKeyList = [...apiKeyList];
-      if (!apiKeyList.includes(apiKey)) {
-        newApiKeyList.push(apiKey);
+      if (!apiKeyList.some(item => item.key === apiKey)) {
+        newApiKeyList.push(newKeyItem);
       }
       
       localStorage.setItem("aiVideoApiKey", apiKey);
       localStorage.setItem("aiVideoApiKeyList", JSON.stringify(newApiKeyList));
       
       setApiKeyList(newApiKeyList);
-      setSelectedApiKey(newApiKeyList.indexOf(apiKey));
+      setSelectedApiKey(newApiKeyList.findIndex(item => item.key === apiKey));
       
       toast({
         title: "API Key Saved",
@@ -66,14 +79,14 @@ const RunwayVideo = () => {
 
   const selectApiKey = (index: number) => {
     if (index >= 0 && index < apiKeyList.length) {
-      const selectedKey = apiKeyList[index];
+      const selectedKey = apiKeyList[index].key;
       setApiKey(selectedKey);
       setSelectedApiKey(index);
       localStorage.setItem("aiVideoApiKey", selectedKey);
       
       toast({
         title: "API Key Selected",
-        description: `API Key ${index + 1} is now active.`,
+        description: `${apiKeyList[index].name} is now active.`,
       });
     }
   };
@@ -88,9 +101,9 @@ const RunwayVideo = () => {
       if (selectedApiKey === indexToRemove) {
         // Select the first available key or clear if none left
         if (newApiKeyList.length > 0) {
-          setApiKey(newApiKeyList[0]);
+          setApiKey(newApiKeyList[0].key);
           setSelectedApiKey(0);
-          localStorage.setItem("aiVideoApiKey", newApiKeyList[0]);
+          localStorage.setItem("aiVideoApiKey", newApiKeyList[0].key);
         } else {
           setApiKey("");
           setSelectedApiKey(-1);
@@ -103,7 +116,7 @@ const RunwayVideo = () => {
       
       toast({
         title: "API Key Removed",
-        description: `API Key ${indexToRemove + 1} has been removed.`,
+        description: `${apiKeyList[indexToRemove].name} has been removed.`,
       });
     }
   };
@@ -143,18 +156,19 @@ const RunwayVideo = () => {
     try {
       setGenerationLogs(prev => [...prev, "Starting video generation with Runway..."]);
       
-      // Prepare request body
+      // Prepare request body according to API documentation
       const requestBody = {
-        prompt,
         image_url: imageUrl,
-        mode: "standard",
-        aspect_ratio: "1:1"
+        description: prompt,
+        seed: videoConfig.seed,
+        cfg_scale: videoConfig.cfgScale,
+        steps: videoConfig.steps,
+        interpolation: videoConfig.interpolation,
       };
 
-      setGenerationLogs(prev => [...prev, "Sending request to Runway API via aiVideoApi..."]);
+      setGenerationLogs(prev => [...prev, "Sending request to Runway API..."]);
       
-      // Make API request to Runway through aiVideoApi
-      const response = await fetch("https://aivideoapi.com/runway/generate/image-description", {
+      const response = await fetch("https://aivideoapi.com/api/v1/runway/generate/imagedescription", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -165,14 +179,17 @@ const RunwayVideo = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(`API error: ${errorData.message || response.statusText}`);
+        throw new Error(errorData.message || `API error: ${response.statusText}`);
       }
 
       const data = await response.json();
       setGenerationLogs(prev => [...prev, "Video generation successful!"]);
       
       // Extract video URL from response
-      const videoUrl = data.output;
+      const videoUrl = data.output?.url || data.url || data.video_url;
+      if (!videoUrl) {
+        throw new Error("No video URL found in response");
+      }
       setGeneratedVideoUrl(videoUrl);
 
       // Store video generation history in Supabase if user is logged in
@@ -186,7 +203,8 @@ const RunwayVideo = () => {
           is_public: isPublic,
           metadata: {
             source: 'runway',
-            image_url: imageUrl
+            image_url: imageUrl,
+            config: videoConfig
           }
         });
       }
@@ -198,20 +216,20 @@ const RunwayVideo = () => {
         title: "Success",
         description: "Video generated successfully",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Video generation failed:", error);
       setGenerationLogs(prev => [...prev, `Error: ${error.message}`]);
       
       // Try with a different API key if available
       if (apiKeyList.length > 1) {
         const nextKeyIndex = (selectedApiKey + 1) % apiKeyList.length;
-        setGenerationLogs(prev => [...prev, `Trying with API Key ${nextKeyIndex + 1}...`]);
+        setGenerationLogs(prev => [...prev, `Trying with ${apiKeyList[nextKeyIndex].name}...`]);
         
         selectApiKey(nextKeyIndex);
         
         toast({
           title: "Trying different API key",
-          description: `Switched to API Key ${nextKeyIndex + 1} after error`,
+          description: `Switched to ${apiKeyList[nextKeyIndex].name} after error`,
         });
       } else {
         toast({
@@ -223,6 +241,13 @@ const RunwayVideo = () => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleConfigChange = (key: keyof typeof videoConfig, value: any) => {
+    setVideoConfig(prev => ({
+      ...prev,
+      [key]: value
+    }));
   };
 
   return (
@@ -238,15 +263,17 @@ const RunwayVideo = () => {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <Label htmlFor="apiKey">AI Video API Key</Label>
-                <div className="flex gap-2">
-                  {apiKeyList.map((_, index) => (
+                <div className="flex gap-2 flex-wrap">
+                  {apiKeyList.map((item, index) => (
                     <Button 
                       key={index}
                       variant={selectedApiKey === index ? "default" : "outline"}
                       size="sm"
                       onClick={() => selectApiKey(index)}
+                      className="truncate max-w-[100px]"
+                      title={item.name}
                     >
-                      Key {index + 1}
+                      {item.name}
                     </Button>
                   ))}
                   {selectedApiKey !== -1 && apiKeyList.length > 0 && (
@@ -288,7 +315,7 @@ const RunwayVideo = () => {
             </div>
 
             <div>
-              <Label htmlFor="prompt">Video Prompt</Label>
+              <Label htmlFor="prompt">Video Description</Label>
               <Textarea
                 id="prompt"
                 placeholder="Describe how the image should animate..."
@@ -296,6 +323,50 @@ const RunwayVideo = () => {
                 onChange={(e) => setPrompt(e.target.value)}
                 className="min-h-[100px]"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="seed">Seed</Label>
+                <Input
+                  id="seed"
+                  type="number"
+                  value={videoConfig.seed}
+                  onChange={(e) => handleConfigChange('seed', parseInt(e.target.value))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="cfgScale">CFG Scale (1-20)</Label>
+                <Input
+                  id="cfgScale"
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={videoConfig.cfgScale}
+                  onChange={(e) => handleConfigChange('cfgScale', parseInt(e.target.value))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="steps">Steps (10-50)</Label>
+                <Input
+                  id="steps"
+                  type="number"
+                  min="10"
+                  max="50"
+                  value={videoConfig.steps}
+                  onChange={(e) => handleConfigChange('steps', parseInt(e.target.value))}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="interpolation"
+                  type="checkbox"
+                  checked={videoConfig.interpolation}
+                  onChange={(e) => handleConfigChange('interpolation', e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="interpolation">Interpolation</Label>
+              </div>
             </div>
 
             <PublicPrivateToggle
