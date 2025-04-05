@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ImageIcon, BookOpen } from "lucide-react";
+import { ImageIcon, BookOpen, Video, Music, Film } from "lucide-react";
 
 const Home = () => {
   return (
@@ -43,6 +43,57 @@ const Home = () => {
           </div>
         </section>
         
+        {/* Featured Service */}
+        <section className="py-16 bg-gradient-to-r from-purple-900/50 to-blue-900/50">
+          <div className="container max-w-6xl mx-auto px-4">
+            <div className="grid md:grid-cols-2 gap-8 items-center">
+              <div className="space-y-6">
+                <div className="inline-block bg-gradient-to-r from-purple-500 to-blue-500 px-4 py-1 rounded-full text-white text-sm font-medium">
+                  NEW SERVICE
+                </div>
+                <h2 className="text-3xl md:text-4xl font-bold text-white">AI Video Service</h2>
+                <p className="text-slate-300">
+                  Transform any video with AI-powered audio generation. Add compelling soundtracks, voice narrations, 
+                  or sound effects to your videos with our cutting-edge technology powered by fal.ai.
+                </p>
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-full bg-purple-700/30 flex items-center justify-center">
+                      <Music className="h-5 w-5 text-purple-300" />
+                    </div>
+                    <span className="text-slate-300">Custom Audio</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-full bg-blue-700/30 flex items-center justify-center">
+                      <Film className="h-5 w-5 text-blue-300" />
+                    </div>
+                    <span className="text-slate-300">Professional Results</span>
+                  </div>
+                </div>
+                <Link to="/create">
+                  <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white">
+                    Try Video to Audio
+                  </Button>
+                </Link>
+              </div>
+              <div className="rounded-lg overflow-hidden shadow-2xl border border-purple-500/20">
+                <div className="aspect-video bg-gradient-to-br from-purple-900 to-blue-800 flex items-center justify-center">
+                  <Video className="h-20 w-20 text-white opacity-80" />
+                </div>
+                <div className="bg-slate-900 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
+                      <span className="text-slate-300 text-sm">AI-Audio Generation</span>
+                    </div>
+                    <span className="text-slate-400 text-xs">fal.ai powered</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        
         <section className="container max-w-7xl mx-auto px-4 py-16 md:py-24">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white mb-4">
@@ -67,10 +118,10 @@ const Home = () => {
               link="/create"
             />
             <FeatureCard
-              title="AI Video Editor"
-              description="Edit and enhance your videos with AI-powered tools."
-              icon="edit"
-              link="/create"
+              title="Video to Audio"
+              description="Add AI-generated audio to your videos."
+              icon="music"
+              link="/create?tab=video-to-video"
             />
             
             <FeatureCard
@@ -78,6 +129,13 @@ const Home = () => {
               description="Turn your story ideas into complete videos with AI-generated scenes."
               icon="book"
               link="/create?tab=story-to-video"
+            />
+            
+            <FeatureCard
+              title="AI Video Editor"
+              description="Edit and enhance your videos with AI-powered tools."
+              icon="edit"
+              link="/create"
             />
             
             <Card className="bg-slate-900/50 border-slate-700 hover:border-brand-600 transition-colors">

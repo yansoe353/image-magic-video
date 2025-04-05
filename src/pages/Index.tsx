@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TextToImage from "@/components/TextToImage";
 import ImageToVideo from "@/components/ImageToVideo";
 import StoryToVideo from "@/components/StoryToVideo";
-import RunwayVideo from "@/components/RunwayVideo";
+import VideoToVideo from "@/components/VideoToVideo";
 import Header from "@/components/Header";
 import { getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
 import { Card, CardContent } from "@/components/ui/card";
@@ -120,10 +120,10 @@ const Index = () => {
               {isMobile ? "Story→Video" : "Story to Video"}
             </TabsTrigger>
             <TabsTrigger 
-              value="runway-video" 
+              value="video-to-video" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
-              {isMobile ? "Runway" : "Runway Video"}
+              {isMobile ? "Video→Audio" : "Video to Audio"}
             </TabsTrigger>
             <TabsTrigger 
               value="video-editor" 
@@ -167,8 +167,8 @@ const Index = () => {
             <StoryToVideo />
           </TabsContent>
 
-          <TabsContent value="runway-video" className="mt-0">
-            <RunwayVideo />
+          <TabsContent value="video-to-video" className="mt-0">
+            <VideoToVideo />
           </TabsContent>
           
           <TabsContent value="video-editor" className="mt-0">

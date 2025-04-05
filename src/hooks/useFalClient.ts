@@ -24,4 +24,36 @@ export type EffectType =
 // Define aspect ratio enum
 export type AspectRatio = "16:9" | "9:16" | "1:1";
 
+// Define Video Clip interface
+export interface VideoClip {
+  id: string;
+  url: string;
+  name: string;
+  duration?: number;
+  startTime?: number;
+  endTime?: number;
+}
+
+// Define MMAudio input interface
+export interface MMAudioInput {
+  video_url: string;
+  prompt: string;
+  negative_prompt?: string;
+  seed?: number;
+  num_steps?: number;
+  duration?: number;
+  cfg_strength?: number;
+  mask_away_clip?: boolean;
+}
+
+// Define MMAudio output interface
+export interface MMAudioOutput {
+  video: {
+    url: string;
+    file_name: string;
+    file_size: number;
+    content_type: string;
+  };
+}
+
 export const falClient = fal;
