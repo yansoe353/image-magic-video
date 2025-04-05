@@ -24,23 +24,89 @@ const RunwayVideo = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
   const [generationLogs, setGenerationLogs] = useState<string[]>([]);
-  const [apiKey, setApiKey] = useState("");
+  const [apiKey, setApiKey] = useState(localStorage.getItem("aiVideoApiKey") || "");
+  const [apiKeyList, setApiKeyList] = useState<string[]>(
+    JSON.parse(localStorage.getItem("aiVideoApiKeyList") || "[]")
+  );
+  const [selectedApiKey, setSelectedApiKey] = useState(0);
   
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
   
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setApiKey(e.target.value);
-    localStorage.setItem("runwayApiKey", e.target.value);
   };
 
-  // Load saved API key on component mount
-  useState(() => {
-    const savedKey = localStorage.getItem("runwayApiKey");
-    if (savedKey) {
-      setApiKey(savedKey);
+  const saveApiKey = () => {
+    if (apiKey) {
+      // Update the current API key list
+      const newApiKeyList = [...apiKeyList];
+      if (!apiKeyList.includes(apiKey)) {
+        newApiKeyList.push(apiKey);
+      }
+      
+      localStorage.setItem("aiVideoApiKey", apiKey);
+      localStorage.setItem("aiVideoApiKeyList", JSON.stringify(newApiKeyList));
+      
+      setApiKeyList(newApiKeyList);
+      setSelectedApiKey(newApiKeyList.indexOf(apiKey));
+      
+      toast({
+        title: "API Key Saved",
+        description: "Your API key has been saved successfully.",
+      });
+    } else {
+      toast({
+        title: "Empty API Key",
+        description: "Please enter a valid API key.",
+        variant: "destructive",
+      });
     }
-  });
+  };
+
+  const selectApiKey = (index: number) => {
+    if (index >= 0 && index < apiKeyList.length) {
+      const selectedKey = apiKeyList[index];
+      setApiKey(selectedKey);
+      setSelectedApiKey(index);
+      localStorage.setItem("aiVideoApiKey", selectedKey);
+      
+      toast({
+        title: "API Key Selected",
+        description: `API Key ${index + 1} is now active.`,
+      });
+    }
+  };
+
+  const removeApiKey = (indexToRemove: number) => {
+    if (indexToRemove >= 0 && indexToRemove < apiKeyList.length) {
+      const newApiKeyList = apiKeyList.filter((_, index) => index !== indexToRemove);
+      setApiKeyList(newApiKeyList);
+      localStorage.setItem("aiVideoApiKeyList", JSON.stringify(newApiKeyList));
+      
+      // If we removed the currently selected key
+      if (selectedApiKey === indexToRemove) {
+        // Select the first available key or clear if none left
+        if (newApiKeyList.length > 0) {
+          setApiKey(newApiKeyList[0]);
+          setSelectedApiKey(0);
+          localStorage.setItem("aiVideoApiKey", newApiKeyList[0]);
+        } else {
+          setApiKey("");
+          setSelectedApiKey(-1);
+          localStorage.removeItem("aiVideoApiKey");
+        }
+      } else if (selectedApiKey > indexToRemove) {
+        // Adjust selected index if we removed a key before the selected one
+        setSelectedApiKey(selectedApiKey - 1);
+      }
+      
+      toast({
+        title: "API Key Removed",
+        description: `API Key ${indexToRemove + 1} has been removed.`,
+      });
+    }
+  };
 
   const generateVideo = async () => {
     if (!imageUrl) {
@@ -64,7 +130,7 @@ const RunwayVideo = () => {
     if (!apiKey) {
       toast({
         title: "Missing API key",
-        description: "Please enter your Runway API key",
+        description: "Please enter your AI Video API key",
         variant: "destructive",
       });
       return;
@@ -75,7 +141,7 @@ const RunwayVideo = () => {
     setGeneratedVideoUrl("");
 
     try {
-      setGenerationLogs(prev => [...prev, "Starting video generation..."]);
+      setGenerationLogs(prev => [...prev, "Starting video generation with Runway..."]);
       
       // Prepare request body
       const requestBody = {
@@ -85,10 +151,10 @@ const RunwayVideo = () => {
         aspect_ratio: "1:1"
       };
 
-      setGenerationLogs(prev => [...prev, "Sending request to Runway API..."]);
+      setGenerationLogs(prev => [...prev, "Sending request to Runway API via aiVideoApi..."]);
       
-      // Make API request to Runway
-      const response = await fetch("https://api.runwayml.com/v1/runway/generate/image-description", {
+      // Make API request to Runway through aiVideoApi
+      const response = await fetch("https://aivideoapi.com/runway/generate/image-description", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -99,7 +165,7 @@ const RunwayVideo = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(`Runway API error: ${errorData.message || response.statusText}`);
+        throw new Error(`API error: ${errorData.message || response.statusText}`);
       }
 
       const data = await response.json();
@@ -135,11 +201,25 @@ const RunwayVideo = () => {
     } catch (error) {
       console.error("Video generation failed:", error);
       setGenerationLogs(prev => [...prev, `Error: ${error.message}`]);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to generate video. Please try again.",
-        variant: "destructive",
-      });
+      
+      // Try with a different API key if available
+      if (apiKeyList.length > 1) {
+        const nextKeyIndex = (selectedApiKey + 1) % apiKeyList.length;
+        setGenerationLogs(prev => [...prev, `Trying with API Key ${nextKeyIndex + 1}...`]);
+        
+        selectApiKey(nextKeyIndex);
+        
+        toast({
+          title: "Trying different API key",
+          description: `Switched to API Key ${nextKeyIndex + 1} after error`,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to generate video. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -156,16 +236,43 @@ const RunwayVideo = () => {
 
           <div className="space-y-4">
             <div>
-              <Label htmlFor="apiKey">Runway API Key</Label>
-              <Input
-                id="apiKey"
-                type="password"
-                placeholder="Enter your Runway API key"
-                value={apiKey}
-                onChange={handleApiKeyChange}
-              />
+              <div className="flex items-center justify-between mb-2">
+                <Label htmlFor="apiKey">AI Video API Key</Label>
+                <div className="flex gap-2">
+                  {apiKeyList.map((_, index) => (
+                    <Button 
+                      key={index}
+                      variant={selectedApiKey === index ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => selectApiKey(index)}
+                    >
+                      Key {index + 1}
+                    </Button>
+                  ))}
+                  {selectedApiKey !== -1 && apiKeyList.length > 0 && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => removeApiKey(selectedApiKey)}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  id="apiKey"
+                  type="password"
+                  placeholder="Enter your AI Video API key"
+                  value={apiKey}
+                  onChange={handleApiKeyChange}
+                  className="flex-1"
+                />
+                <Button onClick={saveApiKey}>Save Key</Button>
+              </div>
               <p className="text-xs text-slate-500 mt-1">
-                Get your API key from the <a href="https://app.runwayml.com" target="_blank" rel="noreferrer" className="underline">Runway dashboard</a>
+                Get your API key from <a href="https://aivideoapi.readme.io" target="_blank" rel="noreferrer" className="underline">AI Video API</a>
               </p>
             </div>
 
@@ -176,6 +283,7 @@ const RunwayVideo = () => {
                 setImageUrl={setImageUrl}
                 isUploading={isUploading}
                 setIsUploading={setIsUploading}
+                onImageSelected={(url) => setImageUrl(url)}
               />
             </div>
 
