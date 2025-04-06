@@ -1,13 +1,13 @@
+
 import {
   Wand2,
   Paintbrush,
   Image as ImageIcon,
   CircleOff,
   ChevronDown,
-  Volume2, // Changed from VolumeMedium to Volume2
+  Volume2,
   VolumeX,
   SlidersHorizontal,
-   розумію,
   Download,
   Share2,
   Redo2,
@@ -19,7 +19,6 @@ import {
   VideoIcon,
   Music,
   Code,
-   тогді,
   LayoutDashboard,
   LucideIcon,
 } from "lucide-react";
@@ -82,10 +81,9 @@ export {
   ImageIcon,
   CircleOff,
   ChevronDown,
-  Volume2, // Changed from VolumeMedium to Volume2
+  Volume2,
   VolumeX,
   SlidersHorizontal,
-  розумію,
   Download,
   Share2,
   Redo2,
@@ -97,7 +95,6 @@ export {
   VideoIcon,
   Music,
   Code,
-  тогді,
   LayoutDashboard,
   DropdownMenu,
   DropdownMenuContent,
@@ -153,5 +150,6 @@ export {
   TableRow,
   useToast,
   ToastAction,
-  LucideIcon,
 };
+
+export type { LucideIcon };

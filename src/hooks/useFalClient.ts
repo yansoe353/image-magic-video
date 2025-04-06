@@ -56,4 +56,25 @@ export interface MMAudioOutput {
   };
 }
 
+// Define LTXVideo input interface
+export interface LTXVideoInput {
+  image_url: string;
+  prompt?: string;
+  negative_prompt?: string;
+  num_inference_steps?: number;
+  guidance_scale?: number;
+  width?: number;
+  height?: number;
+  seed?: number;
+  motion_bucket_id?: number;
+  noise_aug_strength?: number;
+}
+
+// Define LTXVideo output interface
+export interface LTXVideoOutput {
+  video: {
+    url: string;
+  };
+}
+
 export const falClient = fal;

@@ -79,7 +79,7 @@ const VideoToVideo = () => {
         logs: true,
       });
       
-      if (status.logs) {
+      if ('logs' in status && status.logs) {
         const newLogs = status.logs.map(log => log.message);
         setGenerationLogs(prev => [...prev, ...newLogs.filter(log => !prev.includes(log))]);
       }
@@ -94,7 +94,6 @@ const VideoToVideo = () => {
       } else if (status.status === "FAILED") {
         throw new Error("Video generation failed");
       } else {
-        // Still in progress, check again after delay
         setTimeout(() => checkRequestStatus(requestId), 2000);
       }
     } catch (error) {
@@ -106,7 +105,6 @@ const VideoToVideo = () => {
     setGeneratedVideoUrl(resultUrl);
     setProgress(100);
     
-    // Store video generation history in Supabase if user is logged in
     const userId = await getUserId();
     if (userId) {
       await supabase.from('user_content_history').insert({
@@ -124,7 +122,6 @@ const VideoToVideo = () => {
       });
     }
     
-    // Update usage count
     await incrementVideoCount();
     
     toast({
@@ -168,7 +165,6 @@ const VideoToVideo = () => {
     setRequestId(null);
     
     try {
-      // Upload video file if we have a local file
       let uploadedVideoUrl = videoUrl;
       
       if (videoFile) {
@@ -189,7 +185,6 @@ const VideoToVideo = () => {
       setGenerationLogs(prev => [...prev, "Starting video generation with fal.ai..."]);
       setProgress(10);
       
-      // Prepare input for the model
       const modelInput = {
         video_url: uploadedVideoUrl,
         prompt,
@@ -204,7 +199,6 @@ const VideoToVideo = () => {
       setGenerationLogs(prev => [...prev, "Submitting request to fal.ai..."]);
       setProgress(20);
       
-      // Submit request to fal.ai
       const result = await fal.subscribe("fal-ai/mmaudio-v2", {
         input: modelInput,
         logs: true,
@@ -213,7 +207,6 @@ const VideoToVideo = () => {
             const logs = update.logs?.map((log) => log.message) || [];
             setGenerationLogs(prev => [...prev, ...logs.filter(log => !prev.includes(log))]);
             
-            // Update progress based on status
             if (logs.some(log => log.includes("Generating"))) {
               setProgress(40);
             } else if (logs.some(log => log.includes("Processing"))) {

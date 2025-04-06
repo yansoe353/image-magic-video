@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -412,16 +413,30 @@ const StoryToVideo = () => {
 
       fal.config({ credentials: apiKey });
 
-      const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
+      // Calculate dimensions based on the image (for StoryToVideo, always using square aspect ratio)
+      const width = 768;
+      const height = 768;
+      
+      setGenerationLogs(prev => [...prev, "Starting video generation with LTX model..."]);
+
+      const result = await fal.subscribe("fal-ai/ltx-video/image-to-video", {
         input: {
-          prompt: scene.imagePrompt,
           image_url: scene.imageUrl,
-          duration: "5",
-          aspect_ratio: "1:1",
+          prompt: scene.imagePrompt,
           negative_prompt: "blur, distort, low quality",
-          cfg_scale: 0.5,
+          width,
+          height,
+          guidance_scale: 7.5,
+          num_inference_steps: 25,
+          motion_bucket_id: 127
         },
         logs: true,
+        onQueueUpdate: (update) => {
+          if (update.status === "IN_PROGRESS" && update.logs) {
+            const newLogs = update.logs.map(log => log.message);
+            setGenerationLogs(prev => [...prev, ...newLogs]);
+          }
+        }
       });
 
       if (result.data?.video?.url) {
@@ -440,7 +455,8 @@ const StoryToVideo = () => {
             metadata: {
               story_title: storyTitle,
               scene_text: scene.text,
-              story_prompt: storyPrompt
+              story_prompt: storyPrompt,
+              model: "fal-ai/ltx-video/image-to-video"
             }
           });
         }

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -57,7 +58,9 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
   const [duration] = useState<string>("5");
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
   const [negativePrompt, setNegativePrompt] = useState<string>("blur, distort, and low quality");
-  const [cfgScale, setCfgScale] = useState<number>(0.5);
+  const [guidanceScale, setGuidanceScale] = useState<number>(7.5);
+  const [numInferenceSteps, setNumInferenceSteps] = useState<number>(25);
+  const [motionBucketId, setMotionBucketId] = useState<number>(127);
 
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
@@ -100,7 +103,8 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
             duration,
             aspectRatio,
             negativePrompt,
-            cfgScale,
+            guidanceScale,
+            model: "fal-ai/ltx-video/image-to-video",
             original_url: originalUrl
           }
         });
@@ -150,18 +154,34 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
         }
       }
 
-      const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
+      // Calculate dimensions based on aspect ratio
+      let width = 1024;
+      let height = 576;
+      
+      if (aspectRatio === "9:16") {
+        width = 576;
+        height = 1024;
+      } else if (aspectRatio === "1:1") {
+        width = 768;
+        height = 768;
+      }
+
+      setGenerationLogs(prev => [...prev, "Sending request to fal.ai/ltx-video..."]);
+      
+      const result = await fal.subscribe("fal-ai/ltx-video/image-to-video", {
         input: {
-          prompt: promptToUse,
           image_url: imageUrl,
-          duration: "5",
-          aspect_ratio: aspectRatio as "16:9" | "9:16" | "1:1",
+          prompt: promptToUse,
           negative_prompt: negativePrompt,
-          cfg_scale: cfgScale,
+          num_inference_steps: numInferenceSteps,
+          guidance_scale: guidanceScale,
+          width,
+          height,
+          motion_bucket_id: motionBucketId
         },
         logs: true,
         onQueueUpdate: (update) => {
-          if (update.status === "IN_PROGRESS") {
+          if (update.status === "IN_PROGRESS" && update.logs) {
             const newLogs = update.logs.map(log => log.message);
             setGenerationLogs(prev => [...prev, ...newLogs]);
           }
@@ -294,13 +314,6 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="duration">Duration</Label>
-                <div className="bg-slate-800/60 px-3 py-2 rounded-md border border-slate-700/50 text-slate-300">
-                  5 seconds
-                </div>
-              </div>
-
-              <div>
                 <Label htmlFor="aspectRatio">Aspect Ratio</Label>
                 <Select value={aspectRatio} onValueChange={setAspectRatio}>
                   <SelectTrigger>
@@ -313,31 +326,55 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
                   </SelectContent>
                 </Select>
               </div>
+
+              <div>
+                <Label htmlFor="motionBucketId">Motion Intensity: {motionBucketId}</Label>
+                <Slider
+                  value={[motionBucketId]}
+                  min={1}
+                  max={255}
+                  step={1}
+                  onValueChange={(values) => setMotionBucketId(values[0])}
+                  className="py-2"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="negativePrompt">Negative Prompt</Label>
-                <Textarea
-                  id="negativePrompt"
-                  placeholder="Enter negative prompt..."
-                  value={negativePrompt}
-                  onChange={(e) => setNegativePrompt(e.target.value)}
-                  className="min-h-[50px]"
+                <Label htmlFor="guidanceScale">Guidance Scale: {guidanceScale}</Label>
+                <Slider
+                  value={[guidanceScale]}
+                  min={1}
+                  max={15}
+                  step={0.5}
+                  onValueChange={(values) => setGuidanceScale(values[0])}
+                  className="py-2"
                 />
               </div>
 
               <div>
-                <Label htmlFor="cfgScale">CFG Scale</Label>
+                <Label htmlFor="numInferenceSteps">Inference Steps: {numInferenceSteps}</Label>
                 <Slider
-                  value={[cfgScale]}
-                  min={0.1}
-                  max={1.0}
-                  step={0.1}
-                  onValueChange={(values) => setCfgScale(values[0])}
+                  value={[numInferenceSteps]}
+                  min={10}
+                  max={50}
+                  step={1}
+                  onValueChange={(values) => setNumInferenceSteps(values[0])}
                   className="py-2"
                 />
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="negativePrompt">Negative Prompt</Label>
+              <Textarea
+                id="negativePrompt"
+                placeholder="Enter negative prompt..."
+                value={negativePrompt}
+                onChange={(e) => setNegativePrompt(e.target.value)}
+                className="min-h-[50px]"
+              />
             </div>
 
             <PublicPrivateToggle
