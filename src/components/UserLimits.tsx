@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { BarChart } from "lucide-react";
 const UserLimits = () => {
   const { userId } = useParams<{ userId: string }>();
   const [imageLimit, setImageLimit] = useState<number>(100);
-  const [videoLimit, setVideoLimit] = useState<number>(100); // Changed default value to 100
+  const [videoLimit, setVideoLimit] = useState<number>(20);
   const [isLoading, setIsLoading] = useState(false);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
   const [user, setUser] = useState<AppUser | null>(null);
@@ -24,7 +25,7 @@ const UserLimits = () => {
       // Check if current user is admin
       const adminStatus = await isAdmin();
       setUserIsAdmin(adminStatus);
-
+      
       if (!adminStatus) {
         toast({
           title: "Access Denied",
@@ -34,16 +35,16 @@ const UserLimits = () => {
         navigate("/");
         return;
       }
-
+      
       // Load user data
       if (userId) {
         const users = await getAllUsers();
         const foundUser = users.find(u => u.id === userId);
-
+        
         if (foundUser) {
           setUser(foundUser);
           setImageLimit(foundUser.imageLimit || 100);
-          setVideoLimit(foundUser.videoLimit || 100); // Changed default value to 100
+          setVideoLimit(foundUser.videoLimit || 20);
         } else {
           toast({
             title: "Error",
@@ -54,13 +55,13 @@ const UserLimits = () => {
         }
       }
     };
-
+    
     initialize();
   }, [userId, navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    
     if (imageLimit < 0 || videoLimit < 0) {
       toast({
         title: "Error",
@@ -69,12 +70,12 @@ const UserLimits = () => {
       });
       return;
     }
-
+    
     setIsLoading(true);
-
+    
     try {
       const success = await setUserLimits(userId!, imageLimit, videoLimit);
-
+      
       if (success) {
         toast({
           title: "Success",
@@ -147,9 +148,9 @@ const UserLimits = () => {
               </div>
             </div>
             <CardFooter className="flex justify-end pt-6 pb-0 px-0">
-              <Button
-                type="button"
-                variant="outline"
+              <Button 
+                type="button" 
+                variant="outline" 
                 className="mr-2"
                 onClick={() => navigate("/users")}
               >
