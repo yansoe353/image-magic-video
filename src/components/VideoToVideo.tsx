@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -93,8 +94,11 @@ const VideoToVideo = () => {
         }
       } else if (status.status === "FAILED") {
         throw new Error("Video generation failed");
-      } else if (["IN_PROGRESS", "IN_QUEUE"].includes(status.status)) {
-        setTimeout(() => checkRequestStatus(requestId), 2000);
+      } else {
+        // Instead of using a direct comparison, check if status is one of the valid states that require polling
+        if (status.status === "IN_PROGRESS" || status.status === "IN_QUEUE") {
+          setTimeout(() => checkRequestStatus(requestId), 2000);
+        }
       }
     } catch (error) {
       handleGenerationError(error);
