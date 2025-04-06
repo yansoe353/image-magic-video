@@ -12,7 +12,7 @@ import { BarChart } from "lucide-react";
 const UserLimits = () => {
   const { userId } = useParams<{ userId: string }>();
   const [imageLimit, setImageLimit] = useState<number>(100);
-  const [videoLimit, setVideoLimit] = useState<number>(20);
+  const [videoLimit, setVideoLimit] = useState<number>(100);
   const [isLoading, setIsLoading] = useState(false);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
   const [user, setUser] = useState<AppUser | null>(null);
