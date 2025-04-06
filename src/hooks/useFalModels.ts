@@ -1,10 +1,7 @@
 
 import { useState } from "react";
-import { falClient, isFalInitialized } from "@/hooks/useFalClient";
+import { falClient } from "@/hooks/useFalClient";
 import { useToast } from "@/hooks/use-toast";
-import { getUserId } from "@/utils/storageUtils";
-import { supabase } from "@/integrations/supabase/client";
-import { incrementVideoCount } from "@/utils/usageTracker";
 
 export interface ModelResult {
   type: string;
@@ -18,28 +15,12 @@ export function useFalModels() {
   const { toast } = useToast();
   const [generationLogs, setGenerationLogs] = useState<string[]>([]);
 
-  // Video style transfer using mmaudio model (formerly in VideoToVideo)
-  const generateVideoWithPrompt = async (videoUrl: string, prompt: string, options: {
-    negative_prompt?: string;
-    num_steps?: number;
-    duration?: number;
-    cfg_strength?: number;
-    seed?: number;
-    mask_away_clip?: boolean;
-  } = {}) => {
-    if (!videoUrl || !prompt) {
+  // Image upscaler using real-esrgan model
+  const upscaleImage = async (imageUrl: string) => {
+    if (!imageUrl) {
       toast({
         title: "Error",
-        description: "Please provide a video URL and prompt",
-        variant: "destructive",
-      });
-      return null;
-    }
-
-    if (!isFalInitialized) {
-      toast({
-        title: "API Key Required",
-        description: "Please set your API key in the settings first",
+        description: "Please provide an image to upscale",
         variant: "destructive",
       });
       return null;
@@ -50,294 +31,234 @@ export function useFalModels() {
     setModelResult(null);
     
     try {
-      setGenerationLogs(prev => [...prev, "Preparing to process video..."]);
+      setGenerationLogs(prev => [...prev, "Preparing to upscale image..."]);
       
-      const result = await falClient.subscribe("fal-ai/mmaudio-v2", {
-        input: {
-          video_url: videoUrl,
-          prompt: prompt,
-          negative_prompt: options.negative_prompt || "",
-          num_steps: options.num_steps || 25,
-          duration: options.duration || 8,
-          cfg_strength: options.cfg_strength || 4.5,
-          seed: options.seed || Math.floor(Math.random() * 1000000),
-          mask_away_clip: options.mask_away_clip || false
-        },
-        logs: true,
-        onQueueUpdate: (update) => {
-          if (update.status === "IN_PROGRESS" && update.logs) {
-            const newLogs = update.logs.map(log => log.message);
-            setGenerationLogs(prev => [...prev, ...newLogs]);
-          }
-        },
-      });
-      
-      if (result.data?.video?.url) {
-        const resultUrl = result.data.video.url;
-
-        // Store in content history
-        const userId = await getUserId();
-        if (userId) {
-          await supabase.from('user_content_history').insert({
-            user_id: userId,
-            content_type: 'video',
-            content_url: resultUrl,
-            prompt: prompt,
-            metadata: {
-              model: 'fal-ai/mmaudio-v2',
-              config: {
-                negative_prompt: options.negative_prompt,
-                num_steps: options.num_steps,
-                duration: options.duration,
-                cfg_strength: options.cfg_strength,
-                seed: options.seed,
-                mask_away_clip: options.mask_away_clip
-              }
-            }
-          });
-        }
-
-        // Increment video count for usage tracking
-        await incrementVideoCount();
-        
-        setModelResult({
-          type: "video",
-          url: resultUrl,
-          isLoading: false
-        });
-        
-        toast({
-          title: "Success",
-          description: "Video processed successfully",
-        });
-        
-        return resultUrl;
-      } else {
-        throw new Error("No video URL in response");
-      }
-    } catch (error) {
-      console.error("Failed to process video:", error);
-      toast({
-        title: "Error",
-        description: "Failed to process video. Please try again.",
-        variant: "destructive",
-      });
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Image to Video conversion using kling-video
-  const imageToVideo = async (imageUrl: string, prompt: string, options: {
-    negative_prompt?: string;
-    aspect_ratio?: "16:9" | "9:16" | "1:1";
-    cfg_scale?: number;
-  } = {}) => {
-    if (!imageUrl || !prompt) {
-      toast({
-        title: "Error",
-        description: "Please provide an image and prompt",
-        variant: "destructive",
-      });
-      return null;
-    }
-
-    if (!isFalInitialized) {
-      toast({
-        title: "API Key Required",
-        description: "Please set your API key in the settings first",
-        variant: "destructive",
-      });
-      return null;
-    }
-
-    setIsLoading(true);
-    setGenerationLogs([]);
-    setModelResult(null);
-    
-    try {
-      setGenerationLogs(prev => [...prev, "Converting image to video..."]);
-      
-      const result = await falClient.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
-        input: {
-          prompt: prompt,
-          image_url: imageUrl,
-          duration: "5",
-          aspect_ratio: options.aspect_ratio || "16:9",
-          negative_prompt: options.negative_prompt || "blur, distort, and low quality",
-          cfg_scale: options.cfg_scale || 0.5,
-        },
-        logs: true,
-        onQueueUpdate: (update) => {
-          if (update.status === "IN_PROGRESS" && update.logs) {
-            const newLogs = update.logs.map(log => log.message);
-            setGenerationLogs(prev => [...prev, ...newLogs]);
-          }
-        },
-      });
-      
-      if (result.data?.video?.url) {
-        const resultUrl = result.data.video.url;
-
-        // Store in content history
-        const userId = await getUserId();
-        if (userId) {
-          await supabase.from('user_content_history').insert({
-            user_id: userId,
-            content_type: 'video',
-            content_url: resultUrl,
-            prompt: prompt,
-            metadata: {
-              model: 'fal-ai/kling-video',
-              config: {
-                negative_prompt: options.negative_prompt,
-                aspect_ratio: options.aspect_ratio,
-                cfg_scale: options.cfg_scale
-              }
-            }
-          });
-        }
-
-        // Increment video count for usage tracking
-        await incrementVideoCount();
-        
-        setModelResult({
-          type: "video",
-          url: resultUrl,
-          isLoading: false
-        });
-        
-        toast({
-          title: "Success",
-          description: "Video generated successfully",
-        });
-        
-        return resultUrl;
-      } else {
-        throw new Error("No video URL in response");
-      }
-    } catch (error) {
-      console.error("Failed to convert image to video:", error);
-      toast({
-        title: "Error",
-        description: "Failed to convert image to video. Please try again.",
-        variant: "destructive",
-      });
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ControlNext for image-to-image processing
-  const generateWithControlNet = async (
-    imageUrl: string,
-    prompt: string,
-    controlNetType: string,
-    options: {
-      negative_prompt?: string;
-      num_inference_steps?: number;
-      guidance_scale?: number;
-      seed?: number;
-      controlnet_conditioning_scale?: number;
-    } = {}
-  ) => {
-    if (!imageUrl || !prompt) {
-      toast({
-        title: "Error",
-        description: "Please provide an image and prompt",
-        variant: "destructive",
-      });
-      return null;
-    }
-
-    if (!isFalInitialized) {
-      toast({
-        title: "API Key Required",
-        description: "Please set your API key in the settings first",
-        variant: "destructive",
-      });
-      return null;
-    }
-
-    setIsLoading(true);
-    setGenerationLogs([]);
-    setModelResult(null);
-
-    try {
-      setGenerationLogs(prev => [...prev, "Processing image with ControlNext..."]);
-
-      // According to the API reference for fal-ai/controlnext
-      const result = await falClient.subscribe("fal-ai/controlnext", {
+      const result = await falClient.subscribe("fal-ai/real-esrgan", {
         input: {
           image_url: imageUrl,
-          prompt: prompt, // API expects 'prompt', not 'text_prompt'
-          negative_prompt: options.negative_prompt || "",
-          num_inference_steps: options.num_inference_steps || 30,
-          guidance_scale: options.guidance_scale || 7.5,
-          seed: options.seed || Math.floor(Math.random() * 1000000),
-          strength: options.controlnet_conditioning_scale || 0.8,
-          control_mode: controlNetType
+          scale: 4,
         },
         logs: true,
         onQueueUpdate: (update) => {
-          if (update.status === "IN_PROGRESS" && update.logs) {
+          if (update.status === "IN_PROGRESS") {
             const newLogs = update.logs.map(log => log.message);
             setGenerationLogs(prev => [...prev, ...newLogs]);
           }
         },
       });
-
-      // The API returns image in the 'image' object
+      
       if (result.data?.image?.url) {
         const resultUrl = result.data.image.url;
-
-        // Store in content history
-        const userId = await getUserId();
-        if (userId) {
-          await supabase.from('user_content_history').insert({
-            user_id: userId,
-            content_type: 'video',
-            content_url: resultUrl,
-            prompt: prompt,
-            metadata: {
-              model: 'fal-ai/controlnext',
-              control_mode: controlNetType,
-              config: {
-                negative_prompt: options.negative_prompt,
-                num_inference_steps: options.num_inference_steps,
-                guidance_scale: options.guidance_scale,
-                seed: options.seed,
-                strength: options.controlnet_conditioning_scale
-              }
-            }
-          });
-        }
-
-        // Increment video count for usage tracking
-        await incrementVideoCount();
-
         setModelResult({
           type: "image",
           url: resultUrl,
           isLoading: false
         });
-
+        
         toast({
           title: "Success",
-          description: "Image processed successfully with ControlNext",
+          description: "Image upscaled successfully",
         });
-
+        
         return resultUrl;
       } else {
         throw new Error("No image URL in response");
       }
     } catch (error) {
-      console.error("Failed to process with ControlNext:", error);
+      console.error("Failed to upscale image:", error);
       toast({
         title: "Error",
-        description: "Failed to process image with ControlNext. Please try again.",
+        description: "Failed to upscale image. Please try again.",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Remove background using remove-bg model
+  const removeBackground = async (imageUrl: string) => {
+    if (!imageUrl) {
+      toast({
+        title: "Error",
+        description: "Please provide an image to process",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    setIsLoading(true);
+    setGenerationLogs([]);
+    setModelResult(null);
+    
+    try {
+      setGenerationLogs(prev => [...prev, "Removing background from image..."]);
+      
+      const result = await falClient.subscribe("fal-ai/remove-bg", {
+        input: {
+          image_url: imageUrl,
+          format: "png",
+        },
+        logs: true,
+        onQueueUpdate: (update) => {
+          if (update.status === "IN_PROGRESS") {
+            const newLogs = update.logs.map(log => log.message);
+            setGenerationLogs(prev => [...prev, ...newLogs]);
+          }
+        },
+      });
+      
+      if (result.data?.image?.url) {
+        const resultUrl = result.data.image.url;
+        setModelResult({
+          type: "image",
+          url: resultUrl,
+          isLoading: false
+        });
+        
+        toast({
+          title: "Success",
+          description: "Background removed successfully",
+        });
+        
+        return resultUrl;
+      } else {
+        throw new Error("No image URL in response");
+      }
+    } catch (error) {
+      console.error("Failed to remove background:", error);
+      toast({
+        title: "Error",
+        description: "Failed to remove background. Please try again.",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Text-to-speech using bark model
+  const textToSpeech = async (text: string, speakerIdentity: string = "en_speaker_1") => {
+    if (!text) {
+      toast({
+        title: "Error",
+        description: "Please provide text to convert to speech",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    setIsLoading(true);
+    setGenerationLogs([]);
+    setModelResult(null);
+    
+    try {
+      setGenerationLogs(prev => [...prev, "Converting text to speech..."]);
+      
+      const result = await falClient.subscribe("fal-ai/bark", {
+        input: {
+          prompt: text,
+          speaker_identity: speakerIdentity,
+        },
+        logs: true,
+        onQueueUpdate: (update) => {
+          if (update.status === "IN_PROGRESS") {
+            const newLogs = update.logs.map(log => log.message);
+            setGenerationLogs(prev => [...prev, ...newLogs]);
+          }
+        },
+      });
+      
+      if (result.data?.audio?.url) {
+        const resultUrl = result.data.audio.url;
+        setModelResult({
+          type: "audio",
+          url: resultUrl,
+          isLoading: false
+        });
+        
+        toast({
+          title: "Success",
+          description: "Audio generated successfully",
+        });
+        
+        return resultUrl;
+      } else {
+        throw new Error("No audio URL in response");
+      }
+    } catch (error) {
+      console.error("Failed to generate speech:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate speech. Please try again.",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Image inpainting model using sden-inpainting
+  const inpaintImage = async (imageUrl: string, maskUrl: string, prompt: string) => {
+    if (!imageUrl || !maskUrl) {
+      toast({
+        title: "Error",
+        description: "Please provide both an image and a mask",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    setIsLoading(true);
+    setGenerationLogs([]);
+    setModelResult(null);
+    
+    try {
+      setGenerationLogs(prev => [...prev, "Starting image inpainting..."]);
+      
+      const result = await falClient.subscribe("fal-ai/sd-inpainting", {
+        input: {
+          image_url: imageUrl,
+          mask_url: maskUrl,
+          prompt: prompt || "Fix this area",
+          negative_prompt: "bad quality, blurry, distortion",
+          guidance_scale: 7.5,
+          num_inference_steps: 25,
+        },
+        logs: true,
+        onQueueUpdate: (update) => {
+          if (update.status === "IN_PROGRESS") {
+            const newLogs = update.logs.map(log => log.message);
+            setGenerationLogs(prev => [...prev, ...newLogs]);
+          }
+        },
+      });
+      
+      if (result.data?.image?.url) {
+        const resultUrl = result.data.image.url;
+        setModelResult({
+          type: "image",
+          url: resultUrl,
+          isLoading: false
+        });
+        
+        toast({
+          title: "Success",
+          description: "Image inpainting completed successfully",
+        });
+        
+        return resultUrl;
+      } else {
+        throw new Error("No image URL in response");
+      }
+    } catch (error) {
+      console.error("Failed to inpaint image:", error);
+      toast({
+        title: "Error",
+        description: "Failed to inpaint image. Please try again.",
         variant: "destructive",
       });
       return null;
@@ -350,8 +271,9 @@ export function useFalModels() {
     isLoading,
     modelResult,
     generationLogs,
-    generateVideoWithPrompt,
-    imageToVideo,
-    generateWithControlNet
+    upscaleImage,
+    removeBackground,
+    textToSpeech,
+    inpaintImage
   };
 }
