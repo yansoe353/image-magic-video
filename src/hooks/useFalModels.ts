@@ -1,7 +1,10 @@
 
 import { useState } from "react";
-import { falClient, isFalInitialized } from "@/hooks/useFalClient";
+import { falClient, isFalInitialized, EffectType } from "@/hooks/useFalClient";
 import { useToast } from "@/hooks/use-toast";
+import { getUserId } from "@/utils/storageUtils";
+import { supabase } from "@/integrations/supabase/client";
+import { incrementVideoCount } from "@/utils/usageTracker";
 
 export interface ModelResult {
   type: string;
@@ -71,6 +74,32 @@ export function useFalModels() {
       
       if (result.data?.video?.url) {
         const resultUrl = result.data.video.url;
+
+        // Store in content history
+        const userId = await getUserId();
+        if (userId) {
+          await supabase.from('user_content_history').insert({
+            user_id: userId,
+            content_type: 'video',
+            content_url: resultUrl,
+            prompt: prompt,
+            metadata: {
+              model: 'fal-ai/mmaudio-v2',
+              config: {
+                negative_prompt: options.negative_prompt,
+                num_steps: options.num_steps,
+                duration: options.duration,
+                cfg_strength: options.cfg_strength,
+                seed: options.seed,
+                mask_away_clip: options.mask_away_clip
+              }
+            }
+          });
+        }
+
+        // Increment video count for usage tracking
+        await incrementVideoCount();
+        
         setModelResult({
           type: "video",
           url: resultUrl,
@@ -150,6 +179,29 @@ export function useFalModels() {
       
       if (result.data?.video?.url) {
         const resultUrl = result.data.video.url;
+
+        // Store in content history
+        const userId = await getUserId();
+        if (userId) {
+          await supabase.from('user_content_history').insert({
+            user_id: userId,
+            content_type: 'video',
+            content_url: resultUrl,
+            prompt: prompt,
+            metadata: {
+              model: 'fal-ai/kling-video',
+              config: {
+                negative_prompt: options.negative_prompt,
+                aspect_ratio: options.aspect_ratio,
+                cfg_scale: options.cfg_scale
+              }
+            }
+          });
+        }
+
+        // Increment video count for usage tracking
+        await incrementVideoCount();
+        
         setModelResult({
           type: "video",
           url: resultUrl,
@@ -178,11 +230,119 @@ export function useFalModels() {
     }
   };
 
+  // ControlNet for image-to-image processing
+  const generateWithControlNet = async (
+    imageUrl: string,
+    prompt: string,
+    controlNetType: string,
+    options: {
+      negative_prompt?: string;
+      num_inference_steps?: number;
+      guidance_scale?: number;
+      seed?: number;
+      controlnet_conditioning_scale?: number;
+    } = {}
+  ) => {
+    if (!imageUrl || !prompt) {
+      toast({
+        title: "Error",
+        description: "Please provide an image and prompt",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    if (!isFalInitialized) {
+      toast({
+        title: "API Key Required",
+        description: "Please set your API key in the settings first",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    setIsLoading(true);
+    setGenerationLogs([]);
+    setModelResult(null);
+
+    try {
+      setGenerationLogs(prev => [...prev, "Processing image with ControlNet..."]);
+
+      const result = await falClient.subscribe("fal-ai/controlnet", {
+        input: {
+          image_url: imageUrl,
+          prompt: prompt,
+          negative_prompt: options.negative_prompt || "",
+          num_inference_steps: options.num_inference_steps || 30,
+          guidance_scale: options.guidance_scale || 7.5,
+          seed: options.seed || Math.floor(Math.random() * 1000000),
+          controlnet_conditioning_scale: options.controlnet_conditioning_scale || 0.8,
+          control_type: controlNetType
+        }
+      });
+
+      if (result.data?.image?.url) {
+        const resultUrl = result.data.image.url;
+
+        // Store in content history
+        const userId = await getUserId();
+        if (userId) {
+          await supabase.from('user_content_history').insert({
+            user_id: userId,
+            content_type: 'video', // Consider as video for tracking purposes
+            content_url: resultUrl,
+            prompt: prompt,
+            metadata: {
+              model: 'fal-ai/controlnet',
+              control_type: controlNetType,
+              config: {
+                negative_prompt: options.negative_prompt,
+                num_inference_steps: options.num_inference_steps,
+                guidance_scale: options.guidance_scale,
+                seed: options.seed,
+                controlnet_conditioning_scale: options.controlnet_conditioning_scale
+              }
+            }
+          });
+        }
+
+        // Increment video count for usage tracking
+        await incrementVideoCount();
+
+        setModelResult({
+          type: "image",
+          url: resultUrl,
+          isLoading: false
+        });
+
+        toast({
+          title: "Success",
+          description: "Image processed successfully with ControlNet",
+        });
+
+        return resultUrl;
+      } else {
+        throw new Error("No image URL in response");
+      }
+    } catch (error) {
+      console.error("Failed to process with ControlNet:", error);
+      toast({
+        title: "Error",
+        description: "Failed to process image with ControlNet. Please try again.",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return {
     isLoading,
     modelResult,
     generationLogs,
     generateVideoWithPrompt,
-    imageToVideo
+    imageToVideo,
+    generateWithControlNet
   };
 }
