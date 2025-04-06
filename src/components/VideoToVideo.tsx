@@ -93,7 +93,7 @@ const VideoToVideo = () => {
         }
       } else if (status.status === "FAILED") {
         throw new Error("Video generation failed");
-      } else if (status.status === "IN_PROGRESS" || status.status === "IN_QUEUE") {
+      } else if (["IN_PROGRESS", "IN_QUEUE"].includes(status.status)) {
         setTimeout(() => checkRequestStatus(requestId), 2000);
       }
     } catch (error) {
