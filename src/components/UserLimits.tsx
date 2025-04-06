@@ -44,7 +44,7 @@ const UserLimits = () => {
         if (foundUser) {
           setUser(foundUser);
           setImageLimit(foundUser.imageLimit || 100);
-          setVideoLimit(foundUser.videoLimit || 20);
+          setVideoLimit(foundUser.videoLimit || 100);
         } else {
           toast({
             title: "Error",
