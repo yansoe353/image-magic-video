@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ImageIcon, BookText, Film, Sparkles, User, X } from "lucide-react";
+import { Loader2, ImageIcon, BookText, Film, Sparkles, User } from "lucide-react";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
 import { incrementImageCount, incrementVideoCount, getRemainingCountsAsync } from "@/utils/usageTracker";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,8 +20,6 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-
-const VIDEO_LIMIT = 100; // Updated video limit
 
 interface StoryScene {
   text: string;
@@ -51,10 +49,7 @@ const StoryToVideo = () => {
   const [editedStory, setEditedStory] = useState<StoryScene[]>([]);
   const [characterDetails, setCharacterDetails] = useState<CharacterDetails>({});
   const [showCharacterForm, setShowCharacterForm] = useState(false);
-  const [generationLogs, setGenerationLogs] = useState<string[]>([]);
-  const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
-  const [enhancedPrompt, setEnhancedPrompt] = useState("");
-  const [showEnhancedPrompt, setShowEnhancedPrompt] = useState(false);
+  const [generationLogs, setGenerationLogs] = useState<string[]>([]); // Added missing state
 
   const { generateResponse, isLoading: isGeminiLoading } = useGeminiAPI();
   const { toast } = useToast();
@@ -66,51 +61,6 @@ const StoryToVideo = () => {
     };
     fetchCounts();
   }, []);
-
-  const enhanceStoryPrompt = async () => {
-    if (!storyPrompt.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a story prompt to enhance",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsEnhancingPrompt(true);
-    try {
-      const enhancementPrompt = `You are a creative writing assistant. Improve this story prompt to make it more vivid, detailed, and likely to generate better results:
-
-      Original prompt: "${storyPrompt}"
-
-      Please enhance it by:
-      1. Adding more sensory details (sight, sound, etc.)
-      2. Clarifying the main conflict or goal
-      3. Suggesting interesting character traits
-      4. Including atmospheric elements
-      5. Making it more specific while keeping it concise
-
-      Return ONLY the enhanced prompt, no additional commentary or explanations.`;
-
-      const response = await generateResponse(enhancementPrompt);
-      setEnhancedPrompt(response);
-      setShowEnhancedPrompt(true);
-
-      toast({
-        title: "Prompt Enhanced",
-        description: "Your prompt has been improved for better results",
-      });
-    } catch (error) {
-      console.error("Failed to enhance prompt:", error);
-      toast({
-        title: "Error",
-        description: "Failed to enhance prompt. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsEnhancingPrompt(false);
-    }
-  };
 
   const generateCharacterTemplate = async () => {
     if (!storyPrompt) {
@@ -125,7 +75,7 @@ const StoryToVideo = () => {
     setIsGeneratingStory(true);
     try {
       const response = await generateResponse(
-        `Create detailed character descriptions for a story about: "${storyPrompt}".
+        `Create detailed character descriptions for a story about: "${storyPrompt}". 
         Provide this information in valid JSON format only:
         {
           "mainCharacter": "Detailed description including age, gender, appearance, clothing and distinctive features",
@@ -133,7 +83,7 @@ const StoryToVideo = () => {
           "environment": "Description of the main setting/environment",
           "styleNotes": "Specific visual style requirements"
         }
-
+        
         Important: Only return valid JSON without any additional text or explanations.`
       );
 
@@ -141,7 +91,7 @@ const StoryToVideo = () => {
       try {
         parsedResponse = JSON.parse(response.trim());
       } catch (e) {
-        const codeBlockMatch = response.match(/```(?\:json)?\s*([\s\S]*?)\s*```/);
+        const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
         if (codeBlockMatch) {
           parsedResponse = JSON.parse(codeBlockMatch[1].trim());
         } else {
@@ -156,9 +106,9 @@ const StoryToVideo = () => {
       }
 
       if (
-        typeof parsedResponse === 'object' &&
+        typeof parsedResponse === 'object' && 
         parsedResponse !== null &&
-        (parsedResponse.mainCharacter ||
+        (parsedResponse.mainCharacter || 
          parsedResponse.secondaryCharacters ||
          parsedResponse.environment ||
          parsedResponse.styleNotes)
@@ -192,11 +142,11 @@ const StoryToVideo = () => {
     let cleaned = response.replace(/```json|```/g, '').trim();
     const firstBrace = cleaned.indexOf('{');
     const lastBrace = cleaned.lastIndexOf('}');
-
+    
     if (firstBrace >= 0 && lastBrace > firstBrace) {
       cleaned = cleaned.slice(firstBrace, lastBrace + 1);
     }
-
+    
     return cleaned;
   };
 
@@ -207,7 +157,7 @@ const StoryToVideo = () => {
     } catch (e) {}
 
     try {
-      const codeBlockMatch = response.match(/```(?\:json)?\s*([\s\S]*?)\s*```/);
+      const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       if (codeBlockMatch) {
         const extracted = codeBlockMatch[1].trim();
         const parsed = JSON.parse(extracted);
@@ -241,11 +191,10 @@ const StoryToVideo = () => {
     setIsGeneratingStory(true);
     setGeneratedStory([]);
     setVideoUrls([]);
-    setShowEnhancedPrompt(false);
 
     try {
       const numScenes = parseInt(sceneCount);
-      const characterContext = characterDetails.mainCharacter
+      const characterContext = characterDetails.mainCharacter 
         ? `Main Character: ${characterDetails.mainCharacter}\n` +
           `Secondary Characters: ${characterDetails.secondaryCharacters || 'none'}\n` +
           `Environment: ${characterDetails.environment || 'unspecified'}\n` +
@@ -260,13 +209,13 @@ const StoryToVideo = () => {
       3. For each scene provide:
          - Narrative text (include character actions/dialogue)
          - Detailed image prompt that maintains visual consistency
-
+      
       Image Prompt Guidelines:
       - Always reference the established character details
       - Maintain consistent clothing/hairstyles/features
       - Keep environment/style coherent
       - Use same character names if provided
-
+      
       Format response as a JSON array following this exact structure:
       [
         {
@@ -274,7 +223,7 @@ const StoryToVideo = () => {
           "imagePrompt": "Detailed prompt with consistent characters..."
         }
       ]
-
+      
       Important: Only return valid JSON without any other text or markdown.`;
 
       const response = await generateResponse(geminiPrompt);
@@ -282,13 +231,13 @@ const StoryToVideo = () => {
 
       try {
         const parsedStory = parseStoryResponse(response);
-
+        
         if (!Array.isArray(parsedStory)) {
           throw new Error("Response was not an array");
         }
 
-        const isValidStory = parsedStory.every(scene =>
-          typeof scene.text === 'string' &&
+        const isValidStory = parsedStory.every(scene => 
+          typeof scene.text === 'string' && 
           typeof scene.imagePrompt === 'string'
         );
 
@@ -298,7 +247,7 @@ const StoryToVideo = () => {
 
         const enhancedStory = parsedStory.map(scene => ({
           text: scene.text,
-          imagePrompt: characterDetails.mainCharacter
+          imagePrompt: characterDetails.mainCharacter 
             ? `${characterDetails.mainCharacter}. ${scene.imagePrompt}`
             : scene.imagePrompt
         }));
@@ -332,11 +281,11 @@ const StoryToVideo = () => {
       });
 
       const numScenes = parseInt(sceneCount);
-      const fallbackPrompt = `Create a simple ${numScenes}-scene story about "${storyPrompt}".
+      const fallbackPrompt = `Create a simple ${numScenes}-scene story about "${storyPrompt}". 
         Each scene should have:
         1. A paragraph of story text
         2. An image description
-
+        
         Return as JSON array like: [{"text":"...","imagePrompt":"..."}]`;
 
       const fallbackResponse = await generateResponse(fallbackPrompt);
@@ -392,7 +341,7 @@ const StoryToVideo = () => {
 
       fal.config({ credentials: apiKey });
 
-      const enhancedPrompt = characterDetails.mainCharacter
+      const enhancedPrompt = characterDetails.mainCharacter 
         ? `${characterDetails.mainCharacter}. ${scene.imagePrompt} in ${imageStyle} style`
         : `${scene.imagePrompt} in ${imageStyle} style`;
 
@@ -450,7 +399,7 @@ const StoryToVideo = () => {
     }
 
     setCurrentGeneratingIndex(sceneIndex);
-    setGenerationLogs([]);
+    setGenerationLogs([]); // Reset logs for new generation
 
     try {
       const apiKey = localStorage.getItem("falApiKey");
@@ -534,7 +483,7 @@ const StoryToVideo = () => {
           <User className="mr-2 h-5 w-5" />
           Character Details
         </h3>
-
+        
         <div>
           <Label>Main Character</Label>
           <Textarea
@@ -576,13 +525,13 @@ const StoryToVideo = () => {
         </div>
 
         <div className="flex gap-2">
-          <Button
+          <Button 
             onClick={() => setShowCharacterForm(false)}
             variant="outline"
           >
             Done
           </Button>
-          <Button
+          <Button 
             onClick={generateCharacterTemplate}
             disabled={!storyPrompt || isGeneratingStory}
           >
@@ -612,62 +561,14 @@ const StoryToVideo = () => {
           <div className="space-y-4">
             <div>
               <Label htmlFor="storyPrompt">Story Prompt</Label>
-              <div className="relative">
-                <Textarea
-                  id="storyPrompt"
-                  placeholder="Enter a story idea like 'A detective in a cyberpunk city investigates a strange case'"
-                  value={storyPrompt}
-                  onChange={(e) => {
-                    setStoryPrompt(e.target.value);
-                    setShowEnhancedPrompt(false);
-                  }}
-                  className="min-h-[80px] pr-12"
-                  disabled={isGeneratingStory}
-                />
-                <Button
-                  onClick={enhanceStoryPrompt}
-                  disabled={isEnhancingPrompt || !storyPrompt.trim() || isGeneratingStory}
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1 h-8 w-8"
-                >
-                  {isEnhancingPrompt ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-
-              {showEnhancedPrompt && enhancedPrompt && (
-                <div className="mt-2 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>Enhanced Prompt</Label>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setStoryPrompt(enhancedPrompt);
-                          setShowEnhancedPrompt(false);
-                        }}
-                      >
-                        Use This
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowEnhancedPrompt(false)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="p-3 text-sm rounded-md bg-slate-800/50 border border-slate-700">
-                    {enhancedPrompt}
-                  </div>
-                </div>
-              )}
+              <Textarea
+                id="storyPrompt"
+                placeholder="Enter a story idea like 'A detective in a cyberpunk city investigates a strange case'"
+                value={storyPrompt}
+                onChange={(e) => setStoryPrompt(e.target.value)}
+                className="min-h-[80px]"
+                disabled={isGeneratingStory}
+              />
             </div>
 
             <div className="space-y-2">
