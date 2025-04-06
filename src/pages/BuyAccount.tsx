@@ -186,7 +186,7 @@ const BuyAccount = () => {
           <CardHeader className="bg-gradient-to-r from-brand-teal to-brand-blue text-white rounded-t-lg">
             <CardTitle className="text-center">Additional Images</CardTitle>
             <CardDescription className="text-center text-lg font-semibold text-white">
-              10000 Ks / 100 Images
+              20000 Ks / 100 Images
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 py-6">
