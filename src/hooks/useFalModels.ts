@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { falClient, isFalInitialized, EffectType } from "@/hooks/useFalClient";
+import { falClient, isFalInitialized } from "@/hooks/useFalClient";
 import { useToast } from "@/hooks/use-toast";
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -230,7 +229,7 @@ export function useFalModels() {
     }
   };
 
-  // ControlNet for image-to-image processing
+  // ControlNet for image-to-image processing using the correct ControlNext API
   const generateWithControlNet = async (
     imageUrl: string,
     prompt: string,
@@ -266,9 +265,9 @@ export function useFalModels() {
     setModelResult(null);
 
     try {
-      setGenerationLogs(prev => [...prev, "Processing image with ControlNet..."]);
+      setGenerationLogs(prev => [...prev, "Processing image with ControlNext..."]);
 
-      const result = await falClient.subscribe("fal-ai/controlnet", {
+      const result = await falClient.subscribe("fal-ai/controlnext", {
         input: {
           image_url: imageUrl,
           prompt: prompt,
@@ -276,9 +275,16 @@ export function useFalModels() {
           num_inference_steps: options.num_inference_steps || 30,
           guidance_scale: options.guidance_scale || 7.5,
           seed: options.seed || Math.floor(Math.random() * 1000000),
-          controlnet_conditioning_scale: options.controlnet_conditioning_scale || 0.8,
-          control_type: controlNetType
-        }
+          strength: options.controlnet_conditioning_scale || 0.8,
+          control_mode: controlNetType
+        },
+        logs: true,
+        onQueueUpdate: (update) => {
+          if (update.status === "IN_PROGRESS" && update.logs) {
+            const newLogs = update.logs.map(log => log.message);
+            setGenerationLogs(prev => [...prev, ...newLogs]);
+          }
+        },
       });
 
       if (result.data?.image?.url) {
@@ -289,18 +295,18 @@ export function useFalModels() {
         if (userId) {
           await supabase.from('user_content_history').insert({
             user_id: userId,
-            content_type: 'video', // Consider as video for tracking purposes
+            content_type: 'video',
             content_url: resultUrl,
             prompt: prompt,
             metadata: {
-              model: 'fal-ai/controlnet',
-              control_type: controlNetType,
+              model: 'fal-ai/controlnext',
+              control_mode: controlNetType,
               config: {
                 negative_prompt: options.negative_prompt,
                 num_inference_steps: options.num_inference_steps,
                 guidance_scale: options.guidance_scale,
                 seed: options.seed,
-                controlnet_conditioning_scale: options.controlnet_conditioning_scale
+                strength: options.controlnet_conditioning_scale
               }
             }
           });
@@ -317,7 +323,7 @@ export function useFalModels() {
 
         toast({
           title: "Success",
-          description: "Image processed successfully with ControlNet",
+          description: "Image processed successfully with ControlNext",
         });
 
         return resultUrl;
@@ -325,10 +331,10 @@ export function useFalModels() {
         throw new Error("No image URL in response");
       }
     } catch (error) {
-      console.error("Failed to process with ControlNet:", error);
+      console.error("Failed to process with ControlNext:", error);
       toast({
         title: "Error",
-        description: "Failed to process image with ControlNet. Please try again.",
+        description: "Failed to process image with ControlNext. Please try again.",
         variant: "destructive",
       });
       return null;

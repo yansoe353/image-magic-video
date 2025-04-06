@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,7 +25,7 @@ const AITools = () => {
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
-  const [controlNetType, setControlNetType] = useState<string>("canny");
+  const [controlMode, setControlMode] = useState<string>("canny");
   const [settings, setSettings] = useState({
     numSteps: 30,
     guidanceScale: 7.5,
@@ -68,7 +67,7 @@ const AITools = () => {
         if (!imageUrl) {
           return;
         }
-        await generateWithControlNet(imageUrl, prompt, controlNetType, {
+        await generateWithControlNet(imageUrl, prompt, controlMode, {
           negative_prompt: negativePrompt,
           num_inference_steps: settings.numSteps,
           guidance_scale: settings.guidanceScale,
@@ -120,7 +119,7 @@ const AITools = () => {
                 <Video className="w-4 h-4" /> Video Effects
               </TabsTrigger>
               <TabsTrigger value="controlnet" className="flex items-center gap-1">
-                <Wand2 className="w-4 h-4" /> ControlNet
+                <Wand2 className="w-4 h-4" /> ControlNext
               </TabsTrigger>
             </TabsList>
             
@@ -279,22 +278,24 @@ const AITools = () => {
               </div>
               
               <div>
-                <Label htmlFor="controlNetType" className="mb-2 block">Control Type</Label>
-                <Select value={controlNetType} onValueChange={setControlNetType}>
+                <Label htmlFor="controlMode" className="mb-2 block">Control Mode</Label>
+                <Select value={controlMode} onValueChange={setControlMode}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select control type" />
+                    <SelectValue placeholder="Select control mode" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="canny">Canny Edge Detection</SelectItem>
                     <SelectItem value="depth">Depth Map</SelectItem>
-                    <SelectItem value="mlsd">MLSD Line Detection</SelectItem>
+                    <SelectItem value="lineart">Line Art</SelectItem>
+                    <SelectItem value="mlsd">Straight Lines</SelectItem>
                     <SelectItem value="normal">Normal Map</SelectItem>
-                    <SelectItem value="openpose">OpenPose Skeleton</SelectItem>
-                    <SelectItem value="scribble">Scribble</SelectItem>
+                    <SelectItem value="pose">Human Pose</SelectItem>
+                    <SelectItem value="scribble">Scribble/Sketch</SelectItem>
+                    <SelectItem value="seg">Segmentation Map</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-sm text-slate-400 mt-1">
-                  Different control types extract different features from your image
+                  Different control modes extract different features from your image
                 </p>
               </div>
               
@@ -350,7 +351,7 @@ const AITools = () => {
                 </div>
                 
                 <div>
-                  <Label htmlFor="conditioningScale">Conditioning Scale: {settings.conditioningScale}</Label>
+                  <Label htmlFor="conditioningScale">Strength: {settings.conditioningScale}</Label>
                   <Input
                     id="conditioningScale"
                     type="range"
@@ -385,7 +386,7 @@ const AITools = () => {
                 disabled={isLoading || !imageUrl || !prompt.trim() || !isFalInitialized}
                 className="w-full"
               >
-                {isLoading ? "Processing..." : "Generate with ControlNet"} 
+                {isLoading ? "Processing..." : "Generate with ControlNext"} 
                 {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
               </Button>
             </TabsContent>
@@ -429,7 +430,7 @@ const AITools = () => {
                   modelResult?.url && (
                     <img 
                       src={modelResult.url} 
-                      alt="Generated with ControlNet" 
+                      alt="Generated with ControlNext" 
                       className="w-full h-auto"
                     />
                   )
