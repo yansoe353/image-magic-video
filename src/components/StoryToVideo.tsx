@@ -49,7 +49,7 @@ const StoryToVideo = () => {
   const [editedStory, setEditedStory] = useState<StoryScene[]>([]);
   const [characterDetails, setCharacterDetails] = useState<CharacterDetails>({});
   const [showCharacterForm, setShowCharacterForm] = useState(false);
-  const [generationLogs, setGenerationLogs] = useState<string[]>([]);
+  const [generationLogs, setGenerationLogs] = useState<string[]>([]); // Added missing state
 
   const { generateResponse, isLoading: isGeminiLoading } = useGeminiAPI();
   const { toast } = useToast();
@@ -399,7 +399,7 @@ const StoryToVideo = () => {
     }
 
     setCurrentGeneratingIndex(sceneIndex);
-    setGenerationLogs([]);
+    setGenerationLogs([]); // Reset logs for new generation
 
     try {
       const apiKey = localStorage.getItem("falApiKey");
@@ -420,7 +420,7 @@ const StoryToVideo = () => {
         input: {
           image_url: scene.imageUrl,
           prompt: scene.imagePrompt,
-          negative_prompt: "low quality, worst quality, deformed, distorted, disfigured, motion smear, motion artifacts, fused fingers, bad anatomy, weird hand, ugly",
+          negative_prompt: "blur, distort, low quality",
           guidance_scale: 8.5,
           num_inference_steps: 50,
           motion_bucket_id: 127
