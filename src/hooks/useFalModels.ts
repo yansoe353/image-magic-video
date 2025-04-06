@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { falClient, isFalInitialized } from "@/hooks/useFalClient";
 import { useToast } from "@/hooks/use-toast";
@@ -229,7 +230,7 @@ export function useFalModels() {
     }
   };
 
-  // ControlNet for image-to-image processing using the correct ControlNext API
+  // ControlNext for image-to-image processing
   const generateWithControlNet = async (
     imageUrl: string,
     prompt: string,
@@ -267,11 +268,12 @@ export function useFalModels() {
     try {
       setGenerationLogs(prev => [...prev, "Processing image with ControlNext..."]);
 
+      // According to the API reference, controlnext expects these parameters
       const result = await falClient.subscribe("fal-ai/controlnext", {
         input: {
           image_url: imageUrl,
-          prompt: prompt,
-          negative_prompt: options.negative_prompt || "",
+          text_prompt: prompt, // Correct parameter name for prompt
+          negative_text_prompt: options.negative_prompt || "", // Correct parameter name for negative prompt
           num_inference_steps: options.num_inference_steps || 30,
           guidance_scale: options.guidance_scale || 7.5,
           seed: options.seed || Math.floor(Math.random() * 1000000),
@@ -287,8 +289,9 @@ export function useFalModels() {
         },
       });
 
-      if (result.data?.image?.url) {
-        const resultUrl = result.data.image.url;
+      // The API returns images in the 'images' array
+      if (result.data?.images?.[0]?.url) {
+        const resultUrl = result.data.images[0].url;
 
         // Store in content history
         const userId = await getUserId();
