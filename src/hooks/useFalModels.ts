@@ -268,12 +268,12 @@ export function useFalModels() {
     try {
       setGenerationLogs(prev => [...prev, "Processing image with ControlNext..."]);
 
-      // According to the API reference, controlnext expects these parameters
+      // According to the API reference for fal-ai/controlnext
       const result = await falClient.subscribe("fal-ai/controlnext", {
         input: {
           image_url: imageUrl,
-          text_prompt: prompt, // Correct parameter name for prompt
-          negative_text_prompt: options.negative_prompt || "", // Correct parameter name for negative prompt
+          prompt: prompt, // API expects 'prompt', not 'text_prompt'
+          negative_prompt: options.negative_prompt || "",
           num_inference_steps: options.num_inference_steps || 30,
           guidance_scale: options.guidance_scale || 7.5,
           seed: options.seed || Math.floor(Math.random() * 1000000),
@@ -289,9 +289,9 @@ export function useFalModels() {
         },
       });
 
-      // The API returns images in the 'images' array
-      if (result.data?.images?.[0]?.url) {
-        const resultUrl = result.data.images[0].url;
+      // The API returns image in the 'image' object
+      if (result.data?.image?.url) {
+        const resultUrl = result.data.image.url;
 
         // Store in content history
         const userId = await getUserId();
