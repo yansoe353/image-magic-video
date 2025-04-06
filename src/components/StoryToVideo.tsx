@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ImageIcon, BookText, Film, Sparkles, User } from "lucide-react";
+import { Loader2, ImageIcon, BookText, Film, Sparkles, User, X } from "lucide-react";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
 import { incrementImageCount, incrementVideoCount, getRemainingCountsAsync } from "@/utils/usageTracker";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,7 +49,10 @@ const StoryToVideo = () => {
   const [editedStory, setEditedStory] = useState<StoryScene[]>([]);
   const [characterDetails, setCharacterDetails] = useState<CharacterDetails>({});
   const [showCharacterForm, setShowCharacterForm] = useState(false);
-  const [generationLogs, setGenerationLogs] = useState<string[]>([]); // Added missing state
+  const [generationLogs, setGenerationLogs] = useState<string[]>([]);
+  const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
+  const [enhancedPrompt, setEnhancedPrompt] = useState("");
+  const [showEnhancedPrompt, setShowEnhancedPrompt] = useState(false);
 
   const { generateResponse, isLoading: isGeminiLoading } = useGeminiAPI();
   const { toast } = useToast();
@@ -61,6 +64,51 @@ const StoryToVideo = () => {
     };
     fetchCounts();
   }, []);
+
+  const enhanceStoryPrompt = async () => {
+    if (!storyPrompt.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a story prompt to enhance",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsEnhancingPrompt(true);
+    try {
+      const enhancementPrompt = `You are a creative writing assistant. Improve this story prompt to make it more vivid, detailed, and likely to generate better results:
+      
+      Original prompt: "${storyPrompt}"
+      
+      Please enhance it by:
+      1. Adding more sensory details (sight, sound, etc.)
+      2. Clarifying the main conflict or goal
+      3. Suggesting interesting character traits
+      4. Including atmospheric elements
+      5. Making it more specific while keeping it concise
+      
+      Return ONLY the enhanced prompt, no additional commentary or explanations.`;
+
+      const response = await generateResponse(enhancementPrompt);
+      setEnhancedPrompt(response);
+      setShowEnhancedPrompt(true);
+      
+      toast({
+        title: "Prompt Enhanced",
+        description: "Your prompt has been improved for better results",
+      });
+    } catch (error) {
+      console.error("Failed to enhance prompt:", error);
+      toast({
+        title: "Error",
+        description: "Failed to enhance prompt. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEnhancingPrompt(false);
+    }
+  };
 
   const generateCharacterTemplate = async () => {
     if (!storyPrompt) {
@@ -191,6 +239,7 @@ const StoryToVideo = () => {
     setIsGeneratingStory(true);
     setGeneratedStory([]);
     setVideoUrls([]);
+    setShowEnhancedPrompt(false);
 
     try {
       const numScenes = parseInt(sceneCount);
@@ -399,7 +448,7 @@ const StoryToVideo = () => {
     }
 
     setCurrentGeneratingIndex(sceneIndex);
-    setGenerationLogs([]); // Reset logs for new generation
+    setGenerationLogs([]);
 
     try {
       const apiKey = localStorage.getItem("falApiKey");
@@ -561,14 +610,62 @@ const StoryToVideo = () => {
           <div className="space-y-4">
             <div>
               <Label htmlFor="storyPrompt">Story Prompt</Label>
-              <Textarea
-                id="storyPrompt"
-                placeholder="Enter a story idea like 'A detective in a cyberpunk city investigates a strange case'"
-                value={storyPrompt}
-                onChange={(e) => setStoryPrompt(e.target.value)}
-                className="min-h-[80px]"
-                disabled={isGeneratingStory}
-              />
+              <div className="relative">
+                <Textarea
+                  id="storyPrompt"
+                  placeholder="Enter a story idea like 'A detective in a cyberpunk city investigates a strange case'"
+                  value={storyPrompt}
+                  onChange={(e) => {
+                    setStoryPrompt(e.target.value);
+                    setShowEnhancedPrompt(false);
+                  }}
+                  className="min-h-[80px] pr-12"
+                  disabled={isGeneratingStory}
+                />
+                <Button
+                  onClick={enhanceStoryPrompt}
+                  disabled={isEnhancingPrompt || !storyPrompt.trim() || isGeneratingStory}
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1 h-8 w-8"
+                >
+                  {isEnhancingPrompt ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              
+              {showEnhancedPrompt && enhancedPrompt && (
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Enhanced Prompt</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setStoryPrompt(enhancedPrompt);
+                          setShowEnhancedPrompt(false);
+                        }}
+                      >
+                        Use This
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowEnhancedPrompt(false)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="p-3 text-sm rounded-md bg-slate-800/50 border border-slate-700">
+                    {enhancedPrompt}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
