@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -81,6 +80,65 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
     }
   }, [initialImageUrl]);
 
+  const resizeImageToAspectRatio = async (imageUrl: string, aspectRatio: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.src = imageUrl;
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          resolve(imageUrl);
+          return;
+        }
+
+        let targetWidth = img.width;
+        let targetHeight = img.height;
+
+        // Calculate target dimensions based on aspect ratio
+        const [ratioW, ratioH] = aspectRatio.split(':').map(Number);
+        const targetRatio = ratioW / ratioH;
+        const currentRatio = img.width / img.height;
+
+        if (currentRatio > targetRatio) {
+          // Image is wider than target aspect ratio
+          targetWidth = img.height * targetRatio;
+        } else {
+          // Image is taller than target aspect ratio
+          targetHeight = img.width / targetRatio;
+        }
+
+        // Set canvas dimensions
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+
+        // Draw image centered and cropped to aspect ratio
+        ctx.drawImage(
+          img,
+          (img.width - targetWidth) / 2,
+          (img.height - targetHeight) / 2,
+          targetWidth,
+          targetHeight,
+          0,
+          0,
+          targetWidth,
+          targetHeight
+        );
+
+        // Convert to data URL
+        const resizedImageUrl = canvas.toDataURL('image/jpeg', 0.9);
+        resolve(resizedImageUrl);
+      };
+
+      img.onerror = () => {
+        resolve(imageUrl); // Fallback to original if resizing fails
+      };
+    });
+  };
+
   const saveToHistory = async (videoUrl: string, originalUrl: string) => {
     if (!isLoggedIn()) return;
 
@@ -154,29 +212,19 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
         }
       }
 
-      // Calculate dimensions based on aspect ratio
-      let width = 1024;
-      let height = 576;
-      
-      if (aspectRatio === "9:16") {
-        width = 576;
-        height = 1024;
-      } else if (aspectRatio === "1:1") {
-        width = 768;
-        height = 768;
-      }
+      // Resize image to match selected aspect ratio
+      setGenerationLogs(prev => [...prev, `Resizing image to ${aspectRatio} aspect ratio...`]);
+      const resizedImageUrl = await resizeImageToAspectRatio(imageUrl, aspectRatio);
 
       setGenerationLogs(prev => [...prev, "Sending request to fal.ai/ltx-video..."]);
       
       const result = await fal.subscribe("fal-ai/ltx-video/image-to-video", {
         input: {
-          image_url: imageUrl,
+          image_url: resizedImageUrl,
           prompt: promptToUse,
           negative_prompt: negativePrompt,
           num_inference_steps: numInferenceSteps,
           guidance_scale: guidanceScale,
-          width,
-          height,
           motion_bucket_id: motionBucketId
         },
         logs: true,
