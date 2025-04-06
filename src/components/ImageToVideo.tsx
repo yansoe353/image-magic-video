@@ -11,7 +11,7 @@ import { Languages, AlertCircle } from "lucide-react";
 import { LANGUAGES, translateText, type LanguageOption } from "@/utils/translationUtils";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import { usePromptTranslation } from "@/hooks/usePromptTranslation";
-import { incrementVideoCount, getRemainingCounts, getRemainingCountsAsync } from "@/utils/usageTracker";
+import { incrementVideoCount, getRemainingCounts, getRemainingCountsAsync, VIDEO_LIMIT } from "@/utils/usageTracker";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
@@ -33,8 +33,6 @@ try {
 } catch (error) {
   console.error("Error initializing fal.ai client:", error);
 }
-
-const VIDEO_LIMIT = 100; // Updated video limit
 
 interface ImageToVideoProps {
   initialImageUrl?: string | null;
@@ -87,11 +85,11 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
       const img = new Image();
       img.crossOrigin = "Anonymous";
       img.src = imageUrl;
-
+      
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-
+        
         if (!ctx) {
           resolve(imageUrl);
           return;
@@ -219,7 +217,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
       const resizedImageUrl = await resizeImageToAspectRatio(imageUrl, aspectRatio);
 
       setGenerationLogs(prev => [...prev, "Sending request to fal.ai/ltx-video..."]);
-
+      
       const result = await fal.subscribe("fal-ai/ltx-video/image-to-video", {
         input: {
           image_url: resizedImageUrl,
@@ -263,11 +261,11 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
         } catch (uploadError) {
           console.error("Failed to upload to Supabase:", uploadError);
           setVideoUrl(falVideoUrl);
-
+          
           if (onVideoGenerated) {
             onVideoGenerated(falVideoUrl);
           }
-
+          
           await saveToHistory(falVideoUrl, falVideoUrl);
         } finally {
           setIsStoringVideo(false);
@@ -456,8 +454,8 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">Video Preview</h2>
               {videoUrl && (
-                <Button
-                  variant="outline"
+                <Button 
+                  variant="outline" 
                   onClick={() => onSwitchToEditor && onSwitchToEditor(videoUrl)}
                 >
                   Edit in Video Editor
