@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,49 +7,55 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowRight, Image, Wand2, Volume2, VolumeX, Highlighter } from "lucide-react";
+import { ArrowRight, Video, Wand2, Camera, Image } from "lucide-react";
 import { useFalModels } from "@/hooks/useFalModels";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import ProLabel from "./ProLabel";
+import { isFalInitialized } from "@/hooks/useFalClient";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 const AITools = () => {
-  const [activeTab, setActiveTab] = useState<string>("upscaler");
+  const [activeTab, setActiveTab] = useState<string>("image-to-video");
   const [imageUrl, setImageUrl] = useState("");
   const [imagePreview, setImagePreview] = useState("");
-  const [maskUrl, setMaskUrl] = useState("");
-  const [maskPreview, setMaskPreview] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
+  const [videoPreview, setVideoPreview] = useState("");
   const [isUploading, setIsUploading] = useState(false);
-  const [text, setText] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [speakerIdentity, setSpeakerIdentity] = useState("en_speaker_1");
+  const [negativePrompt, setNegativePrompt] = useState("");
+  const [aspectRatio, setAspectRatio] = useState<string>("16:9");
   
   const { 
     isLoading, 
     modelResult, 
-    generationLogs, 
-    upscaleImage, 
-    removeBackground, 
-    textToSpeech,
-    inpaintImage
+    generationLogs,
+    imageToVideo,
+    generateVideoWithPrompt
   } = useFalModels();
   
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
 
   const handleGenerate = async () => {
     switch (activeTab) {
-      case "upscaler":
-        await upscaleImage(imageUrl);
+      case "image-to-video":
+        if (!imageUrl) {
+          return;
+        }
+        await imageToVideo(imageUrl, prompt, {
+          negative_prompt: negativePrompt,
+          aspect_ratio: aspectRatio as "16:9" | "9:16" | "1:1"
+        });
         break;
-      case "remove-bg":
-        await removeBackground(imageUrl);
-        break;
-      case "text-to-speech":
-        await textToSpeech(text, speakerIdentity);
-        break;
-      case "inpainting":
-        await inpaintImage(imageUrl, maskUrl, prompt);
+      case "video-effects":
+        if (!videoUrl) {
+          return;
+        }
+        await generateVideoWithPrompt(videoUrl, prompt, {
+          negative_prompt: negativePrompt
+        });
         break;
       default:
         break;
@@ -60,54 +67,32 @@ const AITools = () => {
       <Card className="overflow-hidden">
         <CardContent className="p-6">
           <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-2xl font-bold">AI Tools</h2>
+            <h2 className="text-2xl font-bold">AI Video Tools</h2>
             <ProLabel />
           </div>
           
+          {!isFalInitialized && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>API Key Required</AlertTitle>
+              <AlertDescription>
+                Please set your API key in the settings first to use these features
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="grid grid-cols-4 gap-1">
-              <TabsTrigger value="upscaler" className="flex items-center gap-1">
-                <Image className="w-4 h-4" /> Upscaler
+            <TabsList className="grid grid-cols-2 gap-1">
+              <TabsTrigger value="image-to-video" className="flex items-center gap-1">
+                <Image className="w-4 h-4" /> Image to Video
               </TabsTrigger>
-              <TabsTrigger value="remove-bg" className="flex items-center gap-1">
-                <Wand2 className="w-4 h-4" /> Remove BG
-              </TabsTrigger>
-              <TabsTrigger value="text-to-speech" className="flex items-center gap-1">
-                <Volume2 className="w-4 h-4" /> TTS
-              </TabsTrigger>
-              <TabsTrigger value="inpainting" className="flex items-center gap-1">
-                <Highlighter className="w-4 h-4" /> Inpaint
+              <TabsTrigger value="video-effects" className="flex items-center gap-1">
+                <Video className="w-4 h-4" /> Video Effects
               </TabsTrigger>
             </TabsList>
             
-            {/* Upscaler Tab */}
-            <TabsContent value="upscaler" className="space-y-4">
-              <div>
-                <Label className="mb-2 block">Upload Image to Enhance</Label>
-                <ImageUploader
-                  imagePreview={imagePreview}
-                  setImagePreview={setImagePreview}
-                  setImageUrl={setImageUrl}
-                  isUploading={isUploading}
-                  setIsUploading={setIsUploading}
-                />
-                <p className="text-sm text-slate-400 mt-2">
-                  Enhance image quality with AI upscaling (4x)
-                </p>
-              </div>
-              
-              <Button
-                onClick={handleGenerate}
-                disabled={isLoading || !imageUrl}
-                className="w-full"
-              >
-                {isLoading ? "Processing..." : "Upscale Image"} 
-                {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
-              </Button>
-            </TabsContent>
-            
-            {/* Remove Background Tab */}
-            <TabsContent value="remove-bg" className="space-y-4">
+            {/* Image to Video Tab */}
+            <TabsContent value="image-to-video" className="space-y-4">
               <div>
                 <Label className="mb-2 block">Upload Image</Label>
                 <ImageUploader
@@ -118,137 +103,128 @@ const AITools = () => {
                   setIsUploading={setIsUploading}
                 />
                 <p className="text-sm text-slate-400 mt-2">
-                  Automatically remove the background from any image
+                  Upload an image to convert into a short video
                 </p>
               </div>
               
-              <Button
-                onClick={handleGenerate}
-                disabled={isLoading || !imageUrl}
-                className="w-full"
-              >
-                {isLoading ? "Processing..." : "Remove Background"} 
-                {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
-              </Button>
-            </TabsContent>
-            
-            {/* Text to Speech Tab */}
-            <TabsContent value="text-to-speech" className="space-y-4">
               <div>
-                <Label htmlFor="text" className="mb-2 block">Text</Label>
+                <Label htmlFor="prompt" className="mb-2 block">Prompt</Label>
                 <Textarea
-                  id="text"
-                  placeholder="Enter text to convert to speech..."
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  className="min-h-[100px]"
+                  id="prompt"
+                  placeholder="Describe how you want the image to animate..."
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  className="min-h-[80px]"
                 />
               </div>
               
               <div>
-                <Label htmlFor="speaker" className="mb-2 block">Speaker Voice</Label>
-                <Select
-                  value={speakerIdentity}
-                  onValueChange={(value) => setSpeakerIdentity(value)}
-                >
+                <Label htmlFor="negativePrompt" className="mb-2 block">Negative Prompt (Optional)</Label>
+                <Textarea
+                  id="negativePrompt"
+                  placeholder="Describe what you want to avoid in the video..."
+                  value={negativePrompt}
+                  onChange={(e) => setNegativePrompt(e.target.value)}
+                  className="min-h-[60px]"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="aspectRatio" className="mb-2 block">Aspect Ratio</Label>
+                <Select value={aspectRatio} onValueChange={setAspectRatio}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select voice" />
+                    <SelectValue placeholder="Select aspect ratio" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="en_speaker_1">English (Male)</SelectItem>
-                    <SelectItem value="en_speaker_2">English (Female)</SelectItem>
-                    <SelectItem value="en_speaker_3">English (Male 2)</SelectItem>
-                    <SelectItem value="en_speaker_4">English (Female 2)</SelectItem>
-                    <SelectItem value="en_speaker_5">English (Male 3)</SelectItem>
-                    <SelectItem value="en_speaker_6">English (Male 4)</SelectItem>
-                    <SelectItem value="en_speaker_7">English (Female 3)</SelectItem>
-                    <SelectItem value="en_speaker_8">English (Female 4)</SelectItem>
-                    <SelectItem value="en_speaker_9">English (Male 5)</SelectItem>
-                    <SelectItem value="zh_speaker_1">Chinese (Female)</SelectItem>
-                    <SelectItem value="zh_speaker_2">Chinese (Male)</SelectItem>
-                    <SelectItem value="zh_speaker_3">Chinese (Female 2)</SelectItem>
-                    <SelectItem value="fr_speaker_1">French (Male)</SelectItem>
-                    <SelectItem value="fr_speaker_2">French (Female)</SelectItem>
-                    <SelectItem value="de_speaker_1">German (Male)</SelectItem>
-                    <SelectItem value="de_speaker_2">German (Female)</SelectItem>
-                    <SelectItem value="hi_speaker_1">Hindi (Female)</SelectItem>
-                    <SelectItem value="hi_speaker_2">Hindi (Male)</SelectItem>
-                    <SelectItem value="it_speaker_1">Italian (Male)</SelectItem>
-                    <SelectItem value="it_speaker_2">Italian (Female)</SelectItem>
-                    <SelectItem value="ja_speaker_1">Japanese (Female)</SelectItem>
-                    <SelectItem value="ja_speaker_2">Japanese (Male)</SelectItem>
-                    <SelectItem value="ko_speaker_1">Korean (Male)</SelectItem>
-                    <SelectItem value="ko_speaker_2">Korean (Female)</SelectItem>
-                    <SelectItem value="pl_speaker_1">Polish (Female)</SelectItem>
-                    <SelectItem value="pl_speaker_2">Polish (Male)</SelectItem>
-                    <SelectItem value="pt_speaker_1">Portuguese (Female)</SelectItem>
-                    <SelectItem value="pt_speaker_2">Portuguese (Male)</SelectItem>
-                    <SelectItem value="ru_speaker_1">Russian (Female)</SelectItem>
-                    <SelectItem value="ru_speaker_2">Russian (Male)</SelectItem>
-                    <SelectItem value="es_speaker_1">Spanish (Male)</SelectItem>
-                    <SelectItem value="es_speaker_2">Spanish (Female)</SelectItem>
-                    <SelectItem value="tr_speaker_1">Turkish (Male)</SelectItem>
-                    <SelectItem value="tr_speaker_2">Turkish (Female)</SelectItem>
+                    <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
+                    <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
+                    <SelectItem value="1:1">1:1 (Square)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               
               <Button
                 onClick={handleGenerate}
-                disabled={isLoading || !text.trim()}
+                disabled={isLoading || !imageUrl || !prompt.trim() || !isFalInitialized}
                 className="w-full"
               >
-                {isLoading ? "Generating..." : "Generate Speech"} 
+                {isLoading ? "Processing..." : "Generate Video"} 
                 {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
               </Button>
             </TabsContent>
             
-            {/* Inpainting Tab */}
-            <TabsContent value="inpainting" className="space-y-4">
-              <div className="space-y-4">
-                <div>
-                  <Label className="mb-2 block">Upload Original Image</Label>
-                  <ImageUploader
-                    imagePreview={imagePreview}
-                    setImagePreview={setImagePreview}
-                    setImageUrl={setImageUrl}
-                    isUploading={isUploading}
-                    setIsUploading={setIsUploading}
+            {/* Video Effects Tab */}
+            <TabsContent value="video-effects" className="space-y-4">
+              <div>
+                <Label className="mb-2 block">Upload Video</Label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 transition-colors">
+                  <input
+                    type="file"
+                    accept="video/*"
+                    className="hidden"
+                    id="video-upload"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        const file = e.target.files[0];
+                        setVideoUrl(URL.createObjectURL(file));
+                      }
+                    }}
                   />
+                  <label htmlFor="video-upload" className="cursor-pointer">
+                    <Video className="mx-auto h-10 w-10 text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-500">
+                      {videoUrl ? "Change video" : "Click to upload a video"}
+                    </p>
+                  </label>
                 </div>
                 
-                <div>
-                  <Label className="mb-2 block">Upload Mask Image (white areas will be edited)</Label>
-                  <ImageUploader
-                    imagePreview={maskPreview}
-                    setImagePreview={setMaskPreview}
-                    setImageUrl={setMaskUrl}
-                    isUploading={isUploading}
-                    setIsUploading={setIsUploading}
-                  />
-                  <p className="text-sm text-slate-400 mt-2">
-                    Upload a black and white mask where white areas will be replaced
-                  </p>
-                </div>
-                
-                <div>
-                  <Label htmlFor="prompt" className="mb-2 block">Prompt</Label>
-                  <Textarea
-                    id="prompt"
-                    placeholder="Describe what should replace the masked area..."
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    className="min-h-[80px]"
-                  />
-                </div>
+                {videoUrl && (
+                  <div className="mt-4 relative">
+                    <video 
+                      src={videoUrl} 
+                      controls 
+                      className="w-full h-auto rounded-lg"
+                    />
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={() => setVideoUrl("")}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                )}
+              </div>
+              
+              <div>
+                <Label htmlFor="videoPrompt" className="mb-2 block">Effect Prompt</Label>
+                <Textarea
+                  id="videoPrompt"
+                  placeholder="Describe the effect you want to apply to the video..."
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  className="min-h-[80px]"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="videoNegativePrompt" className="mb-2 block">Negative Prompt (Optional)</Label>
+                <Textarea
+                  id="videoNegativePrompt"
+                  placeholder="Describe what you want to avoid in the processed video..."
+                  value={negativePrompt}
+                  onChange={(e) => setNegativePrompt(e.target.value)}
+                  className="min-h-[60px]"
+                />
               </div>
               
               <Button
                 onClick={handleGenerate}
-                disabled={isLoading || !imageUrl || !maskUrl}
+                disabled={isLoading || !videoUrl || !prompt.trim() || !isFalInitialized}
                 className="w-full"
               >
-                {isLoading ? "Processing..." : "Generate Inpainting"} 
+                {isLoading ? "Processing..." : "Apply Effect"} 
                 {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
               </Button>
             </TabsContent>
@@ -261,7 +237,7 @@ const AITools = () => {
           <CardContent className="p-6">
             <h2 className="text-2xl font-bold mb-4">Result Preview</h2>
             
-            {modelResult?.type === "image" && (
+            {modelResult?.type === "video" && (
               <div className="relative border border-slate-200/20 rounded-lg overflow-hidden bg-slate-900/50">
                 {isLoading ? (
                   <div className="flex items-center justify-center h-[300px]">
@@ -269,38 +245,14 @@ const AITools = () => {
                   </div>
                 ) : (
                   modelResult?.url && (
-                    <img
-                      src={modelResult.url}
-                      alt="Generated result"
-                      className="w-full object-contain max-h-[500px]"
+                    <VideoPreview
+                      videoUrl={modelResult.url}
+                      isLoading={isLoading}
+                      generationLogs={[]}
+                      videoRef={videoRef}
+                      isPlaying={isPlaying}
+                      handlePlayPause={handlePlayPause}
                     />
-                  )
-                )}
-              </div>
-            )}
-            
-            {modelResult?.type === "audio" && (
-              <div className="border border-slate-200/20 rounded-lg overflow-hidden bg-slate-900/50 p-4">
-                {isLoading ? (
-                  <div className="flex items-center justify-center h-[100px]">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                  </div>
-                ) : (
-                  modelResult?.url && (
-                    <div className="flex flex-col items-center">
-                      <audio
-                        src={modelResult.url}
-                        controls
-                        className="w-full mt-2"
-                      />
-                      <a 
-                        href={modelResult.url} 
-                        download="generated_audio.mp3"
-                        className="mt-4 text-sm text-blue-400 hover:text-blue-300"
-                      >
-                        Download Audio File
-                      </a>
-                    </div>
                   )
                 )}
               </div>

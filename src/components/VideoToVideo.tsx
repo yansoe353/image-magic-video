@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, Video } from "lucide-react";
 import VideoPreview from "@/components/VideoPreview";
 import { useVideoControls } from "@/hooks/useVideoControls";
-import { fal } from "@fal-ai/client";
+import { falClient, isFalInitialized } from "@/hooks/useFalClient";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { incrementVideoCount } from "@/utils/usageTracker";
@@ -75,18 +74,18 @@ const VideoToVideo = () => {
   
   const checkRequestStatus = async (requestId: string) => {
     try {
-      const status = await fal.queue.status("fal-ai/mmaudio-v2", {
+      const status = await falClient.queue.status("fal-ai/mmaudio-v2", {
         requestId,
         logs: true,
       });
       
-      if (status && 'logs' in status && Array.isArray(status.logs)) {
+      if (status && status.logs && Array.isArray(status.logs)) {
         const newLogs = status.logs.map(log => log.message);
         setGenerationLogs(prev => [...prev, ...newLogs.filter(log => !prev.includes(log))]);
       }
       
       if (status.status === "COMPLETED") {
-        const result = await fal.queue.result("fal-ai/mmaudio-v2", { requestId });
+        const result = await falClient.queue.result("fal-ai/mmaudio-v2", { requestId });
         if (result.data?.video?.url) {
           handleGenerationSuccess(result.data.video.url);
         } else {
@@ -94,11 +93,8 @@ const VideoToVideo = () => {
         }
       } else if (status.status === "FAILED") {
         throw new Error("Video generation failed");
-      } else {
-        // Instead of using a direct comparison, check if status is one of the valid states that require polling
-        if (status.status === "IN_PROGRESS" || status.status === "IN_QUEUE") {
-          setTimeout(() => checkRequestStatus(requestId), 2000);
-        }
+      } else if (status.status === "IN_PROGRESS" || status.status === "IN_QUEUE") {
+        setTimeout(() => checkRequestStatus(requestId), 2000);
       }
     } catch (error) {
       handleGenerationError(error);
@@ -161,6 +157,15 @@ const VideoToVideo = () => {
       setError("Please enter a prompt for the video generation.");
       return;
     }
+
+    if (!isFalInitialized) {
+      toast({
+        title: "API Key Required",
+        description: "Please set your API key in the settings first",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsGenerating(true);
     setError(null);
@@ -176,7 +181,7 @@ const VideoToVideo = () => {
         setIsUploading(true);
         
         try {
-          uploadedVideoUrl = await fal.storage.upload(videoFile);
+          uploadedVideoUrl = await falClient.storage.upload(videoFile);
           setGenerationLogs(prev => [...prev, "Video uploaded successfully."]);
         } catch (error) {
           console.error("Error uploading video:", error);
@@ -203,12 +208,12 @@ const VideoToVideo = () => {
       setGenerationLogs(prev => [...prev, "Submitting request to fal.ai..."]);
       setProgress(20);
       
-      const result = await fal.subscribe("fal-ai/mmaudio-v2", {
+      const result = await falClient.subscribe("fal-ai/mmaudio-v2", {
         input: modelInput,
         logs: true,
         onQueueUpdate: (update) => {
-          if (update.status === "IN_PROGRESS") {
-            const logs = update.logs?.map((log) => log.message) || [];
+          if (update.status === "IN_PROGRESS" && update.logs) {
+            const logs = update.logs.map((log) => log.message) || [];
             setGenerationLogs(prev => [...prev, ...logs.filter(log => !prev.includes(log))]);
             
             if (logs.some(log => log.includes("Generating"))) {
