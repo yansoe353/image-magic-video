@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -50,6 +49,7 @@ const StoryToVideo = () => {
   const [editedStory, setEditedStory] = useState<StoryScene[]>([]);
   const [characterDetails, setCharacterDetails] = useState<CharacterDetails>({});
   const [showCharacterForm, setShowCharacterForm] = useState(false);
+  const [generationLogs, setGenerationLogs] = useState<string[]>([]); // Added missing state
 
   const { generateResponse, isLoading: isGeminiLoading } = useGeminiAPI();
   const { toast } = useToast();
@@ -399,6 +399,7 @@ const StoryToVideo = () => {
     }
 
     setCurrentGeneratingIndex(sceneIndex);
+    setGenerationLogs([]); // Reset logs for new generation
 
     try {
       const apiKey = localStorage.getItem("falApiKey");
@@ -413,10 +414,6 @@ const StoryToVideo = () => {
 
       fal.config({ credentials: apiKey });
 
-      // Calculate dimensions based on the image (for StoryToVideo, always using square aspect ratio)
-      const width = 768;
-      const height = 768;
-      
       setGenerationLogs(prev => [...prev, "Starting video generation with LTX model..."]);
 
       const result = await fal.subscribe("fal-ai/ltx-video/image-to-video", {
@@ -424,8 +421,6 @@ const StoryToVideo = () => {
           image_url: scene.imageUrl,
           prompt: scene.imagePrompt,
           negative_prompt: "blur, distort, low quality",
-          width,
-          height,
           guidance_scale: 7.5,
           num_inference_steps: 25,
           motion_bucket_id: 127
