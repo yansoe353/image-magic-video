@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowRight, Image, Wand2, VolumeX, VolumeMedium, Highlighter } from "lucide-react";
+import { ArrowRight, Image, Wand2, Volume2, VolumeX, Highlighter } from "lucide-react";
 import { useFalModels } from "@/hooks/useFalModels";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
@@ -74,7 +73,7 @@ const AITools = () => {
                 <Wand2 className="w-4 h-4" /> Remove BG
               </TabsTrigger>
               <TabsTrigger value="text-to-speech" className="flex items-center gap-1">
-                <VolumeMedium className="w-4 h-4" /> TTS
+                <Volume2 className="w-4 h-4" /> TTS
               </TabsTrigger>
               <TabsTrigger value="inpainting" className="flex items-center gap-1">
                 <Highlighter className="w-4 h-4" /> Inpaint
