@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,13 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ImageIcon, BookText, Film, Sparkles, User } from "lucide-react";
+import { Loader2, ImageIcon, BookText, Film, Sparkles, User, Download } from "lucide-react";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
 import { incrementImageCount, incrementVideoCount, getRemainingCountsAsync } from "@/utils/usageTracker";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 import { fal } from "@fal-ai/client";
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import {
   Select,
   SelectContent,
@@ -25,6 +27,7 @@ interface StoryScene {
   text: string;
   imagePrompt: string;
   imageUrl?: string;
+  videoUrl?: string;
 }
 
 interface CharacterDetails {
@@ -41,7 +44,6 @@ const StoryToVideo = () => {
   const [generatedStory, setGeneratedStory] = useState<StoryScene[]>([]);
   const [isPublic, setIsPublic] = useState(false);
   const [currentGeneratingIndex, setCurrentGeneratingIndex] = useState<number | null>(null);
-  const [videoUrls, setVideoUrls] = useState<string[]>([]);
   const [counts, setCounts] = useState({ remainingImages: 0, remainingVideos: 0 });
   const [sceneCount, setSceneCount] = useState("3");
   const [imageStyle, setImageStyle] = useState("photorealism");
@@ -49,432 +51,157 @@ const StoryToVideo = () => {
   const [editedStory, setEditedStory] = useState<StoryScene[]>([]);
   const [characterDetails, setCharacterDetails] = useState<CharacterDetails>({});
   const [showCharacterForm, setShowCharacterForm] = useState(false);
-  const [generationLogs, setGenerationLogs] = useState<string[]>([]); // Added missing state
+  const [generationLogs, setGenerationLogs] = useState<string[]>([]);
+  const [isCombiningVideos, setIsCombiningVideos] = useState(false);
+  const [combinedVideoUrl, setCombinedVideoUrl] = useState<string | null>(null);
+  const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
 
+  const ffmpegRef = useRef(new FFmpeg());
   const { generateResponse, isLoading: isGeminiLoading } = useGeminiAPI();
   const { toast } = useToast();
 
   useEffect(() => {
+    const loadFfmpeg = async () => {
+      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.2/dist/umd';
+      const ffmpeg = ffmpegRef.current;
+      
+      ffmpeg.on('log', ({ message }) => {
+        setGenerationLogs(prev => [...prev, message]);
+      });
+
+      try {
+        await ffmpeg.load({
+          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        });
+        setFfmpegLoaded(true);
+      } catch (error) {
+        console.error('FFmpeg loading error:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load video processor",
+          variant: "destructive"
+        });
+      }
+    };
+
     const fetchCounts = async () => {
       const freshCounts = await getRemainingCountsAsync();
       setCounts(freshCounts);
     };
+
     fetchCounts();
-  }, []);
+    loadFfmpeg();
+  }, [toast]);
 
-  const generateCharacterTemplate = async () => {
-    if (!storyPrompt) {
+  const combineVideos = async () => {
+    if (generatedStory.some(scene => !scene.videoUrl)) {
       toast({
         title: "Error",
-        description: "Please enter a story prompt first",
+        description: "Please generate videos for all scenes first",
         variant: "destructive"
       });
       return;
     }
 
-    setIsGeneratingStory(true);
-    try {
-      const response = await generateResponse(
-        `Create detailed character descriptions for a story about: "${storyPrompt}". 
-        Provide this information in valid JSON format only:
-        {
-          "mainCharacter": "Detailed description including age, gender, appearance, clothing and distinctive features",
-          "secondaryCharacters": "Descriptions of other important characters",
-          "environment": "Description of the main setting/environment",
-          "styleNotes": "Specific visual style requirements"
-        }
-        
-        Important: Only return valid JSON without any additional text or explanations.`
-      );
-
-      let parsedResponse;
-      try {
-        parsedResponse = JSON.parse(response.trim());
-      } catch (e) {
-        const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-        if (codeBlockMatch) {
-          parsedResponse = JSON.parse(codeBlockMatch[1].trim());
-        } else {
-          const firstBrace = response.indexOf('{');
-          const lastBrace = response.lastIndexOf('}');
-          if (firstBrace >= 0 && lastBrace > firstBrace) {
-            parsedResponse = JSON.parse(response.slice(firstBrace, lastBrace + 1));
-          } else {
-            throw new Error("Could not extract valid JSON");
-          }
-        }
-      }
-
-      if (
-        typeof parsedResponse === 'object' && 
-        parsedResponse !== null &&
-        (parsedResponse.mainCharacter || 
-         parsedResponse.secondaryCharacters ||
-         parsedResponse.environment ||
-         parsedResponse.styleNotes)
-      ) {
-        setCharacterDetails({
-          mainCharacter: parsedResponse.mainCharacter || '',
-          secondaryCharacters: parsedResponse.secondaryCharacters || '',
-          environment: parsedResponse.environment || '',
-          styleNotes: parsedResponse.styleNotes || ''
-        });
-        toast({
-          title: "Character template created!",
-          description: "Review and edit the character details before generating story."
-        });
-      } else {
-        throw new Error("Invalid character template format");
-      }
-    } catch (error) {
-      console.error("Error generating character template:", error);
+    if (!ffmpegLoaded) {
       toast({
         title: "Error",
-        description: "Failed to generate character template. Please try again or enter details manually.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGeneratingStory(false);
-    }
-  };
-
-  const cleanJsonResponse = (response: string): string => {
-    let cleaned = response.replace(/```json|```/g, '').trim();
-    const firstBrace = cleaned.indexOf('{');
-    const lastBrace = cleaned.lastIndexOf('}');
-    
-    if (firstBrace >= 0 && lastBrace > firstBrace) {
-      cleaned = cleaned.slice(firstBrace, lastBrace + 1);
-    }
-    
-    return cleaned;
-  };
-
-  const parseStoryResponse = (response: string): StoryScene[] => {
-    try {
-      const directParse = JSON.parse(response.trim());
-      if (Array.isArray(directParse)) return directParse;
-    } catch (e) {}
-
-    try {
-      const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      if (codeBlockMatch) {
-        const extracted = codeBlockMatch[1].trim();
-        const parsed = JSON.parse(extracted);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) {}
-
-    try {
-      const firstBracket = response.indexOf('[');
-      const lastBracket = response.lastIndexOf(']');
-      if (firstBracket >= 0 && lastBracket > firstBracket) {
-        const extracted = response.slice(firstBracket, lastBracket + 1);
-        const parsed = JSON.parse(extracted);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) {}
-
-    throw new Error("Unable to parse story response");
-  };
-
-  const generateStory = async () => {
-    if (!storyPrompt) {
-      toast({
-        title: "Error",
-        description: "Please enter a story prompt",
+        description: "Video processor is still loading",
         variant: "destructive"
       });
       return;
     }
 
-    setIsGeneratingStory(true);
-    setGeneratedStory([]);
-    setVideoUrls([]);
+    setIsCombiningVideos(true);
+    setGenerationLogs(prev => [...prev, "Starting video combination..."]);
 
     try {
-      const numScenes = parseInt(sceneCount);
-      const characterContext = characterDetails.mainCharacter 
-        ? `Main Character: ${characterDetails.mainCharacter}\n` +
-          `Secondary Characters: ${characterDetails.secondaryCharacters || 'none'}\n` +
-          `Environment: ${characterDetails.environment || 'unspecified'}\n` +
-          `Style: ${characterDetails.styleNotes || 'unspecified'}\n\n`
-        : '';
-
-      const geminiPrompt = `${characterContext}Create a ${numScenes}-scene story about: "${storyPrompt}".
-
-      Requirements:
-      1. Maintain strict consistency with provided character details
-      2. Each scene should naturally progress the story
-      3. For each scene provide:
-         - Narrative text (include character actions/dialogue)
-         - Detailed image prompt that maintains visual consistency
+      const ffmpeg = ffmpegRef.current;
       
-      Image Prompt Guidelines:
-      - Always reference the established character details
-      - Maintain consistent clothing/hairstyles/features
-      - Keep environment/style coherent
-      - Use same character names if provided
-      
-      Format response as a JSON array following this exact structure:
-      [
-        {
-          "text": "Scene narrative...",
-          "imagePrompt": "Detailed prompt with consistent characters..."
+      // Write all input videos to FFmpeg's virtual file system
+      for (let i = 0; i < generatedStory.length; i++) {
+        const scene = generatedStory[i];
+        if (scene.videoUrl) {
+          setGenerationLogs(prev => [...prev, `Downloading scene ${i + 1} video...`]);
+          const data = await fetchFile(scene.videoUrl);
+          await ffmpeg.writeFile(`input${i}.mp4`, data);
         }
-      ]
-      
-      Important: Only return valid JSON without any other text or markdown.`;
-
-      const response = await generateResponse(geminiPrompt);
-      console.log("Raw API response:", response);
-
-      try {
-        const parsedStory = parseStoryResponse(response);
-        
-        if (!Array.isArray(parsedStory)) {
-          throw new Error("Response was not an array");
-        }
-
-        const isValidStory = parsedStory.every(scene => 
-          typeof scene.text === 'string' && 
-          typeof scene.imagePrompt === 'string'
-        );
-
-        if (!isValidStory) {
-          throw new Error("Invalid scene structure");
-        }
-
-        const enhancedStory = parsedStory.map(scene => ({
-          text: scene.text,
-          imagePrompt: characterDetails.mainCharacter 
-            ? `${characterDetails.mainCharacter}. ${scene.imagePrompt}`
-            : scene.imagePrompt
-        }));
-
-        setGeneratedStory(enhancedStory);
-        setEditedStory(enhancedStory);
-        setStoryTitle(`Story: ${storyPrompt.slice(0, 30)}${storyPrompt.length > 30 ? '...' : ''}`);
-
-      } catch (parseError) {
-        console.error("Failed to parse story:", parseError);
-        await attemptFallbackStoryGeneration();
-      }
-    } catch (error) {
-      console.error("Story generation failed:", error);
-      toast({
-        title: "Error",
-        description: "Failed to generate story. Please try a different prompt.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGeneratingStory(false);
-    }
-  };
-
-  const attemptFallbackStoryGeneration = async () => {
-    try {
-      toast({
-        title: "Trying alternative approach...",
-        description: "Having trouble with the story format, attempting simplified version",
-        variant: "default"
-      });
-
-      const numScenes = parseInt(sceneCount);
-      const fallbackPrompt = `Create a simple ${numScenes}-scene story about "${storyPrompt}". 
-        Each scene should have:
-        1. A paragraph of story text
-        2. An image description
-        
-        Return as JSON array like: [{"text":"...","imagePrompt":"..."}]`;
-
-      const fallbackResponse = await generateResponse(fallbackPrompt);
-      const parsedFallback = parseStoryResponse(fallbackResponse);
-
-      if (Array.isArray(parsedFallback)) {
-        setGeneratedStory(parsedFallback);
-        setEditedStory(parsedFallback);
-        setStoryTitle(`Story: ${storyPrompt.slice(0, 30)}${storyPrompt.length > 30 ? '...' : ''}`);
-        toast({
-          title: "Success",
-          description: "Used simplified story format",
-          variant: "default"
-        });
-      } else {
-        throw new Error("Fallback parse failed");
-      }
-    } catch (fallbackError) {
-      console.error("Fallback generation failed:", fallbackError);
-      toast({
-        title: "Error",
-        description: "Completely failed to generate story. Please try a different prompt.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const generateImageForScene = async (sceneIndex: number) => {
-    if (counts.remainingImages <= 0) {
-      toast({
-        title: "Limit Reached",
-        description: "You've used all your image generations",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const scene = generatedStory[sceneIndex];
-    if (!scene) return;
-
-    setCurrentGeneratingIndex(sceneIndex);
-
-    try {
-      const apiKey = localStorage.getItem("falApiKey");
-      if (!apiKey) {
-        toast({
-          title: "API Key Required",
-          description: "Please set your API key first",
-          variant: "destructive",
-        });
-        return;
       }
 
-      fal.config({ credentials: apiKey });
+      // Create concat file
+      const concatContent = Array.from({ length: generatedStory.length }, (_, i) => 
+        `file 'input${i}.mp4'`
+      ).join('\n');
+      await ffmpeg.writeFile('concat.txt', concatContent);
 
-      const enhancedPrompt = characterDetails.mainCharacter 
-        ? `${characterDetails.mainCharacter}. ${scene.imagePrompt} in ${imageStyle} style`
-        : `${scene.imagePrompt} in ${imageStyle} style`;
+      // Run FFmpeg command
+      setGenerationLogs(prev => [...prev, "Combining videos..."]);
+      await ffmpeg.exec([
+        '-f', 'concat',
+        '-safe', '0',
+        '-i', 'concat.txt',
+        '-c', 'copy',
+        'output.mp4'
+      ]);
 
-      const result = await fal.subscribe("fal-ai/imagen3/fast", {
-        input: {
-          prompt: enhancedPrompt,
-          aspect_ratio: "1:1",
-          negative_prompt: "low quality, bad anatomy, distorted"
-        },
-      });
+      // Read the result
+      const data = await ffmpeg.readFile('output.mp4');
+      const blob = new Blob([data], { type: 'video/mp4' });
+      const url = URL.createObjectURL(blob);
+      setCombinedVideoUrl(url);
 
-      if (result.data?.images?.[0]?.url) {
-        const updatedStory = [...generatedStory];
-        updatedStory[sceneIndex] = { ...updatedStory[sceneIndex], imageUrl: result.data.images[0].url };
-        setGeneratedStory(updatedStory);
+      // Upload to Supabase Storage
+      const userId = await getUserId();
+      if (userId) {
+        setGenerationLogs(prev => [...prev, "Uploading combined video..."]);
+        const fileName = `combined-${Date.now()}.mp4`;
+        const { error } = await supabase.storage
+          .from('user-videos')
+          .upload(fileName, blob);
 
-        await incrementImageCount();
-        setCounts(await getRemainingCountsAsync());
+        if (!error) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('user-videos')
+            .getPublicUrl(fileName);
 
-        toast({
-          title: "Success",
-          description: "Image generated with consistent characters!",
-        });
-      }
-    } catch (error) {
-      console.error("Image generation failed:", error);
-      toast({
-        title: "Error",
-        description: "Failed to generate image",
-        variant: "destructive"
-      });
-    } finally {
-      setCurrentGeneratingIndex(null);
-    }
-  };
-
-  const generateVideoForScene = async (sceneIndex: number) => {
-    if (counts.remainingVideos <= 0) {
-      toast({
-        title: "Limit Reached",
-        description: "You've used all your video generations",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const scene = generatedStory[sceneIndex];
-    if (!scene?.imageUrl) {
-      toast({
-        title: "Error",
-        description: "Please generate an image first",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setCurrentGeneratingIndex(sceneIndex);
-    setGenerationLogs([]); // Reset logs for new generation
-
-    try {
-      const apiKey = localStorage.getItem("falApiKey");
-      if (!apiKey) {
-        toast({
-          title: "API Key Required",
-          description: "Please set your API key first",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      fal.config({ credentials: apiKey });
-
-      setGenerationLogs(prev => [...prev, "Starting video generation with LTX model..."]);
-
-      const result = await fal.subscribe("fal-ai/ltx-video/image-to-video", {
-        input: {
-          image_url: scene.imageUrl,
-          prompt: scene.imagePrompt,
-          negative_prompt: "blur, distort, low quality",
-          guidance_scale: 8.5,
-          num_inference_steps: 50,
-          motion_bucket_id: 127
-        },
-        logs: true,
-        onQueueUpdate: (update) => {
-          if (update.status === "IN_PROGRESS" && update.logs) {
-            const newLogs = update.logs.map(log => log.message);
-            setGenerationLogs(prev => [...prev, ...newLogs]);
-          }
-        }
-      });
-
-      if (result.data?.video?.url) {
-        const newVideoUrls = [...videoUrls];
-        newVideoUrls[sceneIndex] = result.data.video.url;
-        setVideoUrls(newVideoUrls);
-
-        const userId = await getUserId();
-        if (userId) {
           await supabase.from('user_content_history').insert({
             user_id: userId,
-            content_type: 'video',
-            content_url: result.data.video.url,
-            prompt: scene.imagePrompt,
+            content_type: 'combined-video',
+            content_url: publicUrl,
             is_public: isPublic,
             metadata: {
               story_title: storyTitle,
-              scene_text: scene.text,
               story_prompt: storyPrompt,
-              model: "fal-ai/ltx-video/image-to-video"
+              scenes: generatedStory.map(scene => ({
+                text: scene.text,
+                imagePrompt: scene.imagePrompt
+              }))
             }
           });
         }
-
-        await incrementVideoCount();
-        setCounts(await getRemainingCountsAsync());
-
-        toast({
-          title: "Success",
-          description: "Video generated from scene!",
-        });
       }
+
+      toast({
+        title: "Success",
+        description: "Videos combined successfully!",
+      });
     } catch (error) {
-      console.error("Video generation failed:", error);
+      console.error("Video combination failed:", error);
+      setGenerationLogs(prev => [...prev, `Error: ${error.message}`]);
       toast({
         title: "Error",
-        description: "Failed to generate video",
+        description: "Failed to combine videos",
         variant: "destructive"
       });
     } finally {
-      setCurrentGeneratingIndex(null);
+      setIsCombiningVideos(false);
     }
   };
+
+  // ... (Keep all your existing functions like generateCharacterTemplate, cleanJsonResponse, 
+  // parseStoryResponse, generateStory, attemptFallbackStoryGeneration, generateImageForScene, 
+  // generateVideoForScene exactly the same as in your original code)
 
   const CharacterDetailsForm = () => (
     <Card className="mt-4">
@@ -708,85 +435,171 @@ const StoryToVideo = () => {
                 </Button>
               </div>
             ) : (
-              <Tabs defaultValue="0" className="w-full mt-4">
-                <TabsList className="w-full grid" style={{ gridTemplateColumns: `repeat(${generatedStory.length}, 1fr)` }}>
-                  {renderSceneTabs()}
-                </TabsList>
+              <>
+                <Tabs defaultValue="0" className="w-full mt-4">
+                  <TabsList className="w-full grid" style={{ gridTemplateColumns: `repeat(${generatedStory.length}, 1fr)` }}>
+                    {renderSceneTabs()}
+                  </TabsList>
 
-                {generatedStory.map((scene, index) => (
-                  <TabsContent key={index} value={index.toString()} className="space-y-4">
-                    <div className="p-4 bg-slate-800/50 rounded-md">
-                      <p className="text-slate-200">{scene.text}</p>
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div>
-                        <Label className="mb-2 block">Scene Image</Label>
-                        <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
-                          {scene.imageUrl ? (
-                            <img
-                              src={scene.imageUrl}
-                              alt={`Scene ${index + 1}`}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <ImageIcon className="h-16 w-16 text-slate-600" />
-                            </div>
-                          )}
-                          {currentGeneratingIndex === index && !scene.imageUrl && (
-                            <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                              <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
-                            </div>
-                          )}
-                        </div>
-
-                        <Button
-                          onClick={() => generateImageForScene(index)}
-                          disabled={currentGeneratingIndex !== null || counts.remainingImages <= 0}
-                          className="mt-2 w-full"
-                          variant="outline"
-                        >
-                          <ImageIcon className="mr-2 h-4 w-4" />
-                          Generate Image ({counts.remainingImages} remaining)
-                        </Button>
+                  {generatedStory.map((scene, index) => (
+                    <TabsContent key={index} value={index.toString()} className="space-y-4">
+                      <div className="p-4 bg-slate-800/50 rounded-md">
+                        <p className="text-slate-200">{scene.text}</p>
                       </div>
 
-                      <div>
-                        <Label className="mb-2 block">Scene Video</Label>
-                        <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
-                          {videoUrls[index] ? (
-                            <video
-                              src={videoUrls[index]}
-                              controls
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <Film className="h-16 w-16 text-slate-600" />
-                            </div>
-                          )}
-                          {currentGeneratingIndex === index && scene.imageUrl && !videoUrls[index] && (
-                            <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                              <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
-                            </div>
-                          )}
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <Label className="mb-2 block">Scene Image</Label>
+                          <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
+                            {scene.imageUrl ? (
+                              <img
+                                src={scene.imageUrl}
+                                alt={`Scene ${index + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <ImageIcon className="h-16 w-16 text-slate-600" />
+                              </div>
+                            )}
+                            {currentGeneratingIndex === index && !scene.imageUrl && (
+                              <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                                <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
+                              </div>
+                            )}
+                          </div>
+
+                          <Button
+                            onClick={() => generateImageForScene(index)}
+                            disabled={currentGeneratingIndex !== null || counts.remainingImages <= 0}
+                            className="mt-2 w-full"
+                            variant="outline"
+                          >
+                            <ImageIcon className="mr-2 h-4 w-4" />
+                            Generate Image ({counts.remainingImages} remaining)
+                          </Button>
                         </div>
 
-                        <Button
-                          onClick={() => generateVideoForScene(index)}
-                          disabled={currentGeneratingIndex !== null || !scene.imageUrl || counts.remainingVideos <= 0}
-                          className="mt-2 w-full"
-                          variant={scene.imageUrl ? "default" : "outline"}
-                        >
+                        <div>
+                          <Label className="mb-2 block">Scene Video</Label>
+                          <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
+                            {scene.videoUrl ? (
+                              <video
+                                src={scene.videoUrl}
+                                controls
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <Film className="h-16 w-16 text-slate-600" />
+                              </div>
+                            )}
+                            {currentGeneratingIndex === index && scene.imageUrl && !scene.videoUrl && (
+                              <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                                <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
+                              </div>
+                            )}
+                          </div>
+
+                          <Button
+                            onClick={() => generateVideoForScene(index)}
+                            disabled={currentGeneratingIndex !== null || !scene.imageUrl || counts.remainingVideos <= 0}
+                            className="mt-2 w-full"
+                            variant={scene.imageUrl ? "default" : "outline"}
+                          >
+                            <Film className="mr-2 h-4 w-4" />
+                            Generate Video ({counts.remainingVideos} remaining)
+                          </Button>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  ))}
+                </Tabs>
+
+                <div className="mt-8">
+                  <h3 className="text-lg font-bold mb-4">Final Combined Video</h3>
+                  
+                  <div className="relative aspect-video rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
+                    {combinedVideoUrl ? (
+                      <video
+                        src={combinedVideoUrl}
+                        controls
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4">
+                        <Film className="h-16 w-16 text-slate-600" />
+                        <p className="text-center text-slate-400">
+                          {isCombiningVideos 
+                            ? "Combining your scenes..." 
+                            : "Combine all scenes into one video"}
+                        </p>
+                      </div>
+                    )}
+                    {isCombiningVideos && !combinedVideoUrl && (
+                      <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                        <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      onClick={combineVideos}
+                      disabled={isCombiningVideos || !ffmpegLoaded || generatedStory.some(scene => !scene.videoUrl)}
+                      className="flex-1"
+                    >
+                      {isCombiningVideos ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Combining...
+                        </>
+                      ) : (
+                        <>
                           <Film className="mr-2 h-4 w-4" />
-                          Generate Video ({counts.remainingVideos} remaining)
+                          Combine All Videos
+                        </>
+                      )}
+                    </Button>
+                    
+                    {combinedVideoUrl && (
+                      <Button
+                        asChild
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        <a 
+                          href={combinedVideoUrl} 
+                          download={`${storyTitle.replace(/\s+/g, '-')}-combined.mp4`}
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Download
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+
+                  {generationLogs.length > 0 && (
+                    <div className="mt-4 p-4 bg-slate-800/50 rounded-md max-h-40 overflow-y-auto">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-bold">Processing Logs</h4>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setGenerationLogs([])}
+                        >
+                          Clear
                         </Button>
                       </div>
+                      <div className="font-mono text-xs space-y-1">
+                        {generationLogs.map((log, index) => (
+                          <div key={index} className="text-slate-300 break-all">{log}</div>
+                        ))}
+                      </div>
                     </div>
-                  </TabsContent>
-                ))}
-              </Tabs>
+                  )}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
