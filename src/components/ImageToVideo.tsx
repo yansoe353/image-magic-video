@@ -24,7 +24,6 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 
 type VideoModel = 'ltx' | 'kling';
-type KlingVersion = '1.6' | '1.6-pro';
 type AspectRatio = "16:9" | "9:16" | "1:1";
 type Duration = 5 | 10;
 type CameraControl = "down_back" | "forward_up" | "right_turn_forward" | "left_turn_forward";
@@ -39,7 +38,6 @@ interface ImageToVideoProps {
 const MODEL_CREDITS = {
   ltx: 1,
   kling: 8,
-  'kling-pro': 12
 };
 
 const MODEL_DETAILS = {
@@ -53,15 +51,10 @@ const MODEL_DETAILS = {
     description: "High quality generation (5-15 sec), cinematic results",
     credits: MODEL_CREDITS.kling
   },
-  'kling-pro': {
-    name: "Kling Pro",
-    description: "Professional quality with camera controls (10-30 sec)",
-    credits: MODEL_CREDITS['kling-pro']
-  }
 };
 
-const ImageToVideo: React.FC<ImageToVideoProps> = ({ 
-  initialImageUrl, 
+const ImageToVideo: React.FC<ImageToVideoProps> = ({
+  initialImageUrl,
   onVideoGenerated,
   onSwitchToEditor,
   userCredits
@@ -74,7 +67,6 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
   const [isPublic, setIsPublic] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<VideoModel>('ltx');
-  const [klingVersion, setKlingVersion] = useState<KlingVersion>('1.6');
   const [duration, setDuration] = useState<Duration>(5);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
   const [cfgScale, setCfgScale] = useState<number>(0.5);
@@ -100,9 +92,6 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
   };
 
   const getCurrentModelDetails = () => {
-    if (selectedModel === 'kling' && klingVersion === '1.6-pro') {
-      return MODEL_DETAILS['kling-pro'];
-    }
     return MODEL_DETAILS[selectedModel];
   };
 
@@ -133,11 +122,10 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
         negativePrompt: negativePrompt,
         model: selectedModel,
         modelParams: {
-          version: klingVersion,
           duration: duration,
           aspect_ratio: aspectRatio,
           cfg_scale: cfgScale,
-          ...(selectedModel === 'kling' && klingVersion === '1.6-pro' ? {
+          ...(selectedModel === 'kling' ? {
             camera_control: cameraControl,
             advanced_camera_control: {
               movement_type: "zoom",
@@ -168,7 +156,7 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
             prompt: prompt,
             is_public: isPublic,
             metadata: {
-              model: selectedModel === 'ltx' ? 'fal-ai/ltx-video' : `fal-ai/kling-video/${klingVersion}`,
+              model: selectedModel === 'ltx' ? 'fal-ai/ltx-video' : 'fal-ai/kling-video/v1/standard/image-to-video',
               negative_prompt: negativePrompt,
               duration: duration,
               aspect_ratio: aspectRatio,
@@ -224,8 +212,8 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Generation Model</Label>
-                <Select 
-                  value={selectedModel} 
+                <Select
+                  value={selectedModel}
                   onValueChange={(value: VideoModel) => setSelectedModel(value)}
                   disabled={isGenerating}
                 >
@@ -242,29 +230,6 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
                   </SelectContent>
                 </Select>
               </div>
-
-              {selectedModel === 'kling' && (
-                <div>
-                  <Label>Kling Version</Label>
-                  <Select 
-                    value={klingVersion} 
-                    onValueChange={(value: KlingVersion) => setKlingVersion(value)}
-                    disabled={isGenerating}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select version" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1.6">
-                        {MODEL_DETAILS.kling.name} - {MODEL_DETAILS.kling.description} ({MODEL_DETAILS.kling.credits} credits)
-                      </SelectItem>
-                      <SelectItem value="1.6-pro">
-                        {MODEL_DETAILS['kling-pro'].name} - {MODEL_DETAILS['kling-pro'].description} ({MODEL_DETAILS['kling-pro'].credits} credits)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
             </div>
 
             <div>
@@ -324,8 +289,8 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label>Duration (seconds)</Label>
-                    <Select 
-                      value={duration.toString()} 
+                    <Select
+                      value={duration.toString()}
                       onValueChange={(value) => setDuration(parseInt(value) as Duration)}
                       disabled={isGenerating}
                     >
@@ -341,8 +306,8 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
 
                   <div>
                     <Label>Aspect Ratio</Label>
-                    <Select 
-                      value={aspectRatio} 
+                    <Select
+                      value={aspectRatio}
                       onValueChange={(value: AspectRatio) => setAspectRatio(value)}
                       disabled={isGenerating}
                     >
@@ -375,58 +340,56 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
                   </p>
                 </div>
 
-                {klingVersion === '1.6-pro' && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label>Advanced Camera Controls</Label>
-                      <Switch 
-                        checked={showAdvanced}
-                        onCheckedChange={setShowAdvanced}
-                      />
-                    </div>
-
-                    {showAdvanced && (
-                      <div className="space-y-4 p-4 border rounded-lg">
-                        <div>
-                          <Label className="flex items-center gap-2">
-                            <Camera className="h-4 w-4" />
-                            Camera Movement
-                          </Label>
-                          <Select 
-                            value={cameraControl} 
-                            onValueChange={(value: CameraControl) => setCameraControl(value)}
-                            disabled={isGenerating}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select camera movement" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="forward_up">Forward & Up</SelectItem>
-                              <SelectItem value="down_back">Down & Back</SelectItem>
-                              <SelectItem value="right_turn_forward">Right Turn Forward</SelectItem>
-                              <SelectItem value="left_turn_forward">Left Turn Forward</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label className="flex items-center gap-2">
-                            <ZoomIn className="h-4 w-4" />
-                            Zoom Intensity: {zoomValue}
-                          </Label>
-                          <Slider
-                            min={0.5}
-                            max={3}
-                            step={0.1}
-                            value={[zoomValue]}
-                            onValueChange={([value]) => setZoomValue(value)}
-                            disabled={isGenerating}
-                          />
-                        </div>
-                      </div>
-                    )}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label>Advanced Camera Controls</Label>
+                    <Switch
+                      checked={showAdvanced}
+                      onCheckedChange={setShowAdvanced}
+                    />
                   </div>
-                )}
+
+                  {showAdvanced && (
+                    <div className="space-y-4 p-4 border rounded-lg">
+                      <div>
+                        <Label className="flex items-center gap-2">
+                          <Camera className="h-4 w-4" />
+                          Camera Movement
+                        </Label>
+                        <Select
+                          value={cameraControl}
+                          onValueChange={(value: CameraControl) => setCameraControl(value)}
+                          disabled={isGenerating}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select camera movement" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="forward_up">Forward & Up</SelectItem>
+                            <SelectItem value="down_back">Down & Back</SelectItem>
+                            <SelectItem value="right_turn_forward">Right Turn Forward</SelectItem>
+                            <SelectItem value="left_turn_forward">Left Turn Forward</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="flex items-center gap-2">
+                          <ZoomIn className="h-4 w-4" />
+                          Zoom Intensity: {zoomValue}
+                        </Label>
+                        <Slider
+                          min={0.5}
+                          max={3}
+                          step={0.1}
+                          value={[zoomValue]}
+                          onValueChange={([value]) => setZoomValue(value)}
+                          disabled={isGenerating}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
