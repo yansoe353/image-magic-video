@@ -1,46 +1,50 @@
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { falClient } from "@/hooks/useFalClient";
+import { QueueStatus, MMAudioInput } from "@/hooks/useFalClient";
+import { useToast } from "@/hooks/use-toast";
+import { Film, Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Slider } from "@/components/ui/slider";
-import VideoUploader from "./VideoUploader";
-import { falClient } from "@/hooks/useFalClient";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2, Video, Music } from "lucide-react";
-import { checkVideoCredits } from "@/utils/usageTracker";
+import VideoPreview from "@/components/VideoPreview";
+import { useVideoControls } from "@/hooks/useVideoControls";
+import VideoUploader from "@/components/VideoUploader";
 import { supabase } from "@/integrations/supabase/client";
-import { getCurrentUser } from "@/utils/authUtils";
-import { useNavigate } from "react-router-dom";
-import { QueueStatus } from "@/hooks/useFalClient";
+import { getUserId } from "@/utils/storageUtils";
+import { incrementVideoCount } from "@/utils/usageTracker";
+import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 
-const VideoToVideo = () => {
+interface VideoUploaderProps {
+  onVideoSelected: (url: string) => void;
+}
+
+const VideoToVideo: React.FC = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [prompt, setPrompt] = useState("");
-  const [negativePrompt, setNegativePrompt] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
-  const [seed, setSeed] = useState(42);
-  const [numSteps, setNumSteps] = useState(50);
-  const [duration, setDuration] = useState(3);
-  const [cfgStrength, setCfgStrength] = useState(7);
-  const [maskAwayClip, setMaskAwayClip] = useState(false);
-  const [status, setStatus] = useState<QueueStatus | null>(null);
+  const [prompt, setPrompt] = useState<string>("");
+  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string>("");
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(null);
+  const [predictionId, setPredictionId] = useState<string | null>(null);
+  const [statusCheckInterval, setStatusCheckInterval] = useState<number | null>(null);
+  const [isPublic, setIsPublic] = useState(false);
   const { toast } = useToast();
-  const navigate = useNavigate();
+  const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
 
-  const handleVideoSelected = (url: string) => {
-    setVideoUrl(url);
-  };
+  useEffect(() => {
+    return () => {
+      if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+      }
+    };
+  }, [statusCheckInterval]);
 
-  const handleGenerate = async () => {
+  const handleGenerateVideo = async () => {
     if (!videoUrl) {
       toast({
-        title: "No Video Selected",
-        description: "Please upload a video first.",
+        title: "Error",
+        description: "Please upload a video first",
         variant: "destructive",
       });
       return;
@@ -48,277 +52,186 @@ const VideoToVideo = () => {
 
     if (!prompt) {
       toast({
-        title: "No Prompt",
-        description: "Please enter a prompt to guide the generation.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check if user has enough credits
-    const hasCredits = await checkVideoCredits();
-    if (!hasCredits) {
-      toast({
-        title: "Insufficient Credits",
-        description: "You don't have enough video credits. Please purchase more.",
+        title: "Error",
+        description: "Please enter a prompt",
         variant: "destructive",
       });
       return;
     }
 
     setIsGenerating(true);
-    setStatus(null);
-    setGeneratedVideoUrl(null);
+    setQueueStatus(null);
+    setPredictionId(null);
 
     try {
-      const result = await falClient.subscribe("mm-audio/mm-audio", {
-        input: {
-          video_url: videoUrl,
-          prompt: prompt,
-          negative_prompt: negativePrompt || undefined,
-          seed: seed,
-          num_steps: numSteps,
-          duration: duration,
-          cfg_strength: cfgStrength,
-          mask_away_clip: maskAwayClip,
-        },
-        pollInterval: 1000,
+      const input: MMAudioInput = {
+        video_url: videoUrl,
+        prompt: prompt,
+        num_steps: 25,
+        duration: 3,
+      };
+
+      // Start the generation
+      const result = await falClient.subscribe("emmet-ai/mmaudio", {
+        input,
+        pollInterval: 5000,
         onQueueUpdate: (update) => {
-          setStatus(update as QueueStatus);
+          console.log("Queue update:", update);
+          setQueueStatus(update as QueueStatus);
+          
+          // Check if logs exist before accessing them
+          if (update && 'logs' in update && update.logs) {
+            console.log("Processing log:", update.logs);
+          }
         },
       });
 
-      // Check for result data instead of status
-      if (!result.data) {
-        toast({
-          title: "Generation Failed",
-          description: "Failed to generate video. Please try again.",
-          variant: "destructive",
-        });
-        setIsGenerating(false);
-        return;
+      // Set the prediction ID for status checking
+      if (result && 'id' in result) {
+        setPredictionId(result.id as string);
       }
 
-      if (result.data?.video?.url) {
-        setGeneratedVideoUrl(result.data.video.url);
-        
-        // Save to history
-        const user = await getCurrentUser();
-        if (user) {
-          await supabase.from("user_content_history").insert({
-            user_id: user.id,
-            content_type: "video",
-            prompt: prompt,
-            content_url: result.data.video.url,
-            metadata: {
-              seed,
-              numSteps,
-              duration,
-              cfgStrength,
-              maskAwayClip,
-              negativePrompt: negativePrompt || null
-            },
-            is_public: false
+      // Check if the operation was successful
+      if (result && 'error' in result && result.error) {
+        throw new Error(result.error as string);
+      }
+
+      // If the status is "COMPLETED", set the video URL
+      if (result && 'status' in result && result.status !== "FAILED") {
+        if (result.data?.video?.url) {
+          setGeneratedVideoUrl(result.data.video.url);
+          
+          // Save to Supabase
+          const userId = await getUserId();
+          if (userId) {
+            await supabase.from('user_content_history').insert({
+              user_id: userId,
+              content_type: 'video',
+              content_url: result.data.video.url,
+              prompt: prompt,
+              is_public: isPublic,
+              metadata: {
+                model: 'emmet-ai/mmaudio',
+              }
+            });
+          }
+          
+          // Increment video count
+          await incrementVideoCount();
+          
+          toast({
+            title: "Success",
+            description: "Video generated successfully!",
           });
+        } else {
+          throw new Error("No video URL in response");
         }
+      } else {
+        throw new Error("Video generation failed");
       }
     } catch (error) {
       console.error("Error generating video:", error);
       toast({
-        title: "Generation Error",
-        description: "An error occurred during video generation.",
+        title: "Error",
+        description: error.message || "Failed to generate video",
         variant: "destructive",
       });
     } finally {
       setIsGenerating(false);
+      setQueueStatus(null);
+      setPredictionId(null);
+      if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+        setStatusCheckInterval(null);
+      }
     }
   };
 
   return (
-    <div className="space-y-4">
-      <Tabs defaultValue="upload" className="w-full">
-        <TabsList className="grid grid-cols-2">
-          <TabsTrigger value="upload" className="flex items-center gap-2">
-            <Video className="h-4 w-4" />
-            <span>Upload Video</span>
-          </TabsTrigger>
-          <TabsTrigger value="audio" className="flex items-center gap-2">
-            <Music className="h-4 w-4" />
-            <span>Audio Settings</span>
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="upload" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Upload Video</CardTitle>
-              <CardDescription>
-                Upload a video to add AI-generated audio
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <VideoUploader onVideoSelected={(url) => handleVideoSelected(url)} />
-              
-              {videoUrl && (
-                <div className="mt-4">
-                  <video 
-                    src={videoUrl} 
-                    controls 
-                    className="w-full rounded-md border border-gray-200"
-                  />
-                </div>
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="p-6">
+          <h2 className="text-2xl font-bold mb-4 flex items-center">
+            <Film className="mr-2 h-6 w-6" />
+            Video to Video
+          </h2>
+
+          <div className="space-y-4">
+            <VideoUploader onVideoSelected={(url: string) => setVideoUrl(url)} />
+
+            {videoUrl && (
+              <div className="relative rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
+                <video
+                  src={videoUrl}
+                  controls
+                  className="w-full h-auto max-h-80 object-contain"
+                />
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="prompt">Video Prompt</Label>
+              <Textarea
+                id="prompt"
+                placeholder="Describe how you want to transform the video..."
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+
+            <PublicPrivateToggle
+              isPublic={isPublic}
+              onChange={setIsPublic}
+              disabled={isGenerating}
+            />
+
+            <Button
+              onClick={handleGenerateVideo}
+              disabled={isGenerating || !videoUrl || !prompt}
+              className="w-full"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating Video...
+                </>
+              ) : (
+                <>
+                  <Film className="mr-2 h-4 w-4" />
+                  Generate Video
+                </>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="audio" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Audio Generation Settings</CardTitle>
-              <CardDescription>
-                Configure how the AI generates audio for your video
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="prompt">Prompt</Label>
-                <Textarea
-                  id="prompt"
-                  placeholder="Describe the audio you want to generate..."
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="negativePrompt">Negative Prompt (Optional)</Label>
-                <Textarea
-                  id="negativePrompt"
-                  placeholder="Describe what you want to avoid in the audio..."
-                  value={negativePrompt}
-                  onChange={(e) => setNegativePrompt(e.target.value)}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="seed">Seed: {seed}</Label>
-                <Slider
-                  id="seed"
-                  min={0}
-                  max={1000}
-                  step={1}
-                  value={[seed]}
-                  onValueChange={(value) => setSeed(value[0])}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="numSteps">Number of Steps: {numSteps}</Label>
-                <Slider
-                  id="numSteps"
-                  min={10}
-                  max={100}
-                  step={1}
-                  value={[numSteps]}
-                  onValueChange={(value) => setNumSteps(value[0])}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="duration">Duration (seconds): {duration}</Label>
-                <Slider
-                  id="duration"
-                  min={1}
-                  max={10}
-                  step={1}
-                  value={[duration]}
-                  onValueChange={(value) => setDuration(value[0])}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="cfgStrength">CFG Strength: {cfgStrength}</Label>
-                <Slider
-                  id="cfgStrength"
-                  min={1}
-                  max={15}
-                  step={0.1}
-                  value={[cfgStrength]}
-                  onValueChange={(value) => setCfgStrength(value[0])}
-                />
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="maskAwayClip"
-                  checked={maskAwayClip}
-                  onChange={(e) => setMaskAwayClip(e.target.checked)}
-                  className="rounded border-gray-300"
-                />
-                <Label htmlFor="maskAwayClip">Mask Away Original Audio</Label>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button 
-                onClick={handleGenerate} 
-                disabled={isGenerating || !videoUrl}
-                className="w-full"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  "Generate Audio"
+            </Button>
+
+            {queueStatus && (
+              <div className="text-sm text-slate-300 bg-slate-800/50 p-3 rounded-md">
+                <p>Status: {queueStatus.status}</p>
+                {queueStatus && 'logs' in queueStatus && queueStatus.logs && queueStatus.logs.length > 0 && (
+                  <p className="mt-1">Latest: {queueStatus.logs[queueStatus.logs.length - 1].message}</p>
                 )}
-              </Button>
-            </CardFooter>
-          </Card>
-          
-          {status && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Generation Status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>Status: {status.status}</p>
-                <div className="text-xs text-muted-foreground mt-2">
-                  {status.logs && Array.isArray(status.logs) ? status.logs.map((log, i) => (
-                    <p key={i}>{log.message}</p>
-                  )) : null}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          
-          {generatedVideoUrl && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Generated Result</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <video 
-                  src={generatedVideoUrl} 
-                  controls 
-                  className="w-full rounded-md border border-gray-200"
-                />
-              </CardContent>
-              <CardFooter>
-                <Button 
-                  onClick={() => window.open(generatedVideoUrl, "_blank")}
-                  variant="outline"
-                  className="w-full"
-                >
-                  Open in New Tab
-                </Button>
-              </CardFooter>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {generatedVideoUrl && (
+        <Card>
+          <CardContent className="p-6">
+            <h3 className="text-xl font-bold mb-4">Generated Video</h3>
+            <VideoPreview
+              videoUrl={generatedVideoUrl}
+              isLoading={isGenerating}
+              videoRef={videoRef}
+              isPlaying={isPlaying}
+              handlePlayPause={handlePlayPause}
+              generationLogs={[]}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
