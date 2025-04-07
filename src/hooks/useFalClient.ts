@@ -2,14 +2,29 @@
 import { fal } from "@fal-ai/client";
 
 // Initialize the fal.ai client
-try {
-  // Initialize with credentials - can be API key or 'include' for browser auth
-  fal.config({
-    credentials: 'include',
-  });
-} catch (error) {
-  console.error("Error initializing fal.ai client:", error);
-}
+const initializeFalClient = () => {
+  try {
+    // Check for API key in localStorage first
+    const storedApiKey = localStorage.getItem("falApiKey");
+    
+    if (storedApiKey) {
+      fal.config({
+        credentials: storedApiKey
+      });
+      console.log("fal.ai client initialized with stored API key");
+      return true;
+    } else {
+      console.log("No API key found in localStorage");
+      return false;
+    }
+  } catch (error) {
+    console.error("Error initializing fal.ai client:", error);
+    return false;
+  }
+};
+
+// Initialize the client
+const isInitialized = initializeFalClient();
 
 // Define effect type enum to match the API requirements exactly as listed in the documentation
 export type EffectType = 
@@ -56,103 +71,5 @@ export interface MMAudioOutput {
   };
 }
 
-// Updated LTXVideo input interface to match the required parameters
-export interface LTXVideoInput {
-  image_url: string;
-  prompt?: string;
-  negative_prompt?: string;
-  num_inference_steps?: number;
-  guidance_scale?: number;
-  width?: number;
-  height?: number;
-  seed?: number;
-  motion_bucket_id?: number;
-  noise_aug_strength?: number;
-}
-
-// Updated LtxVideoImageToVideoInput interface to match required parameters
-export interface LtxVideoImageToVideoInput {
-  image_url: string;
-  prompt: string;
-  negative_prompt?: string;
-  num_inference_steps?: number;
-  guidance_scale?: number;
-  width?: number;
-  height?: number;
-  seed?: number;
-  // Added motion_bucket_id to fix the TypeScript error
-  motion_bucket_id?: number;
-  noise_aug_strength?: number;
-}
-
-// Define LTXVideo output interface
-export interface LTXVideoOutput {
-  video: {
-    url: string;
-  };
-}
-
-// Define queue status interfaces
-export interface QueueLogs {
-  message: string;
-}
-
-export interface InProgressQueueStatus {
-  status: "IN_PROGRESS";
-  logs?: QueueLogs[];
-}
-
-export interface InQueueQueueStatus {
-  status: "IN_QUEUE";
-  logs?: QueueLogs[];
-}
-
-export type QueueStatus = InProgressQueueStatus | InQueueQueueStatus;
-
-// Create a function to generate video from image using the fal client
-export const generateVideoFromImage = async (params: { 
-  imageUrl: string; 
-  prompt: string;
-  negativePrompt?: string;
-}) => {
-  try {
-    const result = await fal.subscribe("fal-ai/ltx-video/image-to-video", {
-      input: {
-        image_url: params.imageUrl,
-        prompt: params.prompt,
-        negative_prompt: params.negativePrompt || "low quality, bad anatomy, worst quality, deformed, distorted, disfigured",
-        guidance_scale: 8.5,
-        num_inference_steps: 50,
-        motion_bucket_id: 127
-      },
-    });
-
-    if (result.data?.video?.url) {
-      return {
-        success: true,
-        videoUrl: result.data.video.url
-      };
-    } else {
-      return {
-        success: false,
-        error: "No video URL in response"
-      };
-    }
-  } catch (error) {
-    console.error("Error generating video:", error);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-};
-
 export const falClient = fal;
-
-// Export a custom hook for FAL client operations
-export const useFalClient = () => {
-  return {
-    falClient,
-    generateVideoFromImage
-  };
-};
+export const isFalInitialized = isInitialized;
