@@ -94,10 +94,7 @@ const StoryToVideo = () => {
 
     const fetchCounts = async () => {
       const freshCounts = await getRemainingCountsAsync();
-      setCounts({
-        remainingImages: freshCounts.imageCredits,
-        remainingVideos: freshCounts.videoCredits
-      });
+      setCounts(freshCounts);
     };
 
     fetchCounts();
@@ -402,10 +399,7 @@ const StoryToVideo = () => {
 
         await incrementImageCount();
         const freshCounts = await getRemainingCountsAsync();
-        setCounts({
-          remainingImages: freshCounts.imageCredits,
-          remainingVideos: freshCounts.videoCredits
-        });
+        setCounts(freshCounts);
 
         toast({
           title: "Success",
@@ -462,8 +456,9 @@ const StoryToVideo = () => {
 
       setGenerationLogs(prev => [...prev, "Starting video generation with LTX model..."]);
 
+      // Create the input object for LTX model
       const input: LTXVideoInput = {
-        image_url: scene.imageUrl!,
+        image_url: scene.imageUrl,
         prompt: scene.imagePrompt,
         negative_prompt: "low quality, worst quality, deformed, distorted, disfigured, motion smear, motion artifacts, fused fingers, bad anatomy, weird hand, ugly",
         guidance_scale: 8.5,
@@ -509,10 +504,7 @@ const StoryToVideo = () => {
 
         await incrementVideoCount();
         const freshCounts = await getRemainingCountsAsync();
-        setCounts({
-          remainingImages: freshCounts.imageCredits,
-          remainingVideos: freshCounts.videoCredits
-        });
+        setCounts(freshCounts);
 
         toast({
           title: "Success",
@@ -558,6 +550,7 @@ const StoryToVideo = () => {
     try {
       const ffmpeg = ffmpegRef.current;
       
+      // Write all input videos to FFmpeg's virtual file system
       for (let i = 0; i < generatedStory.length; i++) {
         const scene = generatedStory[i];
         if (scene.videoUrl) {
@@ -567,11 +560,13 @@ const StoryToVideo = () => {
         }
       }
 
+      // Create concat file
       const concatContent = Array.from({ length: generatedStory.length }, (_, i) => 
         `file 'input${i}.mp4'`
       ).join('\n');
       await ffmpeg.writeFile('concat.txt', concatContent);
 
+      // Run FFmpeg command
       setGenerationLogs(prev => [...prev, "Combining videos..."]);
       await ffmpeg.exec([
         '-f', 'concat',
@@ -581,11 +576,13 @@ const StoryToVideo = () => {
         'output.mp4'
       ]);
 
+      // Read the result
       const data = await ffmpeg.readFile('output.mp4');
       const blob = new Blob([data], { type: 'video/mp4' });
       const url = URL.createObjectURL(blob);
       setCombinedVideoUrl(url);
 
+      // Upload to Supabase Storage
       const userId = await getUserId();
       if (userId) {
         setGenerationLogs(prev => [...prev, "Uploading combined video..."]);
@@ -946,6 +943,7 @@ const StoryToVideo = () => {
                   ))}
                 </Tabs>
 
+                {/* Combined Video Section */}
                 <div className="mt-8 border-t pt-6">
                   <h3 className="text-lg font-bold mb-4 flex items-center">
                     <Film className="mr-2 h-5 w-5" />

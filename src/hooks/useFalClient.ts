@@ -2,29 +2,14 @@
 import { fal } from "@fal-ai/client";
 
 // Initialize the fal.ai client
-const initializeFalClient = () => {
-  try {
-    // Check for API key in localStorage first
-    const storedApiKey = localStorage.getItem("falApiKey");
-    
-    if (storedApiKey) {
-      fal.config({
-        credentials: storedApiKey
-      });
-      console.log("fal.ai client initialized with stored API key");
-      return true;
-    } else {
-      console.log("No API key found in localStorage");
-      return false;
-    }
-  } catch (error) {
-    console.error("Error initializing fal.ai client:", error);
-    return false;
-  }
-};
-
-// Initialize the client
-const isInitialized = initializeFalClient();
+try {
+  // Initialize with credentials - can be API key or 'include' for browser auth
+  fal.config({
+    credentials: 'include',
+  });
+} catch (error) {
+  console.error("Error initializing fal.ai client:", error);
+}
 
 // Define effect type enum to match the API requirements exactly as listed in the documentation
 export type EffectType = 
@@ -71,5 +56,82 @@ export interface MMAudioOutput {
   };
 }
 
+// Define LTXVideo input interface
+export interface LTXVideoInput {
+  image_url: string;
+  prompt?: string;
+  negative_prompt?: string;
+  num_inference_steps?: number;
+  guidance_scale?: number;
+  width?: number;
+  height?: number;
+  seed?: number;
+  motion_bucket_id?: number;
+  noise_aug_strength?: number;
+}
+
+// Define LtxVideoImageToVideoInput interface for compatibility with existing code
+export interface LtxVideoImageToVideoInput {
+  image_url: string;
+  prompt: string;
+  negative_prompt?: string;
+  num_inference_steps?: number;
+  guidance_scale?: number;
+  width?: number;
+  height?: number;
+}
+
+// Define LTXVideo output interface
+export interface LTXVideoOutput {
+  video: {
+    url: string;
+  };
+}
+
+// Create a function to generate video from image using the fal client
+export const generateVideoFromImage = async (params: { 
+  imageUrl: string; 
+  prompt: string;
+  negativePrompt?: string;
+}) => {
+  try {
+    const result = await fal.subscribe("fal-ai/ltx-video/image-to-video", {
+      input: {
+        image_url: params.imageUrl,
+        prompt: params.prompt,
+        negative_prompt: params.negativePrompt || "low quality, bad anatomy, worst quality, deformed, distorted, disfigured",
+        guidance_scale: 8.5,
+        num_inference_steps: 50,
+        motion_bucket_id: 127
+      },
+    });
+
+    if (result.data?.video?.url) {
+      return {
+        success: true,
+        videoUrl: result.data.video.url
+      };
+    } else {
+      return {
+        success: false,
+        error: "No video URL in response"
+      };
+    }
+  } catch (error) {
+    console.error("Error generating video:", error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
 export const falClient = fal;
-export const isFalInitialized = isInitialized;
+
+// Export a custom hook for FAL client operations
+export const useFalClient = () => {
+  return {
+    falClient,
+    generateVideoFromImage
+  };
+};
