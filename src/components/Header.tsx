@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Menu, X, LogOut, LogIn, Users, History, Key, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,17 +26,8 @@ const Header = () => {
         setCurrentUser(user);
       }
       
-      const storedApiKey = localStorage.getItem("falApiKey");
-      if (storedApiKey) {
-        try {
-          fal.config({
-            credentials: storedApiKey
-          });
-          setIsApiKeySet(true);
-        } catch (error) {
-          console.error("Error configuring fal.ai client:", error);
-        }
-      }
+      const storedGeminiApiKey = localStorage.getItem("geminiApiKey");
+      setIsApiKeySet(!!storedGeminiApiKey);
     };
     
     initialize();
