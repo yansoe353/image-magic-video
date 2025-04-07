@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { getCurrentUser } from "@/utils/authUtils";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Mail, Phone } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 
 interface PaymentState {
@@ -20,9 +19,36 @@ interface PaymentState {
 }
 
 const bankAccounts = [
-  { name: "KBZ Bank", account: "0129-8472-0001-8472", owner: "Aung Ko" },
-  { name: "AYA Bank", account: "1234-5678-9101-1121", owner: "Aung Ko" },
-  { name: "CB Bank", account: "3141-5926-5358-9793", owner: "Aung Ko" }
+  { name: "KBZ Pay", account: "09974902335", owner: "Yan Naing Soe" },
+  { name: "AYA Pay", account: "09969609655", owner: "Su Shwe Sin Win" },
+  { name: "Wave Pay", account: "09969609655", owner: "Su Shwe Sin Win" }
+];
+
+const contactMethods = [
+  {
+    name: "Email",
+    value: "support@example.com",
+    icon: <Mail className="h-4 w-4 mr-2" />,
+    action: "mailto:htetnay4u@gmail.com"
+  },
+  {
+    name: "Phone",
+    value: "09969609655",
+    icon: <Phone className="h-4 w-4 mr-2" />,
+    action: "tel:+959969609655"
+  },
+  {
+    name: "Viber Phone",
+    value: "+95 09740807009",
+    icon: <Phone className="h-4 w-4 mr-2" />,
+    action: "viber://add?number=959740807009"
+  },
+  {
+    name: "Telegram",
+    value: "@itechmm",
+    icon: <Mail className="h-4 w-4 mr-2" />,
+    action: "https://t.me/itechmm"
+  }
 ];
 
 const OfflinePayment = () => {
@@ -31,8 +57,6 @@ const OfflinePayment = () => {
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
   
   // Get package information from navigation state
   const { packageType, packageName, packagePrice, imageCredits, videoCredits } = 
@@ -44,16 +68,9 @@ const OfflinePayment = () => {
       videoCredits: 0 
     };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setUploadedFile(e.target.files[0]);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setUploadProgress(0);
     
     try {
       // Get current user
@@ -62,16 +79,6 @@ const OfflinePayment = () => {
         toast({
           title: "Error",
           description: "Please log in to submit payment",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      if (!uploadedFile) {
-        toast({
-          title: "Error",
-          description: "Please upload your payment screenshot",
           variant: "destructive",
         });
         setIsSubmitting(false);
@@ -91,25 +98,6 @@ const OfflinePayment = () => {
       // Generate a unique payment reference ID
       const paymentRefId = uuidv4().substring(0, 8).toUpperCase();
       
-      setUploadProgress(20);
-
-      // Upload the payment screenshot to Supabase Storage
-      const fileName = `payment_${paymentRefId}_${Date.now()}_${uploadedFile.name.replace(/\s+/g, '_')}`;
-      const { data: fileData, error: uploadError } = await supabase.storage
-        .from('payments')
-        .upload(`screenshots/${fileName}`, uploadedFile);
-      
-      if (uploadError) {
-        throw new Error(`Error uploading file: ${uploadError.message}`);
-      }
-      
-      setUploadProgress(60);
-      
-      // Get the file URL
-      const { data: publicUrl } = supabase.storage
-        .from('payments')
-        .getPublicUrl(`screenshots/${fileName}`);
-        
       // Store payment information in the database
       const { error: dbError } = await supabase
         .from('payment_requests')
@@ -121,7 +109,6 @@ const OfflinePayment = () => {
           amount: packagePrice,
           image_credits: imageCredits,
           video_credits: videoCredits,
-          screenshot_url: publicUrl.publicUrl,
           email: email,
           status: 'pending'
         });
@@ -130,11 +117,9 @@ const OfflinePayment = () => {
         throw new Error(`Error storing payment info: ${dbError.message}`);
       }
       
-      setUploadProgress(100);
-      
       toast({
-        title: "Payment Submitted",
-        description: `Your payment with reference #${paymentRefId} has been submitted for verification. We'll update your credits once approved.`,
+        title: "Payment Request Created",
+        description: `Your payment reference is #${paymentRefId}. Please contact our team to complete your payment.`,
       });
       
       // Redirect to home page
@@ -146,7 +131,7 @@ const OfflinePayment = () => {
       console.error("Payment submission error:", error);
       toast({
         title: "Submission Failed",
-        description: "An error occurred while submitting your payment information. Please try again.",
+        description: "An error occurred while processing your request. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -170,7 +155,7 @@ const OfflinePayment = () => {
         <CardHeader>
           <CardTitle>Offline Payment</CardTitle>
           <CardDescription>
-            Complete your payment by bank transfer and submit proof below
+            Complete your payment by bank transfer and contact our team
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -196,53 +181,58 @@ const OfflinePayment = () => {
             </p>
           </div>
           
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Your Gmail Account</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="yourname@gmail.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="screenshot">Payment Screenshot</Label>
-              <Input
-                id="screenshot"
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                required
-                className="cursor-pointer"
-              />
-              <p className="text-xs text-muted-foreground">
-                Please upload a screenshot of your payment confirmation
+              <h3 className="font-medium">Contact Our Team</h3>
+              <p className="text-sm text-muted-foreground">
+                After making the payment, please contact us via one of these methods:
               </p>
+              
+              <div className="grid grid-cols-1 gap-2 mt-2">
+                {contactMethods.map((method, index) => (
+                  <Button 
+                    key={index}
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => window.open(method.action, 'https://m.me/infinitytechmyanmar')}
+                  >
+                    {method.icon}
+                    <div className="text-left">
+                      <p className="font-medium">{method.name}</p>
+                      <p className="text-sm text-muted-foreground">{method.value}</p>
+                    </div>
+                  </Button>
+                ))}
+              </div>
             </div>
             
-            {uploadProgress > 0 && uploadProgress < 100 && (
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div 
-                  className="bg-primary h-2.5 rounded-full" 
-                  style={{ width: `${uploadProgress}%` }}
-                ></div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Your Gmail Account</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="yourname@gmail.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  We'll send payment confirmation to this email
+                </p>
               </div>
-            )}
-            
-            <CardFooter className="px-0 pt-4">
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={isSubmitting || !uploadedFile}
-              >
-                {isSubmitting ? "Submitting..." : "Submit Payment Proof"}
-              </Button>
-            </CardFooter>
-          </form>
+              
+              <CardFooter className="px-0 pt-4">
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Processing..." : "Generate Payment Reference"}
+                </Button>
+              </CardFooter>
+            </form>
+          </div>
         </CardContent>
       </Card>
     </div>
