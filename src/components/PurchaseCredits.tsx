@@ -3,17 +3,15 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { getCurrentUser } from "@/utils/authUtils";
-import { CreditCard, Image, Video, ChevronsRight, ArrowLeft } from "lucide-react";
+import { getCurrentUser, addUserCredits } from "@/utils/authUtils";
+import { CreditCard, Image, Video, ChevronsRight } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { useNavigate } from "react-router-dom";
 
 const PurchaseCredits = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<"images" | "videos" | "combo">("images");
   const { toast } = useToast();
-  const navigate = useNavigate();
   
   const packages = {
     images: { name: "100 Image Credits", price: "20,000 Ks", imageCredits: 100, videoCredits: 0 },
@@ -33,23 +31,36 @@ const PurchaseCredits = () => {
           description: "Please log in to purchase credits",
           variant: "destructive",
         });
-        setIsLoading(false);
         return;
       }
       
       const selectedPkg = packages[selectedPackage];
       
-      // Redirect to offline payment form with package details
-      navigate("/offline-payment", { 
-        state: { 
-          packageType: selectedPackage,
-          packageName: selectedPkg.name,
-          packagePrice: selectedPkg.price,
-          imageCredits: selectedPkg.imageCredits,
-          videoCredits: selectedPkg.videoCredits
-        } 
-      });
+      // In a real application, this is where you would integrate with a payment gateway
+      // For now we'll simulate the purchase by directly adding credits
       
+      // Simulate payment processing delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Add credits to user account
+      const success = await addUserCredits(
+        user.id,
+        selectedPkg.imageCredits,
+        selectedPkg.videoCredits
+      );
+      
+      if (success) {
+        toast({
+          title: "Purchase Successful",
+          description: `Added ${selectedPkg.imageCredits} image credits and ${selectedPkg.videoCredits} video credits to your account.`,
+        });
+      } else {
+        toast({
+          title: "Purchase Failed",
+          description: "There was an error processing your purchase.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error("Error processing purchase:", error);
       toast({
@@ -57,22 +68,13 @@ const PurchaseCredits = () => {
         description: "An unexpected error occurred.",
         variant: "destructive",
       });
+    } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center py-12 px-4">
-      <div className="w-full max-w-md mb-4">
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate(-1)} 
-          className="flex items-center gap-1 mb-4"
-        >
-          <ArrowLeft className="h-4 w-4" /> Back
-        </Button>
-      </div>
-
+    <div className="flex justify-center items-center py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-between">
@@ -138,7 +140,7 @@ const PurchaseCredits = () => {
         </CardContent>
         <CardFooter className="flex justify-end">
           <Button onClick={handlePurchase} disabled={isLoading}>
-            {isLoading ? "Processing..." : "Continue to Payment"}
+            {isLoading ? "Processing..." : "Purchase Credits"}
           </Button>
         </CardFooter>
       </Card>

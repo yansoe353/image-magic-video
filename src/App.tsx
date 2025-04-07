@@ -14,8 +14,6 @@ import EditUser from "./components/EditUser";
 import UserList from "./components/UserList";
 import UserLimits from "./components/UserLimits";
 import PurchaseCredits from "./components/PurchaseCredits";
-import OfflinePayment from "./components/OfflinePayment";
-import PaymentRequests from "./components/PaymentRequests";
 
 function App() {
   return (
@@ -34,8 +32,6 @@ function App() {
         <Route path="/edit-user/:userId" element={<EditUser />} />
         <Route path="/user-limits/:userId" element={<UserLimits />} />
         <Route path="/purchase-credits" element={<PurchaseCredits />} />
-        <Route path="/offline-payment" element={<OfflinePayment />} />
-        <Route path="/payment-requests" element={<PaymentRequests />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>

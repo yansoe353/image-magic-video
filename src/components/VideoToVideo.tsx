@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -204,7 +205,7 @@ const VideoToVideo = () => {
         input: modelInput,
         logs: true,
         onQueueUpdate: (update) => {
-          if (update.status && (update.status === "IN_PROGRESS" || update.status === "IN_QUEUE") && update.logs) {
+          if (update.status && update.status === "IN_PROGRESS" && update.logs) {
             const logs = update.logs?.map((log) => log.message) || [];
             setGenerationLogs(prev => [...prev, ...logs.filter(log => !prev.includes(log))]);
             

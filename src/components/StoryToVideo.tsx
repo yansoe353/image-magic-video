@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,8 +40,8 @@ interface CharacterDetails {
 }
 
 interface UsageCounts {
-  remainingImages: number;
-  remainingVideos: number;
+  imageCredits: number;
+  videoCredits: number;
 }
 
 const StoryToVideo = () => {
@@ -50,7 +51,7 @@ const StoryToVideo = () => {
   const [generatedStory, setGeneratedStory] = useState<StoryScene[]>([]);
   const [isPublic, setIsPublic] = useState(false);
   const [currentGeneratingIndex, setCurrentGeneratingIndex] = useState<number | null>(null);
-  const [counts, setCounts] = useState<UsageCounts>({ remainingImages: 0, remainingVideos: 0 });
+  const [counts, setCounts] = useState<UsageCounts>({ imageCredits: 0, videoCredits: 0 });
   const [sceneCount, setSceneCount] = useState("3");
   const [imageStyle, setImageStyle] = useState("photorealism");
   const [editMode, setEditMode] = useState(false);
@@ -353,7 +354,7 @@ const StoryToVideo = () => {
   };
 
   const generateImageForScene = async (sceneIndex: number) => {
-    if (counts.remainingImages <= 0) {
+    if (counts.imageCredits <= 0) {
       toast({
         title: "Limit Reached",
         description: "You've used all your image generations",
@@ -419,7 +420,7 @@ const StoryToVideo = () => {
   };
 
   const generateVideoForScene = async (sceneIndex: number) => {
-    if (counts.remainingVideos <= 0) {
+    if (counts.videoCredits <= 0) {
       toast({
         title: "Limit Reached",
         description: "You've used all your video generations",
@@ -898,12 +899,12 @@ const StoryToVideo = () => {
 
                           <Button
                             onClick={() => generateImageForScene(index)}
-                            disabled={currentGeneratingIndex !== null || counts.remainingImages <= 0}
+                            disabled={currentGeneratingIndex !== null || counts.imageCredits <= 0}
                             className="mt-2 w-full"
                             variant="outline"
                           >
                             <ImageIcon className="mr-2 h-4 w-4" />
-                            Generate Image ({counts.remainingImages} remaining)
+                            Generate Image ({counts.imageCredits} remaining)
                           </Button>
                         </div>
 
@@ -930,12 +931,12 @@ const StoryToVideo = () => {
 
                           <Button
                             onClick={() => generateVideoForScene(index)}
-                            disabled={currentGeneratingIndex !== null || !scene.imageUrl || counts.remainingVideos <= 0}
+                            disabled={currentGeneratingIndex !== null || !scene.imageUrl || counts.videoCredits <= 0}
                             className="mt-2 w-full"
                             variant={scene.imageUrl ? "default" : "outline"}
                           >
                             <Film className="mr-2 h-4 w-4" />
-                            Generate Video ({counts.remainingVideos} remaining)
+                            Generate Video ({counts.videoCredits} remaining)
                           </Button>
                         </div>
                       </div>
