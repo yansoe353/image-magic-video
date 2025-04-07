@@ -162,7 +162,7 @@ export const generateVideoFromImage = async ({
     const generationTime = ((Date.now() - startTime) / 1000).toFixed(2);
     logs.push(`Generation completed in ${generationTime} seconds`);
 
-    if (result.data?.video?.url) {
+    if (result?.data?.video?.url) {
       logs.push(`Video generated successfully: ${result.data.video.url}`);
       return {
         success: true,
@@ -172,18 +172,20 @@ export const generateVideoFromImage = async ({
         logs
       };
     } else {
-      const errorMsg = "No video URL in response";
+      const errorMsg = result?.error?.message || "No video URL in response";
       logs.push(errorMsg);
       return {
         success: false,
         error: errorMsg,
         modelUsed: model,
-        requestId: result.requestId,
+        requestId: result?.requestId,
         logs
       };
     }
   } catch (error: any) {
-    const errorMsg = error.message || "Failed to generate video";
+    const errorMsg = error?.response?.data?.error?.message || 
+                    error?.message || 
+                    "Failed to generate video";
     logs.push(`Error: ${errorMsg}`);
     console.error("Video generation error:", error);
     return {
@@ -196,40 +198,66 @@ export const generateVideoFromImage = async ({
 };
 
 // Queue management functions
-export const getQueueStatus = async (requestId: string, model: VideoModel = 'ltx', version: KlingVersion = '1.6') => {
+export const getQueueStatus = async (
+  requestId: string, 
+  model: VideoModel = 'ltx', 
+  version: KlingVersion = '1.6'
+): Promise<QueueUpdate> => {
   const modelPath = model === 'ltx' 
     ? "fal-ai/ltx-video/image-to-video" 
     : `fal-ai/kling-video/${version}/${version === '1.6-pro' ? 'pro' : 'standard'}/image-to-video`;
 
   try {
-    return await fal.queue.status(modelPath, { requestId });
-  } catch (error) {
+    const status = await fal.queue.status(modelPath, { requestId });
+    return {
+      status: status.status,
+      logs: status.logs
+    };
+  } catch (error: any) {
     console.error("Error getting queue status:", error);
-    throw error;
+    throw new Error(`Failed to get queue status: ${error.message}`);
   }
 };
 
-export const getResult = async (requestId: string, model: VideoModel = 'ltx', version: KlingVersion = '1.6') => {
+export const getResult = async (
+  requestId: string, 
+  model: VideoModel = 'ltx', 
+  version: KlingVersion = '1.6'
+): Promise<VideoOutput> => {
   const modelPath = model === 'ltx' 
     ? "fal-ai/ltx-video/image-to-video" 
     : `fal-ai/kling-video/${version}/${version === '1.6-pro' ? 'pro' : 'standard'}/image-to-video`;
 
   try {
-    return await fal.queue.result(modelPath, { requestId });
-  } catch (error) {
+    const result = await fal.queue.result(modelPath, { requestId });
+    if (!result.data?.video?.url) {
+      throw new Error("No video URL in response");
+    }
+    return {
+      video: {
+        url: result.data.video.url,
+        file_name: result.data.video.file_name,
+        file_size: result.data.video.file_size,
+        content_type: result.data.video.content_type
+      }
+    };
+  } catch (error: any) {
     console.error("Error getting result:", error);
-    throw error;
+    throw new Error(`Failed to get result: ${error.message}`);
   }
 };
 
 // File upload utility
-export const uploadFile = async (file: File) => {
+export const uploadFile = async (file: File): Promise<string> => {
   try {
     const result = await fal.storage.upload(file);
+    if (!result.url) {
+      throw new Error("No URL returned from upload");
+    }
     return result.url;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error uploading file:", error);
-    throw error;
+    throw new Error(`File upload failed: ${error.message}`);
   }
 };
 
