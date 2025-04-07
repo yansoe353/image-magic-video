@@ -8,26 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { isAdmin, addUserCredits } from "@/utils/authUtils";
 import { useNavigate } from "react-router-dom";
 import { Check, X, ArrowLeft, ExternalLink } from "lucide-react";
+import { PaymentRequest } from "@/types/supabase";
 
-interface PaymentRequest {
-  id: string;
-  created_at: string;
-  reference_id: string;
-  user_id: string;
-  package_type: string;
-  package_name: string;
-  amount: string;
-  image_credits: number;
-  video_credits: number;
-  screenshot_url: string;
-  email: string;
-  status: 'pending' | 'approved' | 'rejected';
+interface ExtendedPaymentRequest extends PaymentRequest {
   user_email?: string;
   user_name?: string;
 }
 
 const PaymentRequests = () => {
-  const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
+  const [paymentRequests, setPaymentRequests] = useState<ExtendedPaymentRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
@@ -95,7 +84,7 @@ const PaymentRequests = () => {
     }
   };
 
-  const handleApprove = async (request: PaymentRequest) => {
+  const handleApprove = async (request: ExtendedPaymentRequest) => {
     setIsProcessing(true);
     try {
       // Add credits to user account
@@ -136,7 +125,7 @@ const PaymentRequests = () => {
     }
   };
 
-  const handleReject = async (request: PaymentRequest) => {
+  const handleReject = async (request: ExtendedPaymentRequest) => {
     setIsProcessing(true);
     try {
       // Update request status in database

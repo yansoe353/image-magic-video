@@ -70,6 +70,17 @@ export interface LTXVideoInput {
   noise_aug_strength?: number;
 }
 
+// Define LtxVideoImageToVideoInput interface for compatibility with existing code
+export interface LtxVideoImageToVideoInput {
+  image_url: string;
+  prompt: string;
+  negative_prompt?: string;
+  num_inference_steps?: number;
+  guidance_scale?: number;
+  width?: number;
+  height?: number;
+}
+
 // Define LTXVideo output interface
 export interface LTXVideoOutput {
   video: {
@@ -77,4 +88,50 @@ export interface LTXVideoOutput {
   };
 }
 
+// Create a function to generate video from image using the fal client
+export const generateVideoFromImage = async (params: { 
+  imageUrl: string; 
+  prompt: string;
+  negativePrompt?: string;
+}) => {
+  try {
+    const result = await fal.subscribe("fal-ai/ltx-video/image-to-video", {
+      input: {
+        image_url: params.imageUrl,
+        prompt: params.prompt,
+        negative_prompt: params.negativePrompt || "low quality, bad anatomy, worst quality, deformed, distorted, disfigured",
+        guidance_scale: 8.5,
+        num_inference_steps: 50,
+        motion_bucket_id: 127
+      },
+    });
+
+    if (result.data?.video?.url) {
+      return {
+        success: true,
+        videoUrl: result.data.video.url
+      };
+    } else {
+      return {
+        success: false,
+        error: "No video URL in response"
+      };
+    }
+  } catch (error) {
+    console.error("Error generating video:", error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
 export const falClient = fal;
+
+// Export a custom hook for FAL client operations
+export const useFalClient = () => {
+  return {
+    falClient,
+    generateVideoFromImage
+  };
+};
