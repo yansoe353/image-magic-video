@@ -142,10 +142,10 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
     }
 
     const canGenerateVideo = await checkVideoCredits();
-    if (!canGenerateVideo) {
+    if (!canGenerateVideo || userCredits.totalVideoCredits < 5) {
       toast({
         title: "Usage Limit Reached",
-        description: `You've reached the limit of your video generation credits.`,
+        description: `You need at least 5 credits to generate a video.`,
         variant: "destructive",
       });
       return;
@@ -367,15 +367,15 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
 
             <Button
               onClick={generateVideo}
-              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || !userCredits.totalVideoCredits}
+              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || userCredits.totalVideoCredits < 5}
               className="w-full"
             >
               Generate Video
             </Button>
 
-            {userCredits.totalVideoCredits > 0 && (
+            {userCredits.totalVideoCredits >= 5 && (
               <p className="text-xs text-slate-500 text-center">
-                {userCredits.totalVideoCredits} video generation{userCredits.totalVideoCredits === 1 ? '' : 's'} remaining
+                {Math.floor(userCredits.totalVideoCredits / 5)} video generation{userCredits.totalVideoCredits === 5 ? '' : 's'} remaining
               </p>
             )}
           </div>
