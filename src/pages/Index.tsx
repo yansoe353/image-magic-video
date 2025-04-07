@@ -231,7 +231,7 @@ const Index = () => {
                 <div className="w-full overflow-hidden rounded-lg">
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
                     <iframe
-                      src="https://waloneai-wl-tts-text-to-speech.hf.space/"
+                      src="https://https://brainfusion.vercel.app/"
                       title="AI Voice Generator"
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
