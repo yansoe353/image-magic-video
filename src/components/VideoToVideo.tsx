@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
-import { VideoUploader } from "./VideoUploader";
+import VideoUploader from "./VideoUploader";
 import { falClient } from "@/hooks/useFalClient";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Video, Music } from "lucide-react";
@@ -87,7 +88,8 @@ const VideoToVideo = () => {
         },
       });
 
-      if (result.status !== "IN_PROGRESS" && result.status !== "IN_QUEUE") {
+      // Check for result data instead of status
+      if (!result.data) {
         toast({
           title: "Generation Failed",
           description: "Failed to generate video. Please try again.",
@@ -107,15 +109,16 @@ const VideoToVideo = () => {
             user_id: user.id,
             content_type: "video",
             prompt: prompt,
-            negative_prompt: negativePrompt || null,
-            result_url: result.data.video.url,
-            settings: {
+            content_url: result.data.video.url,
+            metadata: {
               seed,
               numSteps,
               duration,
               cfgStrength,
               maskAwayClip,
+              negativePrompt: negativePrompt || null
             },
+            is_public: false
           });
         }
       }
