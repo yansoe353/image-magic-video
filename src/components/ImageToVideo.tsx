@@ -11,14 +11,7 @@ import { Languages, AlertCircle } from "lucide-react";
 import { LANGUAGES, translateText, type LanguageOption } from "@/utils/translationUtils";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import { usePromptTranslation } from "@/hooks/usePromptTranslation";
-import {
-  getRemainingCounts,
-  getRemainingCountsAsync,
-  VIDEO_LIMIT,
-  getUserCredits,
-  incrementVideoCount,
-  checkVideoCredits
-} from "@/utils/usageTracker";
+import { incrementVideoCount, getRemainingCounts, getRemainingCountsAsync, VIDEO_LIMIT } from "@/utils/usageTracker";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
@@ -29,7 +22,7 @@ import ProLabel from "./ProLabel";
 import KlingAILabel from "./KlingAILabel";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 
-// Initialize fal.ai client with proper environment variable handling for browsers
+// Initialize fal.ai client with proper environment variable handling for browser
 try {
   const apiKey = import.meta.env.VITE_FAL_API_KEY;
   if (apiKey) {
@@ -69,7 +62,6 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
   const [counts, setCounts] = useState(getRemainingCounts());
-  const [userCredits, setUserCredits] = useState({ totalImageCredits: 0, totalVideoCredits: 0 });
 
   useEffect(() => {
     const updateCounts = async () => {
@@ -77,14 +69,6 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
       setCounts(freshCounts);
     };
     updateCounts();
-  }, []);
-
-  useEffect(() => {
-    const fetchUserCredits = async () => {
-      const credits = await getUserCredits();
-      setUserCredits(credits);
-    };
-    fetchUserCredits();
   }, []);
 
   useEffect(() => {
@@ -141,11 +125,10 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
       return;
     }
 
-    const canGenerateVideo = await checkVideoCredits();
-    if (!canGenerateVideo) {
+    if (counts.remainingVideos <= 0) {
       toast({
         title: "Usage Limit Reached",
-        description: `You need at least 5 credits to generate a video!.`,
+        description: `You've reached the limit of ${VIDEO_LIMIT} video generations.`,
         variant: "destructive",
       });
       return;
@@ -210,11 +193,11 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
         } catch (uploadError) {
           console.error("Failed to upload to Supabase:", uploadError);
           setVideoUrl(falVideoUrl);
-
+          
           if (onVideoGenerated) {
             onVideoGenerated(falVideoUrl);
           }
-
+          
           await saveToHistory(falVideoUrl, falVideoUrl);
         } finally {
           setIsStoringVideo(false);
@@ -227,8 +210,6 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
           });
           const freshCounts = await getRemainingCountsAsync();
           setCounts(freshCounts);
-          const updatedCredits = await getUserCredits();
-          setUserCredits(updatedCredits);
         } else {
           toast({
             title: "Usage Limit Reached",
@@ -261,12 +242,12 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
             <KlingAILabel />
           </div>
 
-          {userCredits.totalVideoCredits <= 5 && (
+          {counts.remainingVideos <= 5 && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Usage Limit Warning</AlertTitle>
               <AlertDescription>
-                You have {userCredits.totalVideoCredits} video generation{userCredits.totalVideoCredits === 1 ? '' : 's'} remaining.
+                You have {counts.remainingVideos} video generation{counts.remainingVideos === 1 ? '' : 's'} remaining.
               </AlertDescription>
             </Alert>
           )}
@@ -367,15 +348,15 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
 
             <Button
               onClick={generateVideo}
-              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || userCredits.totalVideoCredits < 5}
+              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || counts.remainingVideos <= 0}
               className="w-full"
             >
               Generate Video
             </Button>
 
-            {userCredits.totalVideoCredits >= 5 && (
+            {counts.remainingVideos > 0 && (
               <p className="text-xs text-slate-500 text-center">
-                {Math.floor(userCredits.totalVideoCredits / 5)} video generation{userCredits.totalVideoCredits === 5 ? '' : 's'} remaining
+                {counts.remainingVideos} of {VIDEO_LIMIT} video generations remaining
               </p>
             )}
           </div>
@@ -388,8 +369,8 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">Video Preview</h2>
               {videoUrl && (
-                <Button
-                  variant="outline"
+                <Button 
+                  variant="outline" 
                   onClick={() => onSwitchToEditor && onSwitchToEditor(videoUrl)}
                 >
                   Edit in Video Editor

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,9 @@ const UserLimits = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Initialize component
     const initialize = async () => {
+      // Check if current user is admin
       const adminStatus = await isAdmin();
       setUserIsAdmin(adminStatus);
       
@@ -33,6 +36,7 @@ const UserLimits = () => {
         return;
       }
       
+      // Load user data
       if (userId) {
         const users = await getAllUsers();
         const foundUser = users.find(u => u.id === userId);
@@ -62,15 +66,6 @@ const UserLimits = () => {
       toast({
         title: "Error",
         description: "Credits cannot be negative",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (videoCredits % 8 !== 0) {
-      toast({
-        title: "Error",
-        description: "Video credits must be a multiple of 8 (1 generation = 8 videos)",
         variant: "destructive",
       });
       return;
@@ -145,14 +140,11 @@ const UserLimits = () => {
                   id="videoCredits"
                   type="number"
                   min="0"
-                  step="8"
                   value={videoCredits}
                   onChange={(e) => setVideoCredits(parseInt(e.target.value) || 0)}
                   required
                 />
-                <p className="text-xs text-muted-foreground">
-                  Total video credits. <strong>1 generation = 8 videos</strong>. Enter a multiple of 8.
-                </p>
+                <p className="text-xs text-muted-foreground">Maximum number of videos this user can generate</p>
               </div>
             </div>
             <CardFooter className="flex justify-end pt-6 pb-0 px-0">
