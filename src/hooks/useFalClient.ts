@@ -70,7 +70,7 @@ export interface LTXVideoInput {
   noise_aug_strength?: number;
 }
 
-// Define LtxVideoImageToVideoInput interface compatible with existing code
+// Updated LtxVideoImageToVideoInput interface to match required parameters
 export interface LtxVideoImageToVideoInput {
   image_url: string;
   prompt: string;
@@ -79,7 +79,9 @@ export interface LtxVideoImageToVideoInput {
   guidance_scale?: number;
   width?: number;
   height?: number;
+  seed?: number;
   motion_bucket_id?: number;
+  noise_aug_strength?: number;
 }
 
 // Define LTXVideo output interface
@@ -142,7 +144,7 @@ export const generateVideoFromImage = async (params: {
       error: error.message
     };
   }
-}
+};
 
 export const falClient = fal;
 

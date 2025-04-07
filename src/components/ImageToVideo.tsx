@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -221,6 +222,7 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
               videoRef={videoRef}
               isPlaying={isPlaying}
               handlePlayPause={handlePlayPause}
+              generationLogs={[]}
             />
             <Button onClick={onSwitchToEditor} className="w-full mt-4">
               Edit Video
