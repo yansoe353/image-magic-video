@@ -11,7 +11,7 @@ import { Languages, AlertCircle } from "lucide-react";
 import { LANGUAGES, translateText, type LanguageOption } from "@/utils/translationUtils";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import { usePromptTranslation } from "@/hooks/usePromptTranslation";
-import { incrementVideoCount, getRemainingCounts, getRemainingCountsAsync, VIDEO_LIMIT } from "@/utils/usageTracker";
+import { checkVideoCredits, getRemainingCredits, getRemainingCreditsAsync, DEFAULT_VIDEO_CREDITS } from "@/utils/usageTracker";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
@@ -24,7 +24,7 @@ import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 
 // Initialize fal.ai client with proper environment variable handling for browser
 try {
-  const apiKey = import.meta.env.VITE_FAL_API_KEY;
+  const apiKey = import.meta.env.VITE_FAL_API_KEY || localStorage.getItem("falApiKey");
   if (apiKey) {
     fal.config({
       credentials: apiKey
@@ -63,11 +63,11 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
 
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
-  const [counts, setCounts] = useState(getRemainingCounts());
+  const [counts, setCounts] = useState(getRemainingCredits());
 
   useEffect(() => {
     const updateCounts = async () => {
-      const freshCounts = await getRemainingCountsAsync();
+      const freshCounts = await getRemainingCreditsAsync();
       setCounts(freshCounts);
     };
     updateCounts();
@@ -187,10 +187,10 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
       return;
     }
 
-    if (counts.remainingVideos <= 0) {
+    if (counts.videoCredits <= 0) {
       toast({
-        title: "Usage Limit Reached",
-        description: `You've reached the limit of ${VIDEO_LIMIT} video generations.`,
+        title: "No Credits",
+        description: "You've used all your video generation credits. Please purchase more to continue.",
         variant: "destructive",
       });
       return;
@@ -271,18 +271,18 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
           setIsStoringVideo(false);
         }
 
-        if (await incrementVideoCount()) {
+        if (await checkVideoCredits()) {
           toast({
             title: "Success",
             description: "Video generated successfully!",
           });
-          const freshCounts = await getRemainingCountsAsync();
+          const freshCounts = await getRemainingCreditsAsync();
           setCounts(freshCounts);
         } else {
           toast({
-            title: "Usage Limit Reached",
-            description: "You've reached your video generation limit.",
-            variant: "destructive",
+            title: "Last Credit Used",
+            description: "You've used your last video generation credit.",
+            variant: "warning",
           });
         }
       } else {
@@ -310,12 +310,12 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
             <KlingAILabel />
           </div>
 
-          {counts.remainingVideos <= 5 && (
+          {counts.videoCredits <= 5 && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Usage Limit Warning</AlertTitle>
+              <AlertTitle>Credit Warning</AlertTitle>
               <AlertDescription>
-                You have {counts.remainingVideos} video generation{counts.remainingVideos === 1 ? '' : 's'} remaining.
+                You have {counts.videoCredits} video generation credit{counts.videoCredits === 1 ? '' : 's'} remaining.
               </AlertDescription>
             </Alert>
           )}
@@ -433,15 +433,15 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
 
             <Button
               onClick={generateVideo}
-              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || counts.remainingVideos <= 0}
+              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || counts.videoCredits <= 0}
               className="w-full"
             >
               Generate Video
             </Button>
 
-            {counts.remainingVideos > 0 && (
+            {counts.videoCredits > 0 && (
               <p className="text-xs text-slate-500 text-center">
-                {counts.remainingVideos} of {VIDEO_LIMIT} video generations remaining
+                {counts.videoCredits} of {DEFAULT_VIDEO_CREDITS} video generation credits remaining
               </p>
             )}
           </div>
