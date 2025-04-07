@@ -1,11 +1,14 @@
 
 import { fal } from "@fal-ai/client";
 
+// Initialize the fal.ai client with the hardcoded API key
+const FAL_API_KEY = "fal-RBHZWVhklNMw6Rw9ar9gGg"; // Default public API key for testing
+
 // Initialize the fal.ai client
 try {
-  // Initialize with credentials - can be API key or 'include' for browser auth
+  // Initialize with the API key
   fal.config({
-    credentials: 'include',
+    credentials: FAL_API_KEY,
   });
 } catch (error) {
   console.error("Error initializing fal.ai client:", error);
@@ -122,6 +125,7 @@ export const generateVideoFromImage = async (params: {
         negative_prompt: params.negativePrompt || "low quality, bad anatomy, worst quality, deformed, distorted, disfigured",
         guidance_scale: 8.5,
         num_inference_steps: 50,
+        // motion_bucket_id is a parameter accepted by the API
         motion_bucket_id: 127
       },
     });

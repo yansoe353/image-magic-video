@@ -6,7 +6,7 @@ interface ApiKeyInputProps {
 }
 
 const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
-  // We now use the GeminiApiKeyInput component instead
+  // We now use only the GeminiApiKeyInput component since FAL API key is handled in the backend
   return <GeminiApiKeyInput onApiKeySet={onApiKeySet} />;
 };
 
