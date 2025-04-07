@@ -2,14 +2,29 @@
 import { fal } from "@fal-ai/client";
 
 // Initialize the fal.ai client
-try {
-  // Initialize with credentials - can be API key or 'include' for browser auth
-  fal.config({
-    credentials: 'include',
-  });
-} catch (error) {
-  console.error("Error initializing fal.ai client:", error);
-}
+const initializeFalClient = () => {
+  try {
+    // Check for API key in localStorage first
+    const storedApiKey = localStorage.getItem("falApiKey");
+    
+    if (storedApiKey) {
+      fal.config({
+        credentials: storedApiKey
+      });
+      console.log("fal.ai client initialized with stored API key");
+      return true;
+    } else {
+      console.log("No API key found in localStorage");
+      return false;
+    }
+  } catch (error) {
+    console.error("Error initializing fal.ai client:", error);
+    return false;
+  }
+};
+
+// Initialize the client
+const isInitialized = initializeFalClient();
 
 // Define effect type enum to match the API requirements exactly as listed in the documentation
 export type EffectType = 
@@ -56,25 +71,5 @@ export interface MMAudioOutput {
   };
 }
 
-// Define LTXVideo input interface
-export interface LTXVideoInput {
-  image_url: string;
-  prompt?: string;
-  negative_prompt?: string;
-  num_inference_steps?: number;
-  guidance_scale?: number;
-  width?: number;
-  height?: number;
-  seed?: number;
-  motion_bucket_id?: number;
-  noise_aug_strength?: number;
-}
-
-// Define LTXVideo output interface
-export interface LTXVideoOutput {
-  video: {
-    url: string;
-  };
-}
-
 export const falClient = fal;
+export const isFalInitialized = isInitialized;

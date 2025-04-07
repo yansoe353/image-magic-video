@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +11,7 @@ import { Languages, AlertCircle } from "lucide-react";
 import { LANGUAGES, translateText, type LanguageOption } from "@/utils/translationUtils";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import { usePromptTranslation } from "@/hooks/usePromptTranslation";
-import { checkVideoCredits, getRemainingCredits, getRemainingCreditsAsync, DEFAULT_VIDEO_CREDITS } from "@/utils/usageTracker";
+import { incrementVideoCount, getRemainingCounts, getRemainingCountsAsync, VIDEO_LIMIT } from "@/utils/usageTracker";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
@@ -22,11 +21,10 @@ import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
 import ProLabel from "./ProLabel";
 import KlingAILabel from "./KlingAILabel";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
-import { LTXVideoInput } from "@/hooks/useFalClient";
 
 // Initialize fal.ai client with proper environment variable handling for browser
 try {
-  const apiKey = import.meta.env.VITE_FAL_API_KEY || localStorage.getItem("falApiKey");
+  const apiKey = import.meta.env.VITE_FAL_API_KEY;
   if (apiKey) {
     fal.config({
       credentials: apiKey
@@ -58,18 +56,16 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
 
   const [duration] = useState<string>("5");
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
-  const [negativePrompt, setNegativePrompt] = useState<string>("low quality, worst quality, deformed, distorted, disfigured, motion smear, motion artifacts, fused fingers, bad anatomy, weird hand, ugly");
-  const [guidanceScale, setGuidanceScale] = useState<number>(8.5);
-  const [numInferenceSteps, setNumInferenceSteps] = useState<number>(50);
-  const [motionBucketId, setMotionBucketId] = useState<number>(127);
+  const [negativePrompt, setNegativePrompt] = useState<string>("blur, distort, and low quality");
+  const [cfgScale, setCfgScale] = useState<number>(0.5);
 
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
-  const [counts, setCounts] = useState(getRemainingCredits());
+  const [counts, setCounts] = useState(getRemainingCounts());
 
   useEffect(() => {
     const updateCounts = async () => {
-      const freshCounts = await getRemainingCreditsAsync();
+      const freshCounts = await getRemainingCountsAsync();
       setCounts(freshCounts);
     };
     updateCounts();
@@ -81,65 +77,6 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
       setImageUrl(initialImageUrl);
     }
   }, [initialImageUrl]);
-
-  const resizeImageToAspectRatio = async (imageUrl: string, aspectRatio: string): Promise<string> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.src = imageUrl;
-      
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        if (!ctx) {
-          resolve(imageUrl);
-          return;
-        }
-
-        let targetWidth = img.width;
-        let targetHeight = img.height;
-
-        // Calculate target dimensions based on aspect ratio
-        const [ratioW, ratioH] = aspectRatio.split(':').map(Number);
-        const targetRatio = ratioW / ratioH;
-        const currentRatio = img.width / img.height;
-
-        if (currentRatio > targetRatio) {
-          // Image is wider than target aspect ratio
-          targetWidth = img.height * targetRatio;
-        } else {
-          // Image is taller than target aspect ratio
-          targetHeight = img.width / targetRatio;
-        }
-
-        // Set canvas dimensions
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-
-        // Draw image centered and cropped to aspect ratio
-        ctx.drawImage(
-          img,
-          (img.width - targetWidth) / 2,
-          (img.height - targetHeight) / 2,
-          targetWidth,
-          targetHeight,
-          0,
-          0,
-          targetWidth,
-          targetHeight
-        );
-
-        // Convert to data URL
-        const resizedImageUrl = canvas.toDataURL('image/jpeg', 0.9);
-        resolve(resizedImageUrl);
-      };
-
-      img.onerror = () => {
-        resolve(imageUrl); // Fallback to original if resizing fails
-      };
-    });
-  };
 
   const saveToHistory = async (videoUrl: string, originalUrl: string) => {
     if (!isLoggedIn()) return;
@@ -163,8 +100,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
             duration,
             aspectRatio,
             negativePrompt,
-            guidanceScale,
-            model: "fal-ai/ltx-video/image-to-video",
+            cfgScale,
             original_url: originalUrl
           }
         });
@@ -189,10 +125,10 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
       return;
     }
 
-    if (counts.videoCredits <= 0) {
+    if (counts.remainingVideos <= 0) {
       toast({
-        title: "No Credits",
-        description: "You've used all your video generation credits. Please purchase more to continue.",
+        title: "Usage Limit Reached",
+        description: `You've reached the limit of ${VIDEO_LIMIT} video generations.`,
         variant: "destructive",
       });
       return;
@@ -214,27 +150,18 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
         }
       }
 
-      // Resize image to match selected aspect ratio
-      setGenerationLogs(prev => [...prev, `Resizing image to ${aspectRatio} aspect ratio...`]);
-      const resizedImageUrl = await resizeImageToAspectRatio(imageUrl, aspectRatio);
-
-      setGenerationLogs(prev => [...prev, "Sending request to fal.ai/ltx-video..."]);
-      
-      // Create the input object
-      const input: LTXVideoInput = {
-        image_url: resizedImageUrl,
-        prompt: promptToUse,
-        negative_prompt: negativePrompt,
-        num_inference_steps: numInferenceSteps,
-        guidance_scale: guidanceScale,
-        motion_bucket_id: motionBucketId
-      };
-      
-      const result = await fal.subscribe("fal-ai/ltx-video/image-to-video", {
-        input,
+      const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
+        input: {
+          prompt: promptToUse,
+          image_url: imageUrl,
+          duration: "5",
+          aspect_ratio: aspectRatio as "16:9" | "9:16" | "1:1",
+          negative_prompt: negativePrompt,
+          cfg_scale: cfgScale,
+        },
         logs: true,
         onQueueUpdate: (update) => {
-          if (update.status === "IN_PROGRESS" && update.logs) {
+          if (update.status === "IN_PROGRESS") {
             const newLogs = update.logs.map(log => log.message);
             setGenerationLogs(prev => [...prev, ...newLogs]);
           }
@@ -276,18 +203,18 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
           setIsStoringVideo(false);
         }
 
-        if (await checkVideoCredits()) {
+        if (await incrementVideoCount()) {
           toast({
             title: "Success",
             description: "Video generated successfully!",
           });
-          const freshCounts = await getRemainingCreditsAsync();
+          const freshCounts = await getRemainingCountsAsync();
           setCounts(freshCounts);
         } else {
           toast({
-            title: "Last Credit Used",
-            description: "You've used your last video generation credit.",
-            variant: "default"
+            title: "Usage Limit Reached",
+            description: "You've reached your video generation limit.",
+            variant: "destructive",
           });
         }
       } else {
@@ -315,12 +242,12 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
             <KlingAILabel />
           </div>
 
-          {counts.videoCredits <= 5 && (
+          {counts.remainingVideos <= 5 && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Credit Warning</AlertTitle>
+              <AlertTitle>Usage Limit Warning</AlertTitle>
               <AlertDescription>
-                You have {counts.videoCredits} video generation credit{counts.videoCredits === 1 ? '' : 's'} remaining.
+                You have {counts.remainingVideos} video generation{counts.remainingVideos === 1 ? '' : 's'} remaining.
               </AlertDescription>
             </Alert>
           )}
@@ -367,6 +294,13 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
 
             <div className="grid grid-cols-2 gap-3">
               <div>
+                <Label htmlFor="duration">Duration</Label>
+                <div className="bg-slate-800/60 px-3 py-2 rounded-md border border-slate-700/50 text-slate-300">
+                  5 seconds
+                </div>
+              </div>
+
+              <div>
                 <Label htmlFor="aspectRatio">Aspect Ratio</Label>
                 <Select value={aspectRatio} onValueChange={setAspectRatio}>
                   <SelectTrigger>
@@ -379,55 +313,31 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
                   </SelectContent>
                 </Select>
               </div>
-
-              <div>
-                <Label htmlFor="motionBucketId">Motion Intensity: {motionBucketId}</Label>
-                <Slider
-                  value={[motionBucketId]}
-                  min={1}
-                  max={255}
-                  step={1}
-                  onValueChange={(values) => setMotionBucketId(values[0])}
-                  className="py-2"
-                />
-              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="guidanceScale">Guidance Scale: {guidanceScale}</Label>
-                <Slider
-                  value={[guidanceScale]}
-                  min={1}
-                  max={15}
-                  step={0.5}
-                  onValueChange={(values) => setGuidanceScale(values[0])}
-                  className="py-2"
+                <Label htmlFor="negativePrompt">Negative Prompt</Label>
+                <Textarea
+                  id="negativePrompt"
+                  placeholder="Enter negative prompt..."
+                  value={negativePrompt}
+                  onChange={(e) => setNegativePrompt(e.target.value)}
+                  className="min-h-[50px]"
                 />
               </div>
 
               <div>
-                <Label htmlFor="numInferenceSteps">Inference Steps: {numInferenceSteps}</Label>
+                <Label htmlFor="cfgScale">CFG Scale</Label>
                 <Slider
-                  value={[numInferenceSteps]}
-                  min={10}
-                  max={50}
-                  step={1}
-                  onValueChange={(values) => setNumInferenceSteps(values[0])}
+                  value={[cfgScale]}
+                  min={0.1}
+                  max={1.0}
+                  step={0.1}
+                  onValueChange={(values) => setCfgScale(values[0])}
                   className="py-2"
                 />
               </div>
-            </div>
-
-            <div>
-              <Label htmlFor="negativePrompt">Negative Prompt</Label>
-              <Textarea
-                id="negativePrompt"
-                placeholder="Enter negative prompt..."
-                value={negativePrompt}
-                onChange={(e) => setNegativePrompt(e.target.value)}
-                className="min-h-[50px]"
-              />
             </div>
 
             <PublicPrivateToggle
@@ -438,15 +348,15 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
 
             <Button
               onClick={generateVideo}
-              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || counts.videoCredits <= 0}
+              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || counts.remainingVideos <= 0}
               className="w-full"
             >
               Generate Video
             </Button>
 
-            {counts.videoCredits > 0 && (
+            {counts.remainingVideos > 0 && (
               <p className="text-xs text-slate-500 text-center">
-                {counts.videoCredits} of {DEFAULT_VIDEO_CREDITS} video generation credits remaining
+                {counts.remainingVideos} of {VIDEO_LIMIT} video generations remaining
               </p>
             )}
           </div>

@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,16 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ImageIcon, BookText, Film, Sparkles, User, Download } from "lucide-react";
+import { Loader2, ImageIcon, BookText, Film, Sparkles, User } from "lucide-react";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
 import { incrementImageCount, incrementVideoCount, getRemainingCountsAsync } from "@/utils/usageTracker";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 import { fal } from "@fal-ai/client";
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
-import { LTXVideoInput } from "@/hooks/useFalClient";
 import {
   Select,
   SelectContent,
@@ -29,7 +25,6 @@ interface StoryScene {
   text: string;
   imagePrompt: string;
   imageUrl?: string;
-  videoUrl?: string;
 }
 
 interface CharacterDetails {
@@ -39,11 +34,6 @@ interface CharacterDetails {
   styleNotes?: string;
 }
 
-interface UsageCounts {
-  imageCredits: number;
-  videoCredits: number;
-}
-
 const StoryToVideo = () => {
   const [storyPrompt, setStoryPrompt] = useState("");
   const [storyTitle, setStoryTitle] = useState("");
@@ -51,56 +41,25 @@ const StoryToVideo = () => {
   const [generatedStory, setGeneratedStory] = useState<StoryScene[]>([]);
   const [isPublic, setIsPublic] = useState(false);
   const [currentGeneratingIndex, setCurrentGeneratingIndex] = useState<number | null>(null);
-  const [counts, setCounts] = useState<UsageCounts>({ imageCredits: 0, videoCredits: 0 });
+  const [videoUrls, setVideoUrls] = useState<string[]>([]);
+  const [counts, setCounts] = useState({ remainingImages: 0, remainingVideos: 0 });
   const [sceneCount, setSceneCount] = useState("3");
   const [imageStyle, setImageStyle] = useState("photorealism");
   const [editMode, setEditMode] = useState(false);
   const [editedStory, setEditedStory] = useState<StoryScene[]>([]);
   const [characterDetails, setCharacterDetails] = useState<CharacterDetails>({});
   const [showCharacterForm, setShowCharacterForm] = useState(false);
-  const [generationLogs, setGenerationLogs] = useState<string[]>([]);
-  const [isCombiningVideos, setIsCombiningVideos] = useState(false);
-  const [combinedVideoUrl, setCombinedVideoUrl] = useState<string | null>(null);
-  const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
 
-  const ffmpegRef = useRef(new FFmpeg());
   const { generateResponse, isLoading: isGeminiLoading } = useGeminiAPI();
   const { toast } = useToast();
 
   useEffect(() => {
-    const loadFfmpeg = async () => {
-      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.2/dist/umd';
-      const ffmpeg = ffmpegRef.current;
-      
-      ffmpeg.on('log', ({ message }) => {
-        setGenerationLogs(prev => [...prev, message]);
-      });
-
-      try {
-        await ffmpeg.load({
-          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-        });
-        setFfmpegLoaded(true);
-        setGenerationLogs(prev => [...prev, "FFmpeg loaded successfully"]);
-      } catch (error) {
-        console.error('FFmpeg loading error:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load video processor",
-          variant: "destructive"
-        });
-      }
-    };
-
     const fetchCounts = async () => {
       const freshCounts = await getRemainingCountsAsync();
       setCounts(freshCounts);
     };
-
     fetchCounts();
-    loadFfmpeg();
-  }, [toast]);
+  }, []);
 
   const generateCharacterTemplate = async () => {
     if (!storyPrompt) {
@@ -230,7 +189,7 @@ const StoryToVideo = () => {
 
     setIsGeneratingStory(true);
     setGeneratedStory([]);
-    setCombinedVideoUrl(null);
+    setVideoUrls([]);
 
     try {
       const numScenes = parseInt(sceneCount);
@@ -354,7 +313,7 @@ const StoryToVideo = () => {
   };
 
   const generateImageForScene = async (sceneIndex: number) => {
-    if (counts.imageCredits <= 0) {
+    if (counts.remainingImages <= 0) {
       toast({
         title: "Limit Reached",
         description: "You've used all your image generations",
@@ -399,8 +358,7 @@ const StoryToVideo = () => {
         setGeneratedStory(updatedStory);
 
         await incrementImageCount();
-        const freshCounts = await getRemainingCountsAsync();
-        setCounts(freshCounts);
+        setCounts(await getRemainingCountsAsync());
 
         toast({
           title: "Success",
@@ -420,7 +378,7 @@ const StoryToVideo = () => {
   };
 
   const generateVideoForScene = async (sceneIndex: number) => {
-    if (counts.videoCredits <= 0) {
+    if (counts.remainingVideos <= 0) {
       toast({
         title: "Limit Reached",
         description: "You've used all your video generations",
@@ -440,7 +398,6 @@ const StoryToVideo = () => {
     }
 
     setCurrentGeneratingIndex(sceneIndex);
-    setGenerationLogs([]);
 
     try {
       const apiKey = localStorage.getItem("falApiKey");
@@ -455,36 +412,22 @@ const StoryToVideo = () => {
 
       fal.config({ credentials: apiKey });
 
-      setGenerationLogs(prev => [...prev, "Starting video generation with LTX model..."]);
-
-      // Create the input object for LTX model
-      const input: LTXVideoInput = {
-        image_url: scene.imageUrl,
-        prompt: scene.imagePrompt,
-        negative_prompt: "low quality, worst quality, deformed, distorted, disfigured, motion smear, motion artifacts, fused fingers, bad anatomy, weird hand, ugly",
-        guidance_scale: 8.5,
-        num_inference_steps: 50,
-        motion_bucket_id: 127
-      };
-
-      const result = await fal.subscribe("fal-ai/ltx-video/image-to-video", {
-        input,
+      const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
+        input: {
+          prompt: scene.imagePrompt,
+          image_url: scene.imageUrl,
+          duration: "5",
+          aspect_ratio: "1:1",
+          negative_prompt: "blur, distort, low quality",
+          cfg_scale: 0.5,
+        },
         logs: true,
-        onQueueUpdate: (update) => {
-          if (update.status === "IN_PROGRESS" && update.logs) {
-            const newLogs = update.logs.map(log => log.message);
-            setGenerationLogs(prev => [...prev, ...newLogs]);
-          }
-        }
       });
 
       if (result.data?.video?.url) {
-        const updatedStory = [...generatedStory];
-        updatedStory[sceneIndex] = { 
-          ...updatedStory[sceneIndex], 
-          videoUrl: result.data.video.url 
-        };
-        setGeneratedStory(updatedStory);
+        const newVideoUrls = [...videoUrls];
+        newVideoUrls[sceneIndex] = result.data.video.url;
+        setVideoUrls(newVideoUrls);
 
         const userId = await getUserId();
         if (userId) {
@@ -497,15 +440,13 @@ const StoryToVideo = () => {
             metadata: {
               story_title: storyTitle,
               scene_text: scene.text,
-              story_prompt: storyPrompt,
-              model: "fal-ai/ltx-video/image-to-video"
+              story_prompt: storyPrompt
             }
           });
         }
 
         await incrementVideoCount();
-        const freshCounts = await getRemainingCountsAsync();
-        setCounts(freshCounts);
+        setCounts(await getRemainingCountsAsync());
 
         toast({
           title: "Success",
@@ -521,113 +462,6 @@ const StoryToVideo = () => {
       });
     } finally {
       setCurrentGeneratingIndex(null);
-    }
-  };
-
-  const combineVideos = async () => {
-    const videosReady = generatedStory.every(scene => scene.videoUrl);
-    if (!videosReady) {
-      toast({
-        title: "Not Ready",
-        description: "Please generate videos for all scenes first",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!ffmpegLoaded) {
-      toast({
-        title: "Error",
-        description: "Video processor is still loading",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsCombiningVideos(true);
-    setCombinedVideoUrl(null);
-    setGenerationLogs(prev => [...prev, "Starting video combination..."]);
-
-    try {
-      const ffmpeg = ffmpegRef.current;
-      
-      // Write all input videos to FFmpeg's virtual file system
-      for (let i = 0; i < generatedStory.length; i++) {
-        const scene = generatedStory[i];
-        if (scene.videoUrl) {
-          setGenerationLogs(prev => [...prev, `Downloading scene ${i + 1} video...`]);
-          const data = await fetchFile(scene.videoUrl);
-          await ffmpeg.writeFile(`input${i}.mp4`, data);
-        }
-      }
-
-      // Create concat file
-      const concatContent = Array.from({ length: generatedStory.length }, (_, i) => 
-        `file 'input${i}.mp4'`
-      ).join('\n');
-      await ffmpeg.writeFile('concat.txt', concatContent);
-
-      // Run FFmpeg command
-      setGenerationLogs(prev => [...prev, "Combining videos..."]);
-      await ffmpeg.exec([
-        '-f', 'concat',
-        '-safe', '0',
-        '-i', 'concat.txt',
-        '-c', 'copy',
-        'output.mp4'
-      ]);
-
-      // Read the result
-      const data = await ffmpeg.readFile('output.mp4');
-      const blob = new Blob([data], { type: 'video/mp4' });
-      const url = URL.createObjectURL(blob);
-      setCombinedVideoUrl(url);
-
-      // Upload to Supabase Storage
-      const userId = await getUserId();
-      if (userId) {
-        setGenerationLogs(prev => [...prev, "Uploading combined video..."]);
-        const fileName = `combined-${Date.now()}.mp4`;
-        const { error } = await supabase.storage
-          .from('user-videos')
-          .upload(fileName, blob);
-
-        if (!error) {
-          const { data: { publicUrl } } = supabase.storage
-            .from('user-videos')
-            .getPublicUrl(fileName);
-
-          await supabase.from('user_content_history').insert({
-            user_id: userId,
-            content_type: 'combined-video',
-            content_url: publicUrl,
-            is_public: isPublic,
-            metadata: {
-              story_title: storyTitle,
-              story_prompt: storyPrompt,
-              scenes: generatedStory.map(scene => ({
-                text: scene.text,
-                imagePrompt: scene.imagePrompt
-              }))
-            }
-          });
-        }
-      }
-
-      toast({
-        title: "Success",
-        description: "Videos combined successfully!",
-      });
-    } catch (error) {
-      console.error("Video combination failed:", error);
-      setGenerationLogs(prev => [...prev, `Error: ${error.message}`]);
-      toast({
-        title: "Error",
-        description: "Failed to combine videos",
-        variant: "destructive"
-      });
-    } finally {
-      setIsCombiningVideos(false);
     }
   };
 
@@ -863,155 +697,85 @@ const StoryToVideo = () => {
                 </Button>
               </div>
             ) : (
-              <>
-                <Tabs defaultValue="0" className="w-full mt-4">
-                  <TabsList className="w-full grid" style={{ gridTemplateColumns: `repeat(${generatedStory.length}, 1fr)` }}>
-                    {renderSceneTabs()}
-                  </TabsList>
+              <Tabs defaultValue="0" className="w-full mt-4">
+                <TabsList className="w-full grid" style={{ gridTemplateColumns: `repeat(${generatedStory.length}, 1fr)` }}>
+                  {renderSceneTabs()}
+                </TabsList>
 
-                  {generatedStory.map((scene, index) => (
-                    <TabsContent key={index} value={index.toString()} className="space-y-4">
-                      <div className="p-4 bg-slate-800/50 rounded-md">
-                        <p className="text-slate-200">{scene.text}</p>
-                      </div>
-
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <Label className="mb-2 block">Scene Image</Label>
-                          <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
-                            {scene.imageUrl ? (
-                              <img
-                                src={scene.imageUrl}
-                                alt={`Scene ${index + 1}`}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <ImageIcon className="h-16 w-16 text-slate-600" />
-                              </div>
-                            )}
-                            {currentGeneratingIndex === index && !scene.imageUrl && (
-                              <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                                <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
-                              </div>
-                            )}
-                          </div>
-
-                          <Button
-                            onClick={() => generateImageForScene(index)}
-                            disabled={currentGeneratingIndex !== null || counts.imageCredits <= 0}
-                            className="mt-2 w-full"
-                            variant="outline"
-                          >
-                            <ImageIcon className="mr-2 h-4 w-4" />
-                            Generate Image ({counts.imageCredits} remaining)
-                          </Button>
-                        </div>
-
-                        <div>
-                          <Label className="mb-2 block">Scene Video</Label>
-                          <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
-                            {scene.videoUrl ? (
-                              <video
-                                src={scene.videoUrl}
-                                controls
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <Film className="h-16 w-16 text-slate-600" />
-                              </div>
-                            )}
-                            {currentGeneratingIndex === index && scene.imageUrl && !scene.videoUrl && (
-                              <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                                <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
-                              </div>
-                            )}
-                          </div>
-
-                          <Button
-                            onClick={() => generateVideoForScene(index)}
-                            disabled={currentGeneratingIndex !== null || !scene.imageUrl || counts.videoCredits <= 0}
-                            className="mt-2 w-full"
-                            variant={scene.imageUrl ? "default" : "outline"}
-                          >
-                            <Film className="mr-2 h-4 w-4" />
-                            Generate Video ({counts.videoCredits} remaining)
-                          </Button>
-                        </div>
-                      </div>
-                    </TabsContent>
-                  ))}
-                </Tabs>
-
-                {/* Combined Video Section */}
-                <div className="mt-8 border-t pt-6">
-                  <h3 className="text-lg font-bold mb-4 flex items-center">
-                    <Film className="mr-2 h-5 w-5" />
-                    Final Combined Video
-                  </h3>
-                  
-                  {combinedVideoUrl ? (
-                    <div className="space-y-4">
-                      <div className="aspect-video bg-black rounded-md overflow-hidden">
-                        <video
-                          src={combinedVideoUrl}
-                          controls
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <Button
-                        onClick={() => {
-                          const link = document.createElement('a');
-                          link.href = combinedVideoUrl;
-                          link.download = `${storyTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.mp4`;
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                        }}
-                        className="w-full"
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Download Combined Video
-                      </Button>
+                {generatedStory.map((scene, index) => (
+                  <TabsContent key={index} value={index.toString()} className="space-y-4">
+                    <div className="p-4 bg-slate-800/50 rounded-md">
+                      <p className="text-slate-200">{scene.text}</p>
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <Button
-                        onClick={combineVideos}
-                        disabled={
-                          isCombiningVideos || 
-                          !generatedStory.every(scene => scene.videoUrl) ||
-                          !ffmpegLoaded
-                        }
-                        className="w-full"
-                      >
-                        {isCombiningVideos ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Combining Videos...
-                          </>
-                        ) : (
-                          <>
-                            <Film className="mr-2 h-4 w-4" />
-                            Combine All Videos
-                          </>
-                        )}
-                      </Button>
-                      
-                      {isCombiningVideos && (
-                        <div className="p-4 bg-slate-800/50 rounded-md max-h-40 overflow-y-auto text-sm">
-                          {generationLogs.map((log, i) => (
-                            <p key={i} className="text-slate-300 text-sm">
-                              {log}
-                            </p>
-                          ))}
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="mb-2 block">Scene Image</Label>
+                        <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
+                          {scene.imageUrl ? (
+                            <img
+                              src={scene.imageUrl}
+                              alt={`Scene ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <ImageIcon className="h-16 w-16 text-slate-600" />
+                            </div>
+                          )}
+                          {currentGeneratingIndex === index && !scene.imageUrl && (
+                            <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                              <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
+                            </div>
+                          )}
                         </div>
-                      )}
+
+                        <Button
+                          onClick={() => generateImageForScene(index)}
+                          disabled={currentGeneratingIndex !== null || counts.remainingImages <= 0}
+                          className="mt-2 w-full"
+                          variant="outline"
+                        >
+                          <ImageIcon className="mr-2 h-4 w-4" />
+                          Generate Image ({counts.remainingImages} remaining)
+                        </Button>
+                      </div>
+
+                      <div>
+                        <Label className="mb-2 block">Scene Video</Label>
+                        <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
+                          {videoUrls[index] ? (
+                            <video
+                              src={videoUrls[index]}
+                              controls
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <Film className="h-16 w-16 text-slate-600" />
+                            </div>
+                          )}
+                          {currentGeneratingIndex === index && scene.imageUrl && !videoUrls[index] && (
+                            <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                              <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
+                            </div>
+                          )}
+                        </div>
+
+                        <Button
+                          onClick={() => generateVideoForScene(index)}
+                          disabled={currentGeneratingIndex !== null || !scene.imageUrl || counts.remainingVideos <= 0}
+                          className="mt-2 w-full"
+                          variant={scene.imageUrl ? "default" : "outline"}
+                        >
+                          <Film className="mr-2 h-4 w-4" />
+                          Generate Video ({counts.remainingVideos} remaining)
+                        </Button>
+                      </div>
                     </div>
-                  )}
-                </div>
-              </>
+                  </TabsContent>
+                ))}
+              </Tabs>
             )}
           </CardContent>
         </Card>
