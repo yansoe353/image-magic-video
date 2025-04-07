@@ -72,17 +72,6 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
     await combineVideos();
   };
 
-  // Custom handler for the VideoUploader that will convert the URL to a VideoClip
-  const handleVideoSelected = (url: string) => {
-    const newClip: VideoClip = {
-      id: Date.now().toString(),
-      url: url,
-      name: `Clip ${videoClips.length + 1}`,
-    };
-    
-    addVideoClip(newClip);
-  };
-
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-6">
@@ -128,7 +117,7 @@ const VideoEditor = ({ generatedVideoUrl }: VideoEditorProps) => {
           <Separator />
           
           <VideoUploader 
-            onVideoSelected={handleVideoSelected} 
+            onVideoUploaded={addVideoClip} 
             disabled={isProcessing}
           />
           
