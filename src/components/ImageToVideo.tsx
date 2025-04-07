@@ -1,254 +1,394 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { Film, Loader2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { useToast } from "@/hooks/use-toast";
+import { fal } from "@fal-ai/client";
+import { Languages, AlertCircle } from "lucide-react";
+import { LANGUAGES, translateText, type LanguageOption } from "@/utils/translationUtils";
 import { useVideoControls } from "@/hooks/useVideoControls";
-import VideoPreview from "@/components/VideoPreview";
-import { generateVideoFromImage } from "@/hooks/useFalClient";
+import { usePromptTranslation } from "@/hooks/usePromptTranslation";
+import { incrementVideoCount, getRemainingCounts, getRemainingCountsAsync, VIDEO_LIMIT } from "@/utils/usageTracker";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import ImageUploader from "./ImageUploader";
+import VideoPreview from "./VideoPreview";
 import { supabase } from "@/integrations/supabase/client";
-import { getUserId } from "@/utils/storageUtils";
-import { incrementVideoCount } from "@/utils/usageTracker";
+import { isLoggedIn } from "@/utils/authUtils";
+import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
+import ProLabel from "./ProLabel";
+import KlingAILabel from "./KlingAILabel";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 
-interface ImageToVideoProps {
-  initialImageUrl: string | null;
-  onVideoGenerated: (videoUrl: string) => void;
-  onSwitchToEditor: () => void;
+// Initialize fal.ai client with proper environment variable handling for browser
+try {
+  const apiKey = import.meta.env.VITE_FAL_API_KEY;
+  if (apiKey) {
+    fal.config({
+      credentials: apiKey
+    });
+  }
+} catch (error) {
+  console.error("Error initializing fal.ai client:", error);
 }
 
-const presetNegativePrompts = [
-  "blurry, low quality, distorted, bad anatomy, worst quality, poorly drawn",
-  "low contrast, noisy, pixelated, bad lighting",
-  "extra limbs, extra fingers, mutated, ugly, messy background",
-];
+interface ImageToVideoProps {
+  initialImageUrl?: string | null;
+  onVideoGenerated?: (videoUrl: string) => void;
+  onSwitchToEditor?: (videoUrl: string) => void;
+}
 
-const ImageToVideo: React.FC<ImageToVideoProps> = ({
-  initialImageUrl,
-  onVideoGenerated,
-  onSwitchToEditor,
-}) => {
-  const [imageUrl, setImageUrl] = useState<string | null>(initialImageUrl || null);
-  const [prompt, setPrompt] = useState<string>("");
-  const [negativePrompt, setNegativePrompt] = useState<string>(presetNegativePrompts[0]);
-  const [isGenerating, setIsGenerating] = useState<boolean>(false);
-  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string>("");
+const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: ImageToVideoProps) => {
+  const { prompt, setPrompt, selectedLanguage, isTranslating, handleLanguageChange } =
+    usePromptTranslation("A stylish woman walks down a Tokyo street filled with warm glowing neon and animated city signage.");
+  const [imageUrl, setImageUrl] = useState("");
+  const [imagePreview, setImagePreview] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [generationLogs, setGenerationLogs] = useState<string[]>([]);
+  const [originalVideoUrl, setOriginalVideoUrl] = useState("");
+  const [supabaseVideoUrl, setSupabaseVideoUrl] = useState("");
+  const [isStoringVideo, setIsStoringVideo] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
+
+  const [duration] = useState<string>("5");
+  const [aspectRatio, setAspectRatio] = useState<string>("16:9");
+  const [negativePrompt, setNegativePrompt] = useState<string>("blur, distort, and low quality");
+  const [cfgScale, setCfgScale] = useState<number>(0.5);
+
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
+  const { toast } = useToast();
+  const [counts, setCounts] = useState(getRemainingCounts());
 
   useEffect(() => {
-    setImageUrl(initialImageUrl || null);
+    const updateCounts = async () => {
+      const freshCounts = await getRemainingCountsAsync();
+      setCounts(freshCounts);
+    };
+    updateCounts();
+  }, []);
+
+  useEffect(() => {
+    if (initialImageUrl) {
+      setImagePreview(initialImageUrl);
+      setImageUrl(initialImageUrl);
+    }
   }, [initialImageUrl]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImageUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+  const saveToHistory = async (videoUrl: string, originalUrl: string) => {
+    if (!isLoggedIn()) return;
+
+    try {
+      const userId = await getUserId();
+      if (!userId) {
+        console.error("No user ID found");
+        return;
+      }
+
+      const { error } = await supabase
+        .from('user_content_history')
+        .insert({
+          user_id: userId,
+          content_type: 'video',
+          content_url: videoUrl,
+          prompt: prompt,
+          is_public: isPublic,
+          metadata: {
+            duration,
+            aspectRatio,
+            negativePrompt,
+            cfgScale,
+            original_url: originalUrl
+          }
+        });
+
+      if (error) {
+        console.error("Error saving to history:", error);
+      } else {
+        console.log("Successfully saved video to history");
+      }
+    } catch (err) {
+      console.error("Failed to save to history:", err);
     }
   };
 
-  const handleGenerateVideo = async () => {
-    if (!imageUrl) {
-      setError("Please upload an image first.");
-      return;
-    }
-
-    if (!prompt) {
-      setError("Please enter a prompt for the video generation.");
-      return;
-    }
-
-    setIsGenerating(true);
-    setError(null);
-
-    try {
-      const result = await generateVideoFromImage({
-        imageUrl,
-        prompt,
-        negativePrompt,
-        motion_strength: 0.8,
-        guidance_scale: 15,
-        num_frames: 24,
-        fps: 12,
-        seed: Math.floor(Math.random() * 100000),
-      });
-
-      if (result.success && result.videoUrl) {
-        setGeneratedVideoUrl(result.videoUrl);
-        onVideoGenerated(result.videoUrl);
-
-        const userId = await getUserId();
-        if (userId) {
-          await supabase.from("user_content_history").insert({
-            user_id: userId,
-            content_type: "video",
-            content_url: result.videoUrl,
-            prompt,
-            is_public: isPublic,
-            metadata: {
-              model: "fal-ai/ltx-video/image-to-video",
-              negative_prompt: negativePrompt,
-            },
-          });
-        }
-
-        await incrementVideoCount();
-
-        toast({
-          title: "Success",
-          description: "Video generated successfully!",
-        });
-      } else {
-        setError(result.error || "Failed to generate video.");
-        toast({
-          title: "Error",
-          description: result.error || "Failed to generate video.",
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      setError(error.message || "Failed to generate video. Please try again.");
+  const generateVideo = async () => {
+    if (!imageUrl || !prompt.trim()) {
       toast({
         title: "Error",
-        description: error.message || "Failed to generate video. Please try again.",
+        description: "Please upload an image and provide a prompt",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (counts.remainingVideos <= 0) {
+      toast({
+        title: "Usage Limit Reached",
+        description: `You've reached the limit of ${VIDEO_LIMIT} video generations.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    setGenerationLogs([]);
+
+    try {
+      setGenerationLogs(prev => [...prev, "Initializing model..."]);
+
+      let promptToUse = prompt;
+      if (selectedLanguage !== "en") {
+        try {
+          promptToUse = await translateText(prompt, selectedLanguage, "en");
+          setGenerationLogs(prev => [...prev, "Translated prompt to English for better results."]);
+        } catch (error) {
+          console.error("Failed to translate to English:", error);
+        }
+      }
+
+      const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
+        input: {
+          prompt: promptToUse,
+          image_url: imageUrl,
+          duration: "5",
+          aspect_ratio: aspectRatio as "16:9" | "9:16" | "1:1",
+          negative_prompt: negativePrompt,
+          cfg_scale: cfgScale,
+        },
+        logs: true,
+        onQueueUpdate: (update) => {
+          if (update.status === "IN_PROGRESS") {
+            const newLogs = update.logs.map(log => log.message);
+            setGenerationLogs(prev => [...prev, ...newLogs]);
+          }
+        },
+      });
+
+      if (result.data?.video?.url) {
+        const falVideoUrl = result.data.video.url;
+        setOriginalVideoUrl(falVideoUrl);
+        setVideoUrl(""); // Clear any existing URL
+
+        setIsStoringVideo(true);
+        try {
+          const userId = await getUserId();
+          const supabaseUrl = await uploadUrlToStorage(falVideoUrl, 'video', userId, isPublic);
+          setSupabaseVideoUrl(supabaseUrl);
+          setVideoUrl(supabaseUrl); // Set the Supabase URL as the video URL
+
+          await saveToHistory(supabaseUrl, falVideoUrl);
+
+          if (onVideoGenerated) {
+            onVideoGenerated(supabaseUrl);
+          }
+
+          toast({
+            title: "Video Stored",
+            description: "Video uploaded to your storage",
+          });
+        } catch (uploadError) {
+          console.error("Failed to upload to Supabase:", uploadError);
+          setVideoUrl(falVideoUrl);
+          
+          if (onVideoGenerated) {
+            onVideoGenerated(falVideoUrl);
+          }
+          
+          await saveToHistory(falVideoUrl, falVideoUrl);
+        } finally {
+          setIsStoringVideo(false);
+        }
+
+        if (await incrementVideoCount()) {
+          toast({
+            title: "Success",
+            description: "Video generated successfully!",
+          });
+          const freshCounts = await getRemainingCountsAsync();
+          setCounts(freshCounts);
+        } else {
+          toast({
+            title: "Usage Limit Reached",
+            description: "You've reached your video generation limit.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        throw new Error("No video URL in response");
+      }
+    } catch (error) {
+      console.error("Failed to generate video:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate video. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setIsGenerating(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="space-y-6">
-      <Card>
+    <div className="grid gap-8 md:grid-cols-2">
+      <Card className="overflow-hidden">
         <CardContent className="p-6">
-          <h2 className="text-2xl font-bold mb-4 flex items-center">
-            <Film className="mr-2 h-6 w-6" />
-            Image to Video
-          </h2>
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-2xl font-bold">Image to Video</h2>
+            <ProLabel />
+            <KlingAILabel />
+          </div>
 
-          {error && (
-            <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-              {error}
-            </div>
+          {counts.remainingVideos <= 5 && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Usage Limit Warning</AlertTitle>
+              <AlertDescription>
+                You have {counts.remainingVideos} video generation{counts.remainingVideos === 1 ? '' : 's'} remaining.
+              </AlertDescription>
+            </Alert>
           )}
 
           <div className="space-y-4">
             <div>
-              <Label htmlFor="imageUpload">Upload Image</Label>
-              <Input
-                type="file"
-                id="imageUpload"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="mb-2"
-              />
-              <p className="text-xs text-slate-500">
-                Supported formats: JPG, PNG, GIF (max 5MB)
-              </p>
-            </div>
-
-            {imageUrl && (
-              <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
-                <img
-                  src={imageUrl}
-                  alt="Uploaded"
-                  className="w-full h-full object-cover"
-                />
+              <div className="flex items-center justify-between mb-2">
+                <Label htmlFor="prompt">Prompt</Label>
+                <Select
+                  value={selectedLanguage}
+                  onValueChange={(value: LanguageOption) => handleLanguageChange(value)}
+                  disabled={isTranslating}
+                >
+                  <SelectTrigger className="h-7 w-36">
+                    <Languages className="mr-2 h-4 w-4" />
+                    <SelectValue placeholder="Language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(LANGUAGES).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-
-            <div>
-              <Label htmlFor="prompt">Video Prompt</Label>
-              <Input
+              <Textarea
                 id="prompt"
-                placeholder="e.g., A futuristic cityscape"
+                placeholder="Describe how you want the image to animate..."
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                className="mb-2"
+                className="min-h-[100px]"
+                disabled={isTranslating}
               />
-              <p className="text-xs text-slate-500">
-                Describe the video style you want to generate
-              </p>
             </div>
 
-            <div>
-              <Label htmlFor="negativePrompt">Negative Prompt (Optional)</Label>
-              <select
-                className="w-full mb-2 border rounded px-3 py-2 text-sm bg-white text-black"
-                value={negativePrompt}
-                onChange={(e) => setNegativePrompt(e.target.value)}
-              >
-                {presetNegativePrompts.map((preset, idx) => (
-                  <option key={idx} value={preset}>
-                    {preset}
-                  </option>
-                ))}
-              </select>
-              <Input
-                id="negativePrompt"
-                value={negativePrompt}
-                onChange={(e) => setNegativePrompt(e.target.value)}
-                className="mb-1"
-              />
-              <p className="text-xs text-slate-500">
-                You can pick a preset or enter your own custom negative prompt
-              </p>
+            <ImageUploader
+              imagePreview={imagePreview}
+              setImagePreview={setImagePreview}
+              setImageUrl={setImageUrl}
+              isUploading={isUploading}
+              setIsUploading={setIsUploading}
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="duration">Duration</Label>
+                <div className="bg-slate-800/60 px-3 py-2 rounded-md border border-slate-700/50 text-slate-300">
+                  5 seconds
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="aspectRatio">Aspect Ratio</Label>
+                <Select value={aspectRatio} onValueChange={setAspectRatio}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select aspect ratio" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="16:9">16:9</SelectItem>
+                    <SelectItem value="9:16">9:16</SelectItem>
+                    <SelectItem value="1:1">1:1</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="negativePrompt">Negative Prompt</Label>
+                <Textarea
+                  id="negativePrompt"
+                  placeholder="Enter negative prompt..."
+                  value={negativePrompt}
+                  onChange={(e) => setNegativePrompt(e.target.value)}
+                  className="min-h-[50px]"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="cfgScale">CFG Scale</Label>
+                <Slider
+                  value={[cfgScale]}
+                  min={0.1}
+                  max={1.0}
+                  step={0.1}
+                  onValueChange={(values) => setCfgScale(values[0])}
+                  className="py-2"
+                />
+              </div>
             </div>
 
             <PublicPrivateToggle
               isPublic={isPublic}
               onChange={setIsPublic}
-              disabled={isGenerating}
+              disabled={isLoading}
             />
 
             <Button
-              onClick={handleGenerateVideo}
-              disabled={isGenerating || !imageUrl || !prompt}
+              onClick={generateVideo}
+              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || counts.remainingVideos <= 0}
               className="w-full"
             >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating Video...
-                </>
-              ) : (
-                <>
-                  <Film className="mr-2 h-4 w-4" />
-                  Generate Video
-                </>
-              )}
+              Generate Video
             </Button>
+
+            {counts.remainingVideos > 0 && (
+              <p className="text-xs text-slate-500 text-center">
+                {counts.remainingVideos} of {VIDEO_LIMIT} video generations remaining
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {generatedVideoUrl && (
-        <Card>
+      <div className="space-y-8">
+        <Card className="overflow-hidden">
           <CardContent className="p-6">
-            <h3 className="text-xl font-bold mb-4">Video Preview</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Video Preview</h2>
+              {videoUrl && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => onSwitchToEditor && onSwitchToEditor(videoUrl)}
+                >
+                  Edit in Video Editor
+                </Button>
+              )}
+            </div>
             <VideoPreview
-              videoUrl={generatedVideoUrl}
-              isLoading={isGenerating}
+              videoUrl={supabaseVideoUrl || videoUrl}
+              isLoading={isLoading || isStoringVideo}
+              generationLogs={generationLogs}
               videoRef={videoRef}
               isPlaying={isPlaying}
               handlePlayPause={handlePlayPause}
-              generationLogs={[]}
+              isStoring={isStoringVideo}
             />
-            <Button onClick={onSwitchToEditor} className="w-full mt-4">
-              Edit Video
-            </Button>
           </CardContent>
         </Card>
-      )}
+      </div>
     </div>
   );
 };
