@@ -5,14 +5,14 @@ import { Label } from "@/components/ui/label";
 import { Upload, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { v4 as uuidv4 } from "uuid";
-import { type VideoClip } from "@/hooks/useVideoEditor";
+import { VideoClip } from "@/hooks/useFalClient";
 
 interface VideoUploaderProps {
-  onVideoUploaded: (clip: VideoClip) => void;
+  onVideoSelected: (url: string) => void;
   disabled?: boolean;
 }
 
-const VideoUploader = ({ onVideoUploaded, disabled = false }: VideoUploaderProps) => {
+const VideoUploader = ({ onVideoSelected, disabled = false }: VideoUploaderProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
 
@@ -60,19 +60,12 @@ const VideoUploader = ({ onVideoUploaded, disabled = false }: VideoUploaderProps
       video.src = url;
       const duration = await getDuration;
       
-      // Create the clip object
-      const newClip: VideoClip = {
-        id: uuidv4(),
-        url,
-        name: file.name,
-        duration
-      };
-      
-      onVideoUploaded(newClip);
+      // Directly pass the URL to the parent component
+      onVideoSelected(url);
       
       toast({
         title: "Video uploaded",
-        description: `${file.name} added to your clips`,
+        description: `${file.name} added successfully`,
       });
     } catch (error) {
       console.error("Error uploading video:", error);
