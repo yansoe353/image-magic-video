@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { incrementVideoCount } from "@/utils/usageTracker";
 import { cn } from "@/lib/utils";
-import { MMAudioInput } from "@/hooks/useFalClient";
+import { MMAudioInput, QueueLogs } from "@/hooks/useFalClient";
 
 const VideoToVideo = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -80,8 +81,8 @@ const VideoToVideo = () => {
         logs: true,
       });
       
-      if ('logs' in status && status.logs) {
-        const newLogs = status.logs.map(log => log.message);
+      if (status.logs) {
+        const newLogs = status.logs.map((log: QueueLogs) => log.message);
         setGenerationLogs(prev => [...prev, ...newLogs.filter(log => !prev.includes(log))]);
       }
       
@@ -203,15 +204,17 @@ const VideoToVideo = () => {
       const result = await fal.subscribe("fal-ai/mmaudio-v2", {
         input: modelInput,
         logs: true,
-        onQueueUpdate: (update) => {
-          if (update.status && (update.status === "IN_PROGRESS" || update.status === "IN_QUEUE") && update.logs) {
-            const logs = update.logs?.map((log) => log.message) || [];
-            setGenerationLogs(prev => [...prev, ...logs.filter(log => !prev.includes(log))]);
-            
-            if (logs.some(log => log.includes("Generating"))) {
-              setProgress(40);
-            } else if (logs.some(log => log.includes("Processing"))) {
-              setProgress(60);
+        onQueueUpdate: (update: any) => {
+          if (update.status && (update.status === "IN_PROGRESS" || update.status === "IN_QUEUE")) {
+            if (update.logs) {
+              const logs = update.logs?.map((log: QueueLogs) => log.message) || [];
+              setGenerationLogs(prev => [...prev, ...logs.filter(log => !prev.includes(log))]);
+              
+              if (logs.some(log => log.includes("Generating"))) {
+                setProgress(40);
+              } else if (logs.some(log => log.includes("Processing"))) {
+                setProgress(60);
+              }
             }
           }
         },

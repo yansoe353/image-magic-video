@@ -1,42 +1,49 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { useFalClient } from "@/hooks/useFalClient";
-import { useNavigate } from "react-router-dom";
-import { Loader2, Upload, Video } from "lucide-react";
-import { UsageLimits } from "./image-generation/UsageLimits";
-import { getCurrentUser } from "@/utils/authUtils";
-import { AppUser } from "@/utils/authUtils";
+import { Film, Loader2, Upload } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import VideoPreview from "@/components/VideoPreview";
+import { useVideoControls } from "@/hooks/useVideoControls";
+import { generateVideoFromImage } from "@/hooks/useFalClient";
+import { supabase } from "@/integrations/supabase/client";
+import { getUserId } from "@/utils/storageUtils";
+import { incrementVideoCount } from "@/utils/usageTracker";
+import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 
-const ImageToVideo = () => {
-  const [imageUrl, setImageUrl] = useState("");
-  const [prompt, setPrompt] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [user, setUser] = useState<AppUser | null>(null);
+interface ImageToVideoProps {
+  initialImageUrl: string | null;
+  onVideoGenerated: (videoUrl: string) => void;
+  onSwitchToEditor: () => void;
+}
+
+const ImageToVideo: React.FC<ImageToVideoProps> = ({ 
+  initialImageUrl, 
+  onVideoGenerated,
+  onSwitchToEditor
+}) => {
+  const [imageUrl, setImageUrl] = useState<string | null>(initialImageUrl || null);
+  const [prompt, setPrompt] = useState<string>("");
+  const [negativePrompt, setNegativePrompt] = useState<string>("");
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string>("");
+  const [isPublic, setIsPublic] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  const { generateVideoFromImage } = useFalClient();
-  const navigate = useNavigate();
+  const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const currentUser = await getCurrentUser();
-      setUser(currentUser);
-    };
-    
-    fetchUser();
-  }, []);
+    setImageUrl(initialImageUrl || null);
+  }, [initialImageUrl]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onloadend = () => {
         setImageUrl(reader.result as string);
       };
       reader.readAsDataURL(file);
@@ -45,58 +52,63 @@ const ImageToVideo = () => {
 
   const handleGenerateVideo = async () => {
     if (!imageUrl) {
-      toast({
-        title: "No image selected",
-        description: "Please upload an image first",
-        variant: "destructive",
-      });
+      setError("Please upload an image first.");
       return;
     }
 
-    if (!user) {
-      toast({
-        title: "Not logged in",
-        description: "Please log in to generate videos",
-        variant: "destructive",
-      });
-      navigate("/login");
-      return;
-    }
-
-    if (user.videoCredits <= 0) {
-      toast({
-        title: "No video credits",
-        description: "You don't have any video generation credits left",
-        variant: "destructive",
-      });
-      navigate("/purchase-credits");
+    if (!prompt) {
+      setError("Please enter a prompt for the video generation.");
       return;
     }
 
     setIsGenerating(true);
-    setVideoUrl(null);
+    setError(null);
 
     try {
-      // Make sure to include the prompt property as required by the API
       const result = await generateVideoFromImage({
-        imageUrl,
-        prompt: prompt || "Animate this image naturally", // Provide a default prompt if empty
+        imageUrl: imageUrl,
+        prompt: prompt,
+        negativePrompt: negativePrompt,
       });
 
       if (result.success && result.videoUrl) {
-        setVideoUrl(result.videoUrl);
+        setGeneratedVideoUrl(result.videoUrl);
+        onVideoGenerated(result.videoUrl);
+
+        const userId = await getUserId();
+        if (userId) {
+          await supabase.from('user_content_history').insert({
+            user_id: userId,
+            content_type: 'video',
+            content_url: result.videoUrl,
+            prompt: prompt,
+            is_public: isPublic,
+            metadata: {
+              model: 'fal-ai/ltx-video/image-to-video',
+              negative_prompt: negativePrompt,
+            }
+          });
+        }
+
+        await incrementVideoCount();
+
         toast({
-          title: "Video generated",
-          description: "Your video has been generated successfully",
+          title: "Success",
+          description: "Video generated successfully!",
         });
       } else {
-        throw new Error(result.error || "Failed to generate video");
+        setError(result.error || "Failed to generate video.");
+        toast({
+          title: "Error",
+          description: result.error || "Failed to generate video.",
+          variant: "destructive",
+        });
       }
-    } catch (error) {
-      console.error("Error generating video:", error);
+    } catch (error: any) {
+      setError(error.message || "Failed to generate video. Please try again.");
       toast({
-        title: "Generation failed",
-        description: "There was an error generating your video",
+        title: "Error",
+        description: error.message || "Failed to generate video. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -105,185 +117,116 @@ const ImageToVideo = () => {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <Tabs defaultValue="upload" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="upload">Upload Image</TabsTrigger>
-          <TabsTrigger value="url">Image URL</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="upload" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Upload an Image</CardTitle>
-              <CardDescription>
-                Upload an image to convert it into a short video
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid w-full max-w-sm items-center gap-1.5">
-                <Label htmlFor="image">Image</Label>
-                <Input 
-                  id="image" 
-                  type="file" 
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="cursor-pointer"
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="p-6">
+          <h2 className="text-2xl font-bold mb-4 flex items-center">
+            <Film className="mr-2 h-6 w-6" />
+            Image to Video
+          </h2>
+
+          {error && (
+            <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="imageUpload">Upload Image</Label>
+              <Input
+                type="file"
+                id="imageUpload"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="mb-2"
+              />
+              <p className="text-xs text-slate-500">
+                Supported formats: JPG, PNG, GIF (max 5MB)
+              </p>
+            </div>
+
+            {imageUrl && (
+              <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
+                <img
+                  src={imageUrl}
+                  alt="Uploaded"
+                  className="w-full h-full object-cover"
                 />
               </div>
-              
-              {imageUrl && (
-                <div className="mt-4">
-                  <p className="text-sm mb-2">Preview:</p>
-                  <img 
-                    src={imageUrl} 
-                    alt="Preview" 
-                    className="max-w-full h-auto max-h-[300px] rounded-md"
-                  />
-                </div>
-              )}
-              
-              <div className="mt-4">
-                <Label htmlFor="prompt">Prompt (Optional)</Label>
-                <Textarea
-                  id="prompt"
-                  placeholder="Describe how you want the image to be animated..."
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-            </CardContent>
-            <CardFooter className="flex flex-col items-start gap-4">
-              {user && (
-                <UsageLimits 
-                  remainingCredits={user.videoCredits || 0} 
-                  totalCredits={100}
-                />
-              )}
-              
-              <Button 
-                onClick={handleGenerateVideo} 
-                disabled={!imageUrl || isGenerating}
-                className="w-full"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Video className="mr-2 h-4 w-4" />
-                    Generate Video
-                  </>
-                )}
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="url" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Use Image URL</CardTitle>
-              <CardDescription>
-                Enter the URL of an image to convert it into a short video
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid w-full items-center gap-1.5">
-                <Label htmlFor="imageUrl">Image URL</Label>
-                <Input 
-                  id="imageUrl" 
-                  type="text" 
-                  placeholder="https://example.com/image.jpg"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                />
-              </div>
-              
-              {imageUrl && imageUrl.startsWith('http') && (
-                <div className="mt-4">
-                  <p className="text-sm mb-2">Preview:</p>
-                  <img 
-                    src={imageUrl} 
-                    alt="Preview" 
-                    className="max-w-full h-auto max-h-[300px] rounded-md"
-                    onError={() => {
-                      toast({
-                        title: "Invalid image URL",
-                        description: "Could not load the image from the provided URL",
-                        variant: "destructive",
-                      });
-                      setImageUrl("");
-                    }}
-                  />
-                </div>
-              )}
-              
-              <div className="mt-4">
-                <Label htmlFor="prompt-url">Prompt (Optional)</Label>
-                <Textarea
-                  id="prompt-url"
-                  placeholder="Describe how you want the image to be animated..."
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-            </CardContent>
-            <CardFooter className="flex flex-col items-start gap-4">
-              {user && (
-                <UsageLimits 
-                  remainingCredits={user.videoCredits || 0} 
-                  totalCredits={100}
-                />
-              )}
-              
-              <Button 
-                onClick={handleGenerateVideo} 
-                disabled={!imageUrl || isGenerating}
-                className="w-full"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Video className="mr-2 h-4 w-4" />
-                    Generate Video
-                  </>
-                )}
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-      </Tabs>
-      
-      {videoUrl && (
-        <div className="mt-8">
-          <h2 className="text-xl font-bold mb-4">Generated Video</h2>
-          <div className="aspect-video">
-            <video 
-              src={videoUrl} 
-              controls 
-              autoPlay 
-              loop 
-              className="w-full h-full rounded-lg"
+            )}
+
+            <div>
+              <Label htmlFor="prompt">Video Prompt</Label>
+              <Input
+                id="prompt"
+                placeholder="e.g., 'A futuristic cityscape', 'Anime style animation', 'Watercolor painting coming to life'"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                className="mb-2"
+              />
+              <p className="text-xs text-slate-500">
+                Describe the video style you want to generate
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="negativePrompt">Negative Prompt (Optional)</Label>
+              <Input
+                id="negativePrompt"
+                placeholder="e.g., 'blurry', 'low quality', 'distorted'"
+                value={negativePrompt}
+                onChange={(e) => setNegativePrompt(e.target.value)}
+                className="mb-2"
+              />
+              <p className="text-xs text-slate-500">
+                Describe what you want to avoid in the generated video
+              </p>
+            </div>
+
+            <PublicPrivateToggle
+              isPublic={isPublic}
+              onChange={setIsPublic}
+              disabled={isGenerating}
             />
-          </div>
-          <div className="mt-4 flex justify-end">
-            <Button asChild>
-              <a href={videoUrl} download="generated-video.mp4">
-                <Upload className="mr-2 h-4 w-4" />
-                Download Video
-              </a>
+
+            <Button
+              onClick={handleGenerateVideo}
+              disabled={isGenerating || !imageUrl || !prompt}
+              className="w-full"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating Video...
+                </>
+              ) : (
+                <>
+                  <Film className="mr-2 h-4 w-4" />
+                  Generate Video
+                </>
+              )}
             </Button>
           </div>
-        </div>
+        </CardContent>
+      </Card>
+
+      {generatedVideoUrl && (
+        <Card>
+          <CardContent className="p-6">
+            <h3 className="text-xl font-bold mb-4">Video Preview</h3>
+            <VideoPreview
+              videoUrl={generatedVideoUrl}
+              isLoading={isGenerating}
+              videoRef={videoRef}
+              isPlaying={isPlaying}
+              handlePlayPause={handlePlayPause}
+            />
+            <Button onClick={onSwitchToEditor} className="w-full mt-4">
+              Edit Video
+            </Button>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

@@ -59,7 +59,7 @@ export interface MMAudioOutput {
 // Define LTXVideo input interface
 export interface LTXVideoInput {
   image_url: string;
-  prompt?: string;
+  prompt: string;
   negative_prompt?: string;
   num_inference_steps?: number;
   guidance_scale?: number;
@@ -70,7 +70,7 @@ export interface LTXVideoInput {
   noise_aug_strength?: number;
 }
 
-// Define LtxVideoImageToVideoInput interface for compatibility with existing code
+// Define LtxVideoImageToVideoInput interface compatible with existing code
 export interface LtxVideoImageToVideoInput {
   image_url: string;
   prompt: string;
@@ -79,6 +79,7 @@ export interface LtxVideoImageToVideoInput {
   guidance_scale?: number;
   width?: number;
   height?: number;
+  motion_bucket_id?: number;
 }
 
 // Define LTXVideo output interface
@@ -87,6 +88,23 @@ export interface LTXVideoOutput {
     url: string;
   };
 }
+
+// Define queue status interfaces
+export interface QueueLogs {
+  message: string;
+}
+
+export interface InProgressQueueStatus {
+  status: "IN_PROGRESS";
+  logs?: QueueLogs[];
+}
+
+export interface InQueueQueueStatus {
+  status: "IN_QUEUE";
+  logs?: QueueLogs[];
+}
+
+export type QueueStatus = InProgressQueueStatus | InQueueQueueStatus;
 
 // Create a function to generate video from image using the fal client
 export const generateVideoFromImage = async (params: { 

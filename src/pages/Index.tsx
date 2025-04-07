@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -162,7 +161,7 @@ const Index = () => {
           
           <TabsContent value="image-to-video" className="mt-0">
             <ImageToVideo 
-              initialImageUrl={generatedImageUrl}
+              initialImageUrl={generatedImageUrl || null}
               onVideoGenerated={handleVideoGenerated}
               onSwitchToEditor={() => setActiveTab("video-editor")}
             />
