@@ -1,19 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { getAllUsers, AppUser, isAdmin, deleteUser } from "@/utils/authUtils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { Plus, Shield, Pencil, Trash, BarChart } from "lucide-react";
+import { Plus, Shield, Pencil, Trash, BarChart, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
 const UserList = () => {
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -41,7 +32,6 @@ const UserList = () => {
 
   useEffect(() => {
     const checkAdminAndLoadUsers = async () => {
-      // Check if user is admin
       const adminStatus = await isAdmin();
       setUserIsAdmin(adminStatus);
       
@@ -55,7 +45,6 @@ const UserList = () => {
         return;
       }
       
-      // Load users when component mounts (only if admin)
       loadUsers();
     };
     
@@ -77,7 +66,7 @@ const UserList = () => {
           title: "Success",
           description: "User deleted successfully",
         });
-        loadUsers(); // Reload users after deletion
+        loadUsers();
       } else {
         toast({
           title: "Error",
@@ -109,12 +98,22 @@ const UserList = () => {
     <div className="container mx-auto py-8 px-4">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">User Management</h1>
-        {userIsAdmin && (
-          <Button onClick={() => navigate("/add-user")} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add New User
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate("/payment-requests")} 
+            className="gap-2"
+          >
+            <CreditCard className="h-4 w-4" />
+            Payment Requests
           </Button>
-        )}
+          {userIsAdmin && (
+            <Button onClick={() => navigate("/add-user")} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add New User
+            </Button>
+          )}
+        </div>
       </div>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -135,8 +134,8 @@ const UserList = () => {
                 <p className="text-xs font-medium text-amber-600 mt-1">Administrator</p>
               )}
               <div className="mt-2">
-                <p className="text-xs font-medium">Image Limit: {user.imageCredits || 100}</p>
-                <p className="text-xs font-medium">Video Limit: {user.videoCredits || 50}</p>
+                <p className="text-xs font-medium">Image Credits: {user.imageCredits || 100}</p>
+                <p className="text-xs font-medium">Video Credits: {user.videoCredits || 50}</p>
               </div>
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
