@@ -1,9 +1,7 @@
-
 import { fal } from "@fal-ai/client";
 
 // Initialize the fal.ai client
 try {
-  // Initialize with credentials - can be API key or 'include' for browser auth
   fal.config({
     credentials: 'include',
   });
@@ -11,7 +9,19 @@ try {
   console.error("Error initializing fal.ai client:", error);
 }
 
-// Define effect type enum to match the API requirements exactly as listed in the documentation
+// Define model types and versions
+export type VideoModel = 'ltx' | 'kling';
+export type KlingVersion = '1.6' | '1.6-pro';
+export type Duration = 5 | 10;
+export type AspectRatio = "16:9" | "9:16" | "1:1";
+
+// Model credit costs
+export const MODEL_CREDITS: Record<VideoModel, number> = {
+  ltx: 1,
+  kling: 8
+};
+
+// Effect type enum
 export type EffectType = 
   | "squish" | "muscle" | "inflate" | "crush" | "rotate" | "cakeify"
   | "baby" | "disney-princess" | "painting" | "pirate-captain" 
@@ -19,12 +29,9 @@ export type EffectType =
   | "gun-shooting" | "deflate" | "hulk" | "bride" | "princess" | "zen" | "assassin"
   | "classy" | "puppy" | "snow-white" | "mona-lisa" | "vip"
   | "timelapse" | "tsunami" | "zoom-call" | "doom-fps" | "fus-ro-dah"
-  | "hug-jesus" | "robot-face-reveal"; 
+  | "hug-jesus" | "robot-face-reveal";
 
-// Define aspect ratio enum
-export type AspectRatio = "16:9" | "9:16" | "1:1";
-
-// Define Video Clip interface
+// Video Clip interface
 export interface VideoClip {
   id: string;
   url: string;
@@ -34,29 +41,47 @@ export interface VideoClip {
   endTime?: number;
 }
 
-// Define MMAudio input interface
-export interface MMAudioInput {
-  video_url: string;
+// Kling API specific interfaces
+export interface KlingVideoInput {
   prompt: string;
+  image_url: string;
+  duration?: Duration;
+  aspect_ratio?: AspectRatio;
   negative_prompt?: string;
-  seed?: number;
-  num_steps?: number;
-  duration?: number;
-  cfg_strength?: number;
-  mask_away_clip?: boolean;
+  cfg_scale?: number;
+  tail_image_url?: string;
+  static_mask_url?: string;
+  dynamic_masks?: DynamicMask[];
+  version?: KlingVersion;
 }
 
-// Define MMAudio output interface
-export interface MMAudioOutput {
-  video: {
-    url: string;
-    file_name: string;
-    file_size: number;
-    content_type: string;
-  };
+export interface DynamicMask {
+  mask_url: string;
+  trajectories: Trajectory[];
 }
 
-// Updated LTXVideo input interface to match the required parameters
+export interface Trajectory {
+  x: number;
+  y: number;
+}
+
+export interface KlingProVideoInput extends KlingVideoInput {
+  camera_control?: CameraControlEnum;
+  advanced_camera_control?: CameraControl;
+}
+
+export type CameraControlEnum = 
+  | "down_back" | "forward_up" | "right_turn_forward" | "left_turn_forward";
+
+export interface CameraControl {
+  movement_type: MovementTypeEnum;
+  movement_value: number;
+}
+
+export type MovementTypeEnum = 
+  | "horizontal" | "vertical" | "pan" | "tilt" | "roll" | "zoom";
+
+// LTX Video interfaces
 export interface LTXVideoInput {
   image_url: string;
   prompt?: string;
@@ -70,89 +95,156 @@ export interface LTXVideoInput {
   noise_aug_strength?: number;
 }
 
-// Updated LtxVideoImageToVideoInput interface to match required parameters
-export interface LtxVideoImageToVideoInput {
-  image_url: string;
-  prompt: string;
-  negative_prompt?: string;
-  num_inference_steps?: number;
-  guidance_scale?: number;
-  width?: number;
-  height?: number;
-  seed?: number;
-  // Added motion_bucket_id to fix the TypeScript error
-  motion_bucket_id?: number;
-  noise_aug_strength?: number;
-}
-
-// Define LTXVideo output interface
-export interface LTXVideoOutput {
+// Common output interface
+export interface VideoOutput {
   video: {
     url: string;
+    file_name?: string;
+    file_size?: number;
+    content_type?: string;
   };
 }
 
-// Define queue status interfaces
+// Queue status interfaces
 export interface QueueLogs {
   message: string;
 }
 
-export interface InProgressQueueStatus {
-  status: "IN_PROGRESS";
+export interface QueueUpdate {
+  status: "IN_PROGRESS" | "IN_QUEUE" | "COMPLETED" | "FAILED";
   logs?: QueueLogs[];
 }
 
-export interface InQueueQueueStatus {
-  status: "IN_QUEUE";
-  logs?: QueueLogs[];
+// Generation options
+export interface GenerationOptions {
+  logs?: boolean;
+  onQueueUpdate?: (update: QueueUpdate) => void;
+  webhookUrl?: string;
 }
 
-export type QueueStatus = InProgressQueueStatus | InQueueQueueStatus;
-
-// Create a function to generate video from image using the fal client
-export const generateVideoFromImage = async (params: { 
-  imageUrl: string; 
+// Main generation function
+export const generateVideoFromImage = async (params: {
+  imageUrl: string;
   prompt: string;
   negativePrompt?: string;
-}) => {
+  model?: VideoModel;
+  modelParams?: {
+    // Common params
+    duration?: Duration;
+    aspect_ratio?: AspectRatio;
+    cfg_scale?: number;
+    
+    // LTX specific
+    num_inference_steps?: number;
+    guidance_scale?: number;
+    motion_bucket_id?: number;
+    noise_aug_strength?: number;
+    
+    // Kling specific
+    version?: KlingVersion;
+    tail_image_url?: string;
+    static_mask_url?: string;
+    dynamic_masks?: DynamicMask[];
+    camera_control?: CameraControlEnum;
+    advanced_camera_control?: CameraControl;
+  };
+  options?: GenerationOptions;
+}): Promise<{
+  success: boolean;
+  videoUrl?: string;
+  error?: string;
+  modelUsed: VideoModel;
+  requestId?: string;
+}> => {
   try {
-    const result = await fal.subscribe("fal-ai/ltx-video/image-to-video", {
-      input: {
-        image_url: params.imageUrl,
-        prompt: params.prompt,
-        negative_prompt: params.negativePrompt || "low quality, bad anatomy, worst quality, deformed, distorted, disfigured",
-        guidance_scale: 8.5,
-        num_inference_steps: 50,
-        motion_bucket_id: 127
-      },
+    const baseInput = {
+      image_url: params.imageUrl,
+      prompt: params.prompt,
+      negative_prompt: params.negativePrompt || "low quality, bad anatomy, worst quality, deformed, distorted, disfigured",
+    };
+
+    const model = params.model || 'ltx';
+    const modelPath = model === 'ltx' 
+      ? "fal-ai/ltx-video/image-to-video" 
+      : `fal-ai/kling-video/${params.modelParams?.version || '1.6'}/standard/image-to-video`;
+
+    const input = model === 'ltx' ? {
+      ...baseInput,
+      guidance_scale: params.modelParams?.guidance_scale ?? 8.5,
+      num_inference_steps: params.modelParams?.num_inference_steps ?? 50,
+      motion_bucket_id: params.modelParams?.motion_bucket_id ?? 127,
+      noise_aug_strength: params.modelParams?.noise_aug_strength ?? 0.02
+    } : {
+      ...baseInput,
+      duration: params.modelParams?.duration ?? 5,
+      aspect_ratio: params.modelParams?.aspect_ratio ?? "16:9",
+      cfg_scale: params.modelParams?.cfg_scale ?? 0.5,
+      tail_image_url: params.modelParams?.tail_image_url,
+      static_mask_url: params.modelParams?.static_mask_url,
+      dynamic_masks: params.modelParams?.dynamic_masks,
+      ...(params.modelParams?.version === '1.6-pro' ? {
+        camera_control: params.modelParams?.camera_control,
+        advanced_camera_control: params.modelParams?.advanced_camera_control
+      } : {})
+    };
+
+    const result = await fal.subscribe(modelPath, {
+      input,
+      logs: params.options?.logs ?? true,
+      onQueueUpdate: params.options?.onQueueUpdate,
+      webhookUrl: params.options?.webhookUrl
     });
 
     if (result.data?.video?.url) {
       return {
         success: true,
-        videoUrl: result.data.video.url
+        videoUrl: result.data.video.url,
+        modelUsed: model,
+        requestId: result.requestId
       };
     } else {
       return {
         success: false,
-        error: "No video URL in response"
+        error: "No video URL in response",
+        modelUsed: model,
+        requestId: result.requestId
       };
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating video:", error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
+      modelUsed: params.model || 'ltx'
     };
   }
 };
 
+// Additional utility functions
+export const getQueueStatus = async (requestId: string, model: VideoModel = 'ltx') => {
+  const modelPath = model === 'ltx' 
+    ? "fal-ai/ltx-video/image-to-video" 
+    : "fal-ai/kling-video/v1.6/standard/image-to-video";
+  
+  return await fal.queue.status(modelPath, { requestId });
+};
+
+export const getResult = async (requestId: string, model: VideoModel = 'ltx') => {
+  const modelPath = model === 'ltx' 
+    ? "fal-ai/ltx-video/image-to-video" 
+    : "fal-ai/kling-video/v1.6/standard/image-to-video";
+  
+  return await fal.queue.result(modelPath, { requestId });
+};
+
 export const falClient = fal;
 
-// Export a custom hook for FAL client operations
+// Custom hook for FAL client operations
 export const useFalClient = () => {
   return {
     falClient,
-    generateVideoFromImage
+    generateVideoFromImage,
+    getQueueStatus,
+    getResult
   };
 };
