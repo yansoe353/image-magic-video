@@ -22,6 +22,16 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { fal } from "@fal-ai/client";
+
+// Initialize the fal.ai client with the API key
+try {
+  fal.config({
+    credentials: 'd2c88ea6-dfa3-48d5-ae0e-40cdada5cc21:a8774078d2a121d5c023aad82e9a2ec5', // Replace with your actual API key
+  });
+} catch (error) {
+  console.error("Error initializing fal.ai client:", error);
+}
 
 type VideoModel = 'ltx' | 'kling';
 type AspectRatio = "16:9" | "9:16" | "1:1";
