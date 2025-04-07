@@ -1,9 +1,9 @@
 import { fal } from "@fal-ai/client";
 
-// Initialize the fal.ai client
+// Initialize the fal.ai client with the API key
 try {
   fal.config({
-    credentials: process.env.FAL_KEY || 'include',
+    credentials: 'd2c88ea6-dfa3-48d5-ae0e-40cdada5cc21:a8774078d2a121d5c023aad82e9a2ec5', // Replace with your actual API key
   });
 } catch (error) {
   console.error("Error initializing fal.ai client:", error);
@@ -14,7 +14,7 @@ export type VideoModel = 'ltx' | 'kling';
 export type KlingVersion = '1.6' | '1.6-pro';
 export type Duration = 5 | 10;
 export type AspectRatio = "16:9" | "9:16" | "1:1";
-export type CameraControl = 
+export type CameraControl =
   | "down_back" | "forward_up" | "right_turn_forward" | "left_turn_forward";
 
 interface DynamicMask {
@@ -77,13 +77,13 @@ export const generateVideoFromImage = async ({
     duration?: Duration;
     aspect_ratio?: AspectRatio;
     cfg_scale?: number;
-    
+
     // LTX specific
     num_inference_steps?: number;
     guidance_scale?: number;
     motion_bucket_id?: number;
     noise_aug_strength?: number;
-    
+
     // Kling specific
     version?: KlingVersion;
     tail_image_url?: string;
@@ -96,7 +96,7 @@ export const generateVideoFromImage = async ({
 }): Promise<GenerationResult> => {
   const startTime = Date.now();
   const logs: string[] = [];
-  
+
   try {
     // Validate input
     if (!imageUrl) {
@@ -106,8 +106,8 @@ export const generateVideoFromImage = async ({
       throw new Error("Prompt is required");
     }
 
-    const modelPath = model === 'ltx' 
-      ? "fal-ai/ltx-video/image-to-video" 
+    const modelPath = model === 'ltx'
+      ? "fal-ai/ltx-video/image-to-video"
       : `fal-ai/kling-video/${modelParams.version || '1.6'}/${modelParams.version === '1.6-pro' ? 'pro' : 'standard'}/image-to-video`;
 
     logs.push(`Starting ${model.toUpperCase()} video generation`);
@@ -135,11 +135,11 @@ export const generateVideoFromImage = async ({
       ...(modelParams.tail_image_url && { tail_image_url: modelParams.tail_image_url }),
       ...(modelParams.static_mask_url && { static_mask_url: modelParams.static_mask_url }),
       ...(modelParams.dynamic_masks && { dynamic_masks: modelParams.dynamic_masks }),
-      ...(modelParams.version === '1.6-pro' && modelParams.camera_control && { 
-        camera_control: modelParams.camera_control 
+      ...(modelParams.version === '1.6-pro' && modelParams.camera_control && {
+        camera_control: modelParams.camera_control
       }),
-      ...(modelParams.version === '1.6-pro' && modelParams.advanced_camera_control && { 
-        advanced_camera_control: modelParams.advanced_camera_control 
+      ...(modelParams.version === '1.6-pro' && modelParams.advanced_camera_control && {
+        advanced_camera_control: modelParams.advanced_camera_control
       })
     };
 
@@ -183,8 +183,8 @@ export const generateVideoFromImage = async ({
       };
     }
   } catch (error: any) {
-    const errorMsg = error?.response?.data?.error?.message || 
-                    error?.message || 
+    const errorMsg = error?.response?.data?.error?.message ||
+                    error?.message ||
                     "Failed to generate video";
     logs.push(`Error: ${errorMsg}`);
     console.error("Video generation error:", error);
@@ -199,12 +199,12 @@ export const generateVideoFromImage = async ({
 
 // Queue management functions
 export const getQueueStatus = async (
-  requestId: string, 
-  model: VideoModel = 'ltx', 
+  requestId: string,
+  model: VideoModel = 'ltx',
   version: KlingVersion = '1.6'
 ): Promise<QueueUpdate> => {
-  const modelPath = model === 'ltx' 
-    ? "fal-ai/ltx-video/image-to-video" 
+  const modelPath = model === 'ltx'
+    ? "fal-ai/ltx-video/image-to-video"
     : `fal-ai/kling-video/${version}/${version === '1.6-pro' ? 'pro' : 'standard'}/image-to-video`;
 
   try {
@@ -220,12 +220,12 @@ export const getQueueStatus = async (
 };
 
 export const getResult = async (
-  requestId: string, 
-  model: VideoModel = 'ltx', 
+  requestId: string,
+  model: VideoModel = 'ltx',
   version: KlingVersion = '1.6'
 ): Promise<VideoOutput> => {
-  const modelPath = model === 'ltx' 
-    ? "fal-ai/ltx-video/image-to-video" 
+  const modelPath = model === 'ltx'
+    ? "fal-ai/ltx-video/image-to-video"
     : `fal-ai/kling-video/${version}/${version === '1.6-pro' ? 'pro' : 'standard'}/image-to-video`;
 
   try {
