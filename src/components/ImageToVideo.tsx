@@ -56,9 +56,9 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
 
   const [duration] = useState<string>("5");
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
-  const [negativePrompt, setNegativePrompt] = useState<string>("blur, distort, and low quality");
-  const [guidanceScale, setGuidanceScale] = useState<number>(7.5);
-  const [numInferenceSteps, setNumInferenceSteps] = useState<number>(25);
+  const [negativePrompt, setNegativePrompt] = useState<string>("low quality, worst quality, deformed, distorted, disfigured, motion smear, motion artifacts, fused fingers, bad anatomy, weird hand, ugly");
+  const [guidanceScale, setGuidanceScale] = useState<number>(8.5);
+  const [numInferenceSteps, setNumInferenceSteps] = useState<number>(50);
   const [motionBucketId, setMotionBucketId] = useState<number>(127);
 
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();

@@ -455,8 +455,7 @@ const StoryToVideo = () => {
           prompt: scene.imagePrompt,
           negative_prompt: "low quality, worst quality, deformed, distorted, disfigured, motion smear, motion artifacts, fused fingers, bad anatomy, weird hand, ugly",
           guidance_scale: 8.5,
-          num_inference_steps: 50,
-          motion_bucket_id: 127
+          num_inference_steps: 50
         },
         logs: true,
         onQueueUpdate: (update) => {

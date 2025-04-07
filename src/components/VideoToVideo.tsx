@@ -203,7 +203,7 @@ const VideoToVideo = () => {
         input: modelInput,
         logs: true,
         onQueueUpdate: (update) => {
-          if (update.status === "IN_PROGRESS") {
+          if (update.status && update.status === "IN_PROGRESS" && update.logs) {
             const logs = update.logs?.map((log) => log.message) || [];
             setGenerationLogs(prev => [...prev, ...logs.filter(log => !prev.includes(log))]);
             

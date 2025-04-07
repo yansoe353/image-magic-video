@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -194,7 +193,6 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         credentials: apiKey
       });
 
-      // Remove guidance_scale which is not supported by the model
       const result = await fal.subscribe("fal-ai/imagen3/fast", {
         input: {
           prompt: promptToUse,
@@ -215,7 +213,6 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           setSupabaseImageUrl(supabaseUrl);
           setGeneratedImage(supabaseUrl);
 
-          // Save to history with the is_public flag
           await saveToHistory(supabaseUrl, falImageUrl);
 
           toast({
@@ -226,13 +223,11 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           console.error("Failed to upload to Supabase:", uploadError);
           setGeneratedImage(falImageUrl);
           
-          // Even if upload fails, try to save to history
           await saveToHistory(falImageUrl, falImageUrl);
         } finally {
           setIsUploading(false);
         }
 
-        // Increment the count after successful generation
         if (await incrementImageCount()) {
           toast({
             title: "Success",
@@ -333,8 +328,8 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           )}
 
           <UsageLimits
-            remainingImages={counts.remainingImages}
-            imageLimit={IMAGE_LIMIT}
+            remainingCredits={counts.remainingImages}
+            totalCredits={IMAGE_LIMIT}
           />
 
           <div className="space-y-4">

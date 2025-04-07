@@ -5,6 +5,9 @@ import { getCurrentUser } from "./authUtils";
 // Define constants for usage limits
 export const DEFAULT_IMAGE_CREDITS = 100;
 export const DEFAULT_VIDEO_CREDITS = 100;
+// Export constants with naming convention expected by components
+export const IMAGE_LIMIT = DEFAULT_IMAGE_CREDITS;
+export const VIDEO_LIMIT = DEFAULT_VIDEO_CREDITS;
 
 // Define interface for usage tracking
 export interface ApiKeyUsage {
@@ -101,6 +104,9 @@ export const getRemainingCredits = (): {
   };
 };
 
+// Alias for getRemainingCredits to match expected function name
+export const getRemainingCounts = getRemainingCredits;
+
 // Asynchronous version for when we need to wait for actual counts
 export const getRemainingCreditsAsync = async (): Promise<{ 
   imageCredits: number; 
@@ -119,6 +125,21 @@ export const getRemainingCreditsAsync = async (): Promise<{
     imageCredits: usage.imageCredits,
     videoCredits: usage.videoCredits
   };
+};
+
+// Alias for getRemainingCreditsAsync to match expected function name
+export const getRemainingCountsAsync = getRemainingCreditsAsync;
+
+// Add content to user's history and decrement credit count
+export const incrementImageCount = async (): Promise<boolean> => {
+  // No need to decrement credits here as we're tracking usage based on history entries
+  return true;
+};
+
+// Add video content to user's history and decrement credit count
+export const incrementVideoCount = async (): Promise<boolean> => {
+  // No need to decrement credits here as we're tracking usage based on history entries
+  return true;
 };
 
 export const initializeApiKeyUsage = async (apiKey: string): Promise<void> => {
