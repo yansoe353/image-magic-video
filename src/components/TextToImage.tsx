@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -165,7 +166,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       return;
     }
 
-    if (counts.remainingImages <= 0) {
+    if (counts.imageCredits <= 0) {
       toast({
         title: "Usage Limit Reached",
         description: `You've reached the limit of ${IMAGE_LIMIT} image generations.`,
@@ -328,7 +329,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           )}
 
           <UsageLimits
-            remainingCredits={counts.remainingImages}
+            remainingCredits={counts.imageCredits}
             totalCredits={IMAGE_LIMIT}
           />
 
@@ -360,7 +361,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             <div className="flex items-center justify-between">
               <Button
                 onClick={generateImage}
-                disabled={isLoading || !prompt.trim() || counts.remainingImages <= 0 || !isApiKeySet}
+                disabled={isLoading || !prompt.trim() || counts.imageCredits <= 0 || !isApiKeySet}
                 className="w-full"
               >
                 {isLoading ? (
@@ -377,9 +378,9 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
               </Button>
             </div>
 
-            {counts.remainingImages > 0 && (
+            {counts.imageCredits > 0 && (
               <p className="text-xs text-slate-500 text-center">
-                {counts.remainingImages} of {IMAGE_LIMIT} image generations remaining
+                {counts.imageCredits} of {IMAGE_LIMIT} image generations remaining
               </p>
             )}
           </div>

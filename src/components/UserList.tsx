@@ -135,8 +135,8 @@ const UserList = () => {
                 <p className="text-xs font-medium text-amber-600 mt-1">Administrator</p>
               )}
               <div className="mt-2">
-                <p className="text-xs font-medium">Image Limit: {user.imageLimit || 100}</p>
-                <p className="text-xs font-medium">Video Limit: {user.videoLimit || 50}</p>
+                <p className="text-xs font-medium">Image Limit: {user.imageCredits || 100}</p>
+                <p className="text-xs font-medium">Video Limit: {user.videoCredits || 50}</p>
               </div>
             </CardContent>
             <CardFooter className="flex justify-end gap-2">

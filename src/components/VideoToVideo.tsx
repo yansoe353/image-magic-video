@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { incrementVideoCount } from "@/utils/usageTracker";
 import { cn } from "@/lib/utils";
+import { MMAudioInput } from "@/hooks/useFalClient";
 
 const VideoToVideo = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -185,7 +187,7 @@ const VideoToVideo = () => {
       setGenerationLogs(prev => [...prev, "Starting video generation with fal.ai..."]);
       setProgress(10);
       
-      const modelInput = {
+      const modelInput: MMAudioInput = {
         video_url: uploadedVideoUrl,
         prompt,
         negative_prompt: negativePrompt || "",

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +16,7 @@ import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 import { fal } from "@fal-ai/client";
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
+import { LTXVideoInput } from "@/hooks/useFalClient";
 import {
   Select,
   SelectContent,
@@ -37,6 +39,11 @@ interface CharacterDetails {
   styleNotes?: string;
 }
 
+interface UsageCounts {
+  imageCredits: number;
+  videoCredits: number;
+}
+
 const StoryToVideo = () => {
   const [storyPrompt, setStoryPrompt] = useState("");
   const [storyTitle, setStoryTitle] = useState("");
@@ -44,7 +51,7 @@ const StoryToVideo = () => {
   const [generatedStory, setGeneratedStory] = useState<StoryScene[]>([]);
   const [isPublic, setIsPublic] = useState(false);
   const [currentGeneratingIndex, setCurrentGeneratingIndex] = useState<number | null>(null);
-  const [counts, setCounts] = useState({ remainingImages: 0, remainingVideos: 0 });
+  const [counts, setCounts] = useState<UsageCounts>({ imageCredits: 0, videoCredits: 0 });
   const [sceneCount, setSceneCount] = useState("3");
   const [imageStyle, setImageStyle] = useState("photorealism");
   const [editMode, setEditMode] = useState(false);
@@ -347,7 +354,7 @@ const StoryToVideo = () => {
   };
 
   const generateImageForScene = async (sceneIndex: number) => {
-    if (counts.remainingImages <= 0) {
+    if (counts.imageCredits <= 0) {
       toast({
         title: "Limit Reached",
         description: "You've used all your image generations",
@@ -392,7 +399,8 @@ const StoryToVideo = () => {
         setGeneratedStory(updatedStory);
 
         await incrementImageCount();
-        setCounts(await getRemainingCountsAsync());
+        const freshCounts = await getRemainingCountsAsync();
+        setCounts(freshCounts);
 
         toast({
           title: "Success",
@@ -412,7 +420,7 @@ const StoryToVideo = () => {
   };
 
   const generateVideoForScene = async (sceneIndex: number) => {
-    if (counts.remainingVideos <= 0) {
+    if (counts.videoCredits <= 0) {
       toast({
         title: "Limit Reached",
         description: "You've used all your video generations",
@@ -449,14 +457,18 @@ const StoryToVideo = () => {
 
       setGenerationLogs(prev => [...prev, "Starting video generation with LTX model..."]);
 
+      // Create the input object for LTX model
+      const input: LTXVideoInput = {
+        image_url: scene.imageUrl,
+        prompt: scene.imagePrompt,
+        negative_prompt: "low quality, worst quality, deformed, distorted, disfigured, motion smear, motion artifacts, fused fingers, bad anatomy, weird hand, ugly",
+        guidance_scale: 8.5,
+        num_inference_steps: 50,
+        motion_bucket_id: 127
+      };
+
       const result = await fal.subscribe("fal-ai/ltx-video/image-to-video", {
-        input: {
-          image_url: scene.imageUrl,
-          prompt: scene.imagePrompt,
-          negative_prompt: "low quality, worst quality, deformed, distorted, disfigured, motion smear, motion artifacts, fused fingers, bad anatomy, weird hand, ugly",
-          guidance_scale: 8.5,
-          num_inference_steps: 50
-        },
+        input,
         logs: true,
         onQueueUpdate: (update) => {
           if (update.status === "IN_PROGRESS" && update.logs) {
@@ -492,7 +504,8 @@ const StoryToVideo = () => {
         }
 
         await incrementVideoCount();
-        setCounts(await getRemainingCountsAsync());
+        const freshCounts = await getRemainingCountsAsync();
+        setCounts(freshCounts);
 
         toast({
           title: "Success",
@@ -886,12 +899,12 @@ const StoryToVideo = () => {
 
                           <Button
                             onClick={() => generateImageForScene(index)}
-                            disabled={currentGeneratingIndex !== null || counts.remainingImages <= 0}
+                            disabled={currentGeneratingIndex !== null || counts.imageCredits <= 0}
                             className="mt-2 w-full"
                             variant="outline"
                           >
                             <ImageIcon className="mr-2 h-4 w-4" />
-                            Generate Image ({counts.remainingImages} remaining)
+                            Generate Image ({counts.imageCredits} remaining)
                           </Button>
                         </div>
 
@@ -918,12 +931,12 @@ const StoryToVideo = () => {
 
                           <Button
                             onClick={() => generateVideoForScene(index)}
-                            disabled={currentGeneratingIndex !== null || !scene.imageUrl || counts.remainingVideos <= 0}
+                            disabled={currentGeneratingIndex !== null || !scene.imageUrl || counts.videoCredits <= 0}
                             className="mt-2 w-full"
                             variant={scene.imageUrl ? "default" : "outline"}
                           >
                             <Film className="mr-2 h-4 w-4" />
-                            Generate Video ({counts.remainingVideos} remaining)
+                            Generate Video ({counts.videoCredits} remaining)
                           </Button>
                         </div>
                       </div>
@@ -938,89 +951,63 @@ const StoryToVideo = () => {
                     Final Combined Video
                   </h3>
                   
-                  <div className="relative aspect-video rounded-md overflow-hidden bg-gray-100 dark:bg-gray-800 border">
-                    {combinedVideoUrl ? (
-                      <video
-                        src={combinedVideoUrl}
-                        controls
-                        className="w-full h-full object-contain"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4">
+                  {combinedVideoUrl ? (
+                    <div className="space-y-4">
+                      <div className="aspect-video bg-black rounded-md overflow-hidden">
+                        <video
+                          src={combinedVideoUrl}
+                          controls
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <Button
+                        onClick={() => {
+                          const link = document.createElement('a');
+                          link.href = combinedVideoUrl;
+                          link.download = `${storyTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.mp4`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                        }}
+                        className="w-full"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Download Combined Video
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <Button
+                        onClick={combineVideos}
+                        disabled={
+                          isCombiningVideos || 
+                          !generatedStory.every(scene => scene.videoUrl) ||
+                          !ffmpegLoaded
+                        }
+                        className="w-full"
+                      >
                         {isCombiningVideos ? (
                           <>
-                            <Loader2 className="h-8 w-8 animate-spin" />
-                            <p>Combining your scenes...</p>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Combining Videos...
                           </>
                         ) : (
                           <>
-                            <Film className="h-8 w-8 text-gray-400" />
-                            <p className="text-center text-gray-500 dark:text-gray-400">
-                              {generatedStory.every(s => s.videoUrl)
-                                ? "Ready to combine all scenes" 
-                                : `Complete ${generatedStory.filter(s => s.videoUrl).length}/${generatedStory.length} videos to combine`}
-                            </p>
+                            <Film className="mr-2 h-4 w-4" />
+                            Combine All Videos
                           </>
                         )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      onClick={combineVideos}
-                      disabled={isCombiningVideos || !ffmpegLoaded || !generatedStory.every(scene => scene.videoUrl)}
-                      className="flex-1"
-                    >
-                      {isCombiningVideos ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Combining...
-                        </>
-                      ) : (
-                        <>
-                          <Film className="mr-2 h-4 w-4" />
-                          Combine All Scenes
-                        </>
-                      )}
-                    </Button>
-                    
-                    {combinedVideoUrl && (
-                      <Button
-                        asChild
-                        variant="secondary"
-                        className="flex-1"
-                      >
-                        <a 
-                          href={combinedVideoUrl} 
-                          download={`${storyTitle.replace(/\s+/g, '-')}-combined.mp4`}
-                        >
-                          <Download className="mr-2 h-4 w-4" />
-                          Download Video
-                        </a>
                       </Button>
-                    )}
-                  </div>
-
-                  {generationLogs.length > 0 && (
-                    <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-md max-h-40 overflow-y-auto text-xs">
-                      <div className="flex justify-between items-center mb-1">
-                        <h4 className="font-medium">Processing Logs</h4>
-                        <Button 
-                          variant="ghost" 
-                          size="xs"
-                          onClick={() => setGenerationLogs([])}
-                        >
-                          Clear
-                        </Button>
-                      </div>
-                      <div className="font-mono space-y-1">
-                        {generationLogs.map((log, i) => (
-                          <div key={i} className="text-gray-600 dark:text-gray-300 break-words">
-                            {log}
-                          </div>
-                        ))}
-                      </div>
+                      
+                      {isCombiningVideos && (
+                        <div className="p-4 bg-slate-800/50 rounded-md max-h-40 overflow-y-auto text-sm">
+                          {generationLogs.map((log, i) => (
+                            <p key={i} className="text-slate-300 text-sm">
+                              {log}
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

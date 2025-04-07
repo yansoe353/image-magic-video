@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,6 +22,7 @@ import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
 import ProLabel from "./ProLabel";
 import KlingAILabel from "./KlingAILabel";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
+import { LTXVideoInput } from "@/hooks/useFalClient";
 
 // Initialize fal.ai client with proper environment variable handling for browser
 try {
@@ -218,15 +220,18 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
 
       setGenerationLogs(prev => [...prev, "Sending request to fal.ai/ltx-video..."]);
       
+      // Create the input object
+      const input: LTXVideoInput = {
+        image_url: resizedImageUrl,
+        prompt: promptToUse,
+        negative_prompt: negativePrompt,
+        num_inference_steps: numInferenceSteps,
+        guidance_scale: guidanceScale,
+        motion_bucket_id: motionBucketId
+      };
+      
       const result = await fal.subscribe("fal-ai/ltx-video/image-to-video", {
-        input: {
-          image_url: resizedImageUrl,
-          prompt: promptToUse,
-          negative_prompt: negativePrompt,
-          num_inference_steps: numInferenceSteps,
-          guidance_scale: guidanceScale,
-          motion_bucket_id: motionBucketId
-        },
+        input,
         logs: true,
         onQueueUpdate: (update) => {
           if (update.status === "IN_PROGRESS" && update.logs) {
@@ -282,7 +287,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
           toast({
             title: "Last Credit Used",
             description: "You've used your last video generation credit.",
-            variant: "warning",
+            variant: "default"
           });
         }
       } else {
