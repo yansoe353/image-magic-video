@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Film, Loader2, Upload } from "lucide-react";
+import { Film, Loader2, Upload, Camera, Move3d, ZoomIn } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,17 +13,58 @@ import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { incrementVideoCount } from "@/utils/usageTracker";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+
+type VideoModel = 'ltx' | 'kling';
+type KlingVersion = '1.6' | '1.6-pro';
+type AspectRatio = "16:9" | "9:16" | "1:1";
+type Duration = 5 | 10;
+type CameraControl = "down_back" | "forward_up" | "right_turn_forward" | "left_turn_forward";
 
 interface ImageToVideoProps {
   initialImageUrl: string | null;
-  onVideoGenerated: (videoUrl: string) => void;
+  onVideoGenerated: (videoUrl: string, model: VideoModel) => void;
   onSwitchToEditor: () => void;
+  userCredits: number;
 }
+
+const MODEL_CREDITS = {
+  ltx: 1,
+  kling: 8,
+  'kling-pro': 12
+};
+
+const MODEL_DETAILS = {
+  ltx: {
+    name: "LTX Video",
+    description: "Fast generation (2-5 sec), good for quick iterations",
+    credits: MODEL_CREDITS.ltx
+  },
+  kling: {
+    name: "Kling Standard",
+    description: "High quality generation (5-15 sec), cinematic results",
+    credits: MODEL_CREDITS.kling
+  },
+  'kling-pro': {
+    name: "Kling Pro",
+    description: "Professional quality with camera controls (10-30 sec)",
+    credits: MODEL_CREDITS['kling-pro']
+  }
+};
 
 const ImageToVideo: React.FC<ImageToVideoProps> = ({ 
   initialImageUrl, 
   onVideoGenerated,
-  onSwitchToEditor
+  onSwitchToEditor,
+  userCredits
 }) => {
   const [imageUrl, setImageUrl] = useState<string | null>(initialImageUrl || null);
   const [prompt, setPrompt] = useState<string>("");
@@ -33,6 +73,14 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string>("");
   const [isPublic, setIsPublic] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<VideoModel>('ltx');
+  const [klingVersion, setKlingVersion] = useState<KlingVersion>('1.6');
+  const [duration, setDuration] = useState<Duration>(5);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
+  const [cfgScale, setCfgScale] = useState<number>(0.5);
+  const [cameraControl, setCameraControl] = useState<CameraControl>("forward_up");
+  const [zoomValue, setZoomValue] = useState<number>(1);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const { toast } = useToast();
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
 
@@ -51,6 +99,13 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
     }
   };
 
+  const getCurrentModelDetails = () => {
+    if (selectedModel === 'kling' && klingVersion === '1.6-pro') {
+      return MODEL_DETAILS['kling-pro'];
+    }
+    return MODEL_DETAILS[selectedModel];
+  };
+
   const handleGenerateVideo = async () => {
     if (!imageUrl) {
       setError("Please upload an image first.");
@@ -62,6 +117,12 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
       return;
     }
 
+    const modelDetails = getCurrentModelDetails();
+    if (userCredits < modelDetails.credits) {
+      setError(`Not enough credits. This generation requires ${modelDetails.credits} credits.`);
+      return;
+    }
+
     setIsGenerating(true);
     setError(null);
 
@@ -70,11 +131,33 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
         imageUrl: imageUrl,
         prompt: prompt,
         negativePrompt: negativePrompt,
+        model: selectedModel,
+        modelParams: {
+          version: klingVersion,
+          duration: duration,
+          aspect_ratio: aspectRatio,
+          cfg_scale: cfgScale,
+          ...(selectedModel === 'kling' && klingVersion === '1.6-pro' ? {
+            camera_control: cameraControl,
+            advanced_camera_control: {
+              movement_type: "zoom",
+              movement_value: zoomValue
+            }
+          } : {})
+        },
+        options: {
+          logs: true,
+          onQueueUpdate: (update) => {
+            if (update.status === "IN_PROGRESS") {
+              console.log("Generation progress:", update.logs);
+            }
+          }
+        }
       });
 
       if (result.success && result.videoUrl) {
         setGeneratedVideoUrl(result.videoUrl);
-        onVideoGenerated(result.videoUrl);
+        onVideoGenerated(result.videoUrl, selectedModel);
 
         const userId = await getUserId();
         if (userId) {
@@ -85,17 +168,20 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
             prompt: prompt,
             is_public: isPublic,
             metadata: {
-              model: 'fal-ai/ltx-video/image-to-video',
+              model: selectedModel === 'ltx' ? 'fal-ai/ltx-video' : `fal-ai/kling-video/${klingVersion}`,
               negative_prompt: negativePrompt,
+              duration: duration,
+              aspect_ratio: aspectRatio,
+              credits_used: modelDetails.credits
             }
           });
         }
 
-        await incrementVideoCount();
+        await incrementVideoCount(modelDetails.credits);
 
         toast({
           title: "Success",
-          description: "Video generated successfully!",
+          description: `Video generated successfully using ${modelDetails.name}!`,
         });
       } else {
         setError(result.error || "Failed to generate video.");
@@ -117,6 +203,8 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
     }
   };
 
+  const modelDetails = getCurrentModelDetails();
+
   return (
     <div className="space-y-6">
       <Card>
@@ -133,6 +221,52 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
           )}
 
           <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Generation Model</Label>
+                <Select 
+                  value={selectedModel} 
+                  onValueChange={(value: VideoModel) => setSelectedModel(value)}
+                  disabled={isGenerating}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ltx">
+                      {MODEL_DETAILS.ltx.name} - {MODEL_DETAILS.ltx.description} ({MODEL_DETAILS.ltx.credits} credits)
+                    </SelectItem>
+                    <SelectItem value="kling">
+                      {MODEL_DETAILS.kling.name} - {MODEL_DETAILS.kling.description} ({MODEL_DETAILS.kling.credits} credits)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedModel === 'kling' && (
+                <div>
+                  <Label>Kling Version</Label>
+                  <Select 
+                    value={klingVersion} 
+                    onValueChange={(value: KlingVersion) => setKlingVersion(value)}
+                    disabled={isGenerating}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select version" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1.6">
+                        {MODEL_DETAILS.kling.name} - {MODEL_DETAILS.kling.description} ({MODEL_DETAILS.kling.credits} credits)
+                      </SelectItem>
+                      <SelectItem value="1.6-pro">
+                        {MODEL_DETAILS['kling-pro'].name} - {MODEL_DETAILS['kling-pro'].description} ({MODEL_DETAILS['kling-pro'].credits} credits)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
             <div>
               <Label htmlFor="imageUpload">Upload Image</Label>
               <Input
@@ -159,12 +293,12 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
 
             <div>
               <Label htmlFor="prompt">Video Prompt</Label>
-              <Input
+              <Textarea
                 id="prompt"
                 placeholder="e.g., 'A futuristic cityscape', 'Anime style animation', 'Watercolor painting coming to life'"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                className="mb-2"
+                className="mb-2 min-h-[100px]"
               />
               <p className="text-xs text-slate-500">
                 Describe the video style you want to generate
@@ -173,17 +307,128 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
 
             <div>
               <Label htmlFor="negativePrompt">Negative Prompt (Optional)</Label>
-              <Input
+              <Textarea
                 id="negativePrompt"
                 placeholder="e.g., 'blurry', 'low quality', 'distorted'"
                 value={negativePrompt}
                 onChange={(e) => setNegativePrompt(e.target.value)}
-                className="mb-2"
+                className="mb-2 min-h-[80px]"
               />
               <p className="text-xs text-slate-500">
                 Describe what you want to avoid in the generated video
               </p>
             </div>
+
+            {selectedModel === 'kling' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Duration (seconds)</Label>
+                    <Select 
+                      value={duration.toString()} 
+                      onValueChange={(value) => setDuration(parseInt(value) as Duration)}
+                      disabled={isGenerating}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select duration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5 seconds</SelectItem>
+                        <SelectItem value="10">10 seconds</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Aspect Ratio</Label>
+                    <Select 
+                      value={aspectRatio} 
+                      onValueChange={(value: AspectRatio) => setAspectRatio(value)}
+                      disabled={isGenerating}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select aspect ratio" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="16:9">16:9 (Widescreen)</SelectItem>
+                        <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
+                        <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="flex items-center gap-2">
+                    <span>CFG Scale: {cfgScale}</span>
+                  </Label>
+                  <Slider
+                    min={0.1}
+                    max={1}
+                    step={0.1}
+                    value={[cfgScale]}
+                    onValueChange={([value]) => setCfgScale(value)}
+                    disabled={isGenerating}
+                  />
+                  <p className="text-xs text-slate-500">
+                    Controls how closely the video follows your prompt (higher = more strict)
+                  </p>
+                </div>
+
+                {klingVersion === '1.6-pro' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label>Advanced Camera Controls</Label>
+                      <Switch 
+                        checked={showAdvanced}
+                        onCheckedChange={setShowAdvanced}
+                      />
+                    </div>
+
+                    {showAdvanced && (
+                      <div className="space-y-4 p-4 border rounded-lg">
+                        <div>
+                          <Label className="flex items-center gap-2">
+                            <Camera className="h-4 w-4" />
+                            Camera Movement
+                          </Label>
+                          <Select 
+                            value={cameraControl} 
+                            onValueChange={(value: CameraControl) => setCameraControl(value)}
+                            disabled={isGenerating}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select camera movement" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="forward_up">Forward & Up</SelectItem>
+                              <SelectItem value="down_back">Down & Back</SelectItem>
+                              <SelectItem value="right_turn_forward">Right Turn Forward</SelectItem>
+                              <SelectItem value="left_turn_forward">Left Turn Forward</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label className="flex items-center gap-2">
+                            <ZoomIn className="h-4 w-4" />
+                            Zoom Intensity: {zoomValue}
+                          </Label>
+                          <Slider
+                            min={0.5}
+                            max={3}
+                            step={0.1}
+                            value={[zoomValue]}
+                            onValueChange={([value]) => setZoomValue(value)}
+                            disabled={isGenerating}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             <PublicPrivateToggle
               isPublic={isPublic}
@@ -191,20 +436,25 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
               disabled={isGenerating}
             />
 
+            <div className="flex items-center justify-between p-3 bg-slate-100 rounded-lg">
+              <span className="text-sm font-medium">Credits required: {modelDetails.credits}</span>
+              <span className="text-sm font-medium">Your credits: {userCredits}</span>
+            </div>
+
             <Button
               onClick={handleGenerateVideo}
-              disabled={isGenerating || !imageUrl || !prompt}
+              disabled={isGenerating || !imageUrl || !prompt || userCredits < modelDetails.credits}
               className="w-full"
             >
               {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating Video...
+                  Generating Video ({modelDetails.credits} credits)...
                 </>
               ) : (
                 <>
                   <Film className="mr-2 h-4 w-4" />
-                  Generate Video
+                  Generate Video ({modelDetails.credits} credits)
                 </>
               )}
             </Button>
