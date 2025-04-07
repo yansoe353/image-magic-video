@@ -145,7 +145,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
     if (!canGenerateVideo) {
       toast({
         title: "Usage Limit Reached",
-        description: `You need at least 5 credits to generate a video.`,
+        description: `You need at least 5 credits to generate a video!.`,
         variant: "destructive",
       });
       return;
