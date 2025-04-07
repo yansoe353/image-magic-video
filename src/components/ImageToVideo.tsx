@@ -11,7 +11,14 @@ import { Languages, AlertCircle } from "lucide-react";
 import { LANGUAGES, translateText, type LanguageOption } from "@/utils/translationUtils";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import { usePromptTranslation } from "@/hooks/usePromptTranslation";
-import { incrementVideoCount, getRemainingCounts, getRemainingCountsAsync, VIDEO_LIMIT, getUserCredits, decrementVideoCredits } from "@/utils/usageTracker";
+import {
+  getRemainingCounts,
+  getRemainingCountsAsync,
+  VIDEO_LIMIT,
+  getUserCredits,
+  incrementVideoCount,
+  checkVideoCredits
+} from "@/utils/usageTracker";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
@@ -62,7 +69,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
   const [counts, setCounts] = useState(getRemainingCounts());
-  const [userCredits, setUserCredits] = useState({ imageCredits: 0, videoCredits: 0 });
+  const [userCredits, setUserCredits] = useState({ totalImageCredits: 0, totalVideoCredits: 0 });
 
   useEffect(() => {
     const updateCounts = async () => {
@@ -134,7 +141,8 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
       return;
     }
 
-    if (userCredits.videoCredits <= 0) {
+    const canGenerateVideo = await checkVideoCredits();
+    if (!canGenerateVideo) {
       toast({
         title: "Usage Limit Reached",
         description: `You've reached the limit of your video generation credits.`,
@@ -212,7 +220,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
           setIsStoringVideo(false);
         }
 
-        if (await decrementVideoCredits()) {
+        if (await incrementVideoCount()) {
           toast({
             title: "Success",
             description: "Video generated successfully!",
@@ -253,12 +261,12 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
             <KlingAILabel />
           </div>
 
-          {userCredits.videoCredits <= 5 && (
+          {userCredits.totalVideoCredits <= 5 && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Usage Limit Warning</AlertTitle>
               <AlertDescription>
-                You have {userCredits.videoCredits} video generation{userCredits.videoCredits === 1 ? '' : 's'} remaining.
+                You have {userCredits.totalVideoCredits} video generation{userCredits.totalVideoCredits === 1 ? '' : 's'} remaining.
               </AlertDescription>
             </Alert>
           )}
@@ -359,15 +367,15 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
 
             <Button
               onClick={generateVideo}
-              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || userCredits.videoCredits <= 0}
+              disabled={isLoading || !imagePreview || !prompt.trim() || isTranslating || !userCredits.totalVideoCredits}
               className="w-full"
             >
               Generate Video
             </Button>
 
-            {userCredits.videoCredits > 0 && (
+            {userCredits.totalVideoCredits > 0 && (
               <p className="text-xs text-slate-500 text-center">
-                {userCredits.videoCredits} video generation{userCredits.videoCredits === 1 ? '' : 's'} remaining
+                {userCredits.totalVideoCredits} video generation{userCredits.totalVideoCredits === 1 ? '' : 's'} remaining
               </p>
             )}
           </div>
