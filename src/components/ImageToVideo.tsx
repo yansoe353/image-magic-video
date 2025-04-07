@@ -1,14 +1,12 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Film, Loader2, Upload } from "lucide-react";
+import { Film, Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import VideoPreview from "@/components/VideoPreview";
 import { useVideoControls } from "@/hooks/useVideoControls";
+import VideoPreview from "@/components/VideoPreview";
 import { generateVideoFromImage } from "@/hooks/useFalClient";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
@@ -21,14 +19,20 @@ interface ImageToVideoProps {
   onSwitchToEditor: () => void;
 }
 
-const ImageToVideo: React.FC<ImageToVideoProps> = ({ 
-  initialImageUrl, 
+const presetNegativePrompts = [
+  "blurry, low quality, distorted, bad anatomy, worst quality, poorly drawn",
+  "low contrast, noisy, pixelated, bad lighting",
+  "extra limbs, extra fingers, mutated, ugly, messy background",
+];
+
+const ImageToVideo: React.FC<ImageToVideoProps> = ({
+  initialImageUrl,
   onVideoGenerated,
-  onSwitchToEditor
+  onSwitchToEditor,
 }) => {
   const [imageUrl, setImageUrl] = useState<string | null>(initialImageUrl || null);
   const [prompt, setPrompt] = useState<string>("");
-  const [negativePrompt, setNegativePrompt] = useState<string>("");
+  const [negativePrompt, setNegativePrompt] = useState<string>(presetNegativePrompts[0]);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string>("");
   const [isPublic, setIsPublic] = useState(false);
@@ -67,9 +71,14 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
 
     try {
       const result = await generateVideoFromImage({
-        imageUrl: imageUrl,
-        prompt: prompt,
-        negativePrompt: negativePrompt,
+        imageUrl,
+        prompt,
+        negativePrompt,
+        motion_strength: 0.8,
+        guidance_scale: 15,
+        num_frames: 24,
+        fps: 12,
+        seed: Math.floor(Math.random() * 100000),
       });
 
       if (result.success && result.videoUrl) {
@@ -78,16 +87,16 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
 
         const userId = await getUserId();
         if (userId) {
-          await supabase.from('user_content_history').insert({
+          await supabase.from("user_content_history").insert({
             user_id: userId,
-            content_type: 'video',
+            content_type: "video",
             content_url: result.videoUrl,
-            prompt: prompt,
+            prompt,
             is_public: isPublic,
             metadata: {
-              model: 'fal-ai/ltx-video/image-to-video',
+              model: "fal-ai/ltx-video/image-to-video",
               negative_prompt: negativePrompt,
-            }
+            },
           });
         }
 
@@ -161,7 +170,7 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
               <Label htmlFor="prompt">Video Prompt</Label>
               <Input
                 id="prompt"
-                placeholder="e.g., 'A futuristic cityscape', 'Anime style animation', 'Watercolor painting coming to life'"
+                placeholder="e.g., A futuristic cityscape"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 className="mb-2"
@@ -173,15 +182,25 @@ const ImageToVideo: React.FC<ImageToVideoProps> = ({
 
             <div>
               <Label htmlFor="negativePrompt">Negative Prompt (Optional)</Label>
-              <Input
-                id="negativePrompt"
-                placeholder="e.g., 'blurry', 'low quality', 'distorted'"
+              <select
+                className="w-full mb-2 border rounded px-3 py-2 text-sm bg-white text-black"
                 value={negativePrompt}
                 onChange={(e) => setNegativePrompt(e.target.value)}
-                className="mb-2"
+              >
+                {presetNegativePrompts.map((preset, idx) => (
+                  <option key={idx} value={preset}>
+                    {preset}
+                  </option>
+                ))}
+              </select>
+              <Input
+                id="negativePrompt"
+                value={negativePrompt}
+                onChange={(e) => setNegativePrompt(e.target.value)}
+                className="mb-1"
               />
               <p className="text-xs text-slate-500">
-                Describe what you want to avoid in the generated video
+                You can pick a preset or enter your own custom negative prompt
               </p>
             </div>
 
