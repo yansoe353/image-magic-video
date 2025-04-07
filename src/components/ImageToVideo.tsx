@@ -243,7 +243,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
       console.error("Failed to generate video:", error);
       toast({
         title: "Error",
-        description: "Failed to generate video. Please try again.",
+        description: "Failed to generate video. Please try again!.",
         variant: "destructive",
       });
     } finally {
