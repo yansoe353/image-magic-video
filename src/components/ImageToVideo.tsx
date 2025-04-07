@@ -29,7 +29,7 @@ import ProLabel from "./ProLabel";
 import KlingAILabel from "./KlingAILabel";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 
-// Initialize fal.ai client with proper environment variable handling for browser
+// Initialize fal.ai client with proper environment variable handling for browsers
 try {
   const apiKey = import.meta.env.VITE_FAL_API_KEY;
   if (apiKey) {
