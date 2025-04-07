@@ -142,7 +142,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
     }
 
     const canGenerateVideo = await checkVideoCredits();
-    if (!canGenerateVideo || userCredits.totalVideoCredits < 5) {
+    if (!canGenerateVideo) {
       toast({
         title: "Usage Limit Reached",
         description: `You need at least 5 credits to generate a video.`,
@@ -243,7 +243,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
       console.error("Failed to generate video:", error);
       toast({
         title: "Error",
-        description: "Failed to generate video. Please try again!.",
+        description: "Failed to generate video. Please try again.",
         variant: "destructive",
       });
     } finally {
