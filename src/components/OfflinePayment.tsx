@@ -27,7 +27,7 @@ const bankAccounts = [
 const contactMethods = [
   {
     name: "Email",
-    value: "support@example.com",
+    value: "htetnay4u@gmail.com",
     icon: <Mail className="h-4 w-4 mr-2" />,
     action: "mailto:htetnay4u@gmail.com"
   },
