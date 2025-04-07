@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { falClient } from "@/hooks/useFalClient";
 import { QueueStatus, MMAudioInput } from "@/hooks/useFalClient";
 import { useToast } from "@/hooks/use-toast";
-import { Film, Loader2, Upload } from "lucide-react";
+import { Film, Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import VideoPreview from "@/components/VideoPreview";
@@ -15,6 +15,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { incrementVideoCount } from "@/utils/usageTracker";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
+
+interface VideoUploaderProps {
+  onVideoSelected: (url: string) => void;
+}
 
 const VideoToVideo: React.FC = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -83,17 +87,17 @@ const VideoToVideo: React.FC = () => {
       });
 
       // Set the prediction ID for status checking
-      if (result.id) {
-        setPredictionId(result.id);
+      if (result && 'id' in result) {
+        setPredictionId(result.id as string);
       }
 
       // Check if the operation was successful
-      if (result.error) {
-        throw new Error(result.error);
+      if (result && 'error' in result && result.error) {
+        throw new Error(result.error as string);
       }
 
       // If the status is "COMPLETED", set the video URL
-      if (result.status !== "FAILED") {
+      if (result && 'status' in result && result.status !== "FAILED") {
         if (result.data?.video?.url) {
           setGeneratedVideoUrl(result.data.video.url);
           
@@ -153,7 +157,7 @@ const VideoToVideo: React.FC = () => {
           </h2>
 
           <div className="space-y-4">
-            <VideoUploader onVideoSelected={(url) => setVideoUrl(url)} />
+            <VideoUploader onVideoSelected={(url: string) => setVideoUrl(url)} />
 
             {videoUrl && (
               <div className="relative rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
