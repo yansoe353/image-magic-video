@@ -59,7 +59,7 @@ export interface MMAudioOutput {
 // Updated LTXVideo input interface to match the required parameters
 export interface LTXVideoInput {
   image_url: string;
-  prompt?: string;
+  prompt: string;
   negative_prompt?: string;
   num_inference_steps?: number;
   guidance_scale?: number;
@@ -80,7 +80,6 @@ export interface LtxVideoImageToVideoInput {
   width?: number;
   height?: number;
   seed?: number;
-  // Added motion_bucket_id to fix the TypeScript error
   motion_bucket_id?: number;
   noise_aug_strength?: number;
 }
