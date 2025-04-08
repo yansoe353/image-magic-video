@@ -27,11 +27,12 @@ const VideoToVideo = () => {
   const [error, setError] = useState<string | null>(null);
   const [requestId, setRequestId] = useState<string | null>(null);
   const [config, setConfig] = useState({
+    modelName: "xl", // 'xl' or 'base' as per API docs
     numSteps: 25,
     duration: 8,
-    cfgStrength: 4.5,
+    cfgScale: 4.5, // Changed from cfgStrength to cfgScale
     seed: Math.floor(Math.random() * 1000000),
-    maskAwayClip: false,
+    maskAway: false, // Changed from maskAwayClip to maskAway
   });
 
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
@@ -54,6 +55,11 @@ const VideoToVideo = () => {
         return;
       }
       
+      if (file.size > 50 * 1024 * 1024) {
+        setError("Video file must be smaller than 50MB");
+        return;
+      }
+      
       setVideoFile(file);
       setVideoUrl(URL.createObjectURL(file));
     }
@@ -67,6 +73,12 @@ const VideoToVideo = () => {
         setError("Invalid file type. Please upload a video file.");
         return;
       }
+      
+      if (file.size > 50 * 1024 * 1024) {
+        setError("Video file must be smaller than 50MB");
+        return;
+      }
+      
       setVideoFile(file);
       setVideoUrl(URL.createObjectURL(file));
     }
@@ -94,7 +106,6 @@ const VideoToVideo = () => {
       } else if (status.status === "FAILED") {
         throw new Error("Video generation failed");
       } else {
-        // Still in progress, check again after delay
         setTimeout(() => checkRequestStatus(requestId), 2000);
       }
     } catch (error) {
@@ -106,7 +117,6 @@ const VideoToVideo = () => {
     setGeneratedVideoUrl(resultUrl);
     setProgress(100);
     
-    // Store video generation history in Supabase if user is logged in
     const userId = await getUserId();
     if (userId) {
       await supabase.from('user_content_history').insert({
@@ -124,7 +134,6 @@ const VideoToVideo = () => {
       });
     }
     
-    // Update usage count
     await incrementVideoCount();
     
     toast({
@@ -137,7 +146,14 @@ const VideoToVideo = () => {
   
   const handleGenerationError = (error: any) => {
     console.error("Video generation failed:", error);
-    const errorMessage = error.message || "Failed to generate video. Please try again.";
+    let errorMessage = "Failed to generate video. Please try again.";
+    
+    if (error.response?.data?.detail) {
+      errorMessage = JSON.stringify(error.response.data.detail);
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
     setError(errorMessage);
     setGenerationLogs(prev => [...prev, `Error: ${errorMessage}`]);
     
@@ -168,43 +184,46 @@ const VideoToVideo = () => {
     setRequestId(null);
     
     try {
-      // Upload video file if we have a local file
-      let uploadedVideoUrl = videoUrl;
+      let videoInput: string | Uint8Array;
       
       if (videoFile) {
-        setGenerationLogs(prev => [...prev, "Uploading video file to fal.ai..."]);
+        setGenerationLogs(prev => [...prev, "Preparing video file..."]);
         setIsUploading(true);
         
         try {
-          uploadedVideoUrl = await fal.storage.upload(videoFile);
-          setGenerationLogs(prev => [...prev, "Video uploaded successfully."]);
+          const arrayBuffer = await videoFile.arrayBuffer();
+          videoInput = new Uint8Array(arrayBuffer);
+          setGenerationLogs(prev => [...prev, "Video prepared successfully."]);
         } catch (error) {
-          console.error("Error uploading video:", error);
-          throw new Error("Failed to upload video. Please try again.");
+          console.error("Error preparing video:", error);
+          throw new Error("Failed to prepare video file.");
         } finally {
           setIsUploading(false);
         }
+      } else {
+        videoInput = videoUrl;
       }
       
-      setGenerationLogs(prev => [...prev, "Starting video generation with fal.ai..."]);
+      setGenerationLogs(prev => [...prev, "Starting video generation..."]);
       setProgress(10);
       
-      // Prepare input for the model
       const modelInput = {
-        video_url: uploadedVideoUrl,
+        model_name: config.modelName,
+        video: videoInput,
         prompt,
-        negative_prompt: negativePrompt || "",
+        ...(negativePrompt && { negative_prompt: negativePrompt }),
         num_steps: config.numSteps,
         duration: config.duration,
-        cfg_strength: config.cfgStrength,
+        cfg_scale: config.cfgScale,
         seed: config.seed,
-        mask_away_clip: config.maskAwayClip,
+        mask_away: config.maskAway,
       };
+      
+      console.log("API Request Payload:", modelInput); // Debug log
       
       setGenerationLogs(prev => [...prev, "Submitting request to fal.ai..."]);
       setProgress(20);
       
-      // Submit request to fal.ai
       const result = await fal.subscribe("fal-ai/mmaudio-v2", {
         input: modelInput,
         logs: true,
@@ -213,7 +232,6 @@ const VideoToVideo = () => {
             const logs = update.logs?.map((log) => log.message) || [];
             setGenerationLogs(prev => [...prev, ...logs.filter(log => !prev.includes(log))]);
             
-            // Update progress based on status
             if (logs.some(log => log.includes("Generating"))) {
               setProgress(40);
             } else if (logs.some(log => log.includes("Processing"))) {
@@ -339,6 +357,21 @@ const VideoToVideo = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
+                <Label>Model Version</Label>
+                <select
+                  value={config.modelName}
+                  onChange={(e) => handleConfigChange('modelName', e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="xl">XL (Higher Quality)</option>
+                  <option value="base">Base (Faster)</option>
+                </select>
+                <p className="text-xs text-slate-500 mt-1">
+                  XL produces higher quality but is slower
+                </p>
+              </div>
+              
+              <div>
                 <Label htmlFor="numSteps">Number of Steps: {config.numSteps}</Label>
                 <Slider
                   id="numSteps"
@@ -371,14 +404,14 @@ const VideoToVideo = () => {
               </div>
               
               <div>
-                <Label htmlFor="cfgStrength">CFG Strength: {config.cfgStrength}</Label>
+                <Label htmlFor="cfgScale">CFG Scale: {config.cfgScale}</Label>
                 <Slider
-                  id="cfgStrength"
-                  value={[config.cfgStrength]}
+                  id="cfgScale"
+                  value={[config.cfgScale]}
                   min={1}
                   max={10}
                   step={0.1}
-                  onValueChange={(value) => handleConfigChange('cfgStrength', value[0])}
+                  onValueChange={(value) => handleConfigChange('cfgScale', value[0])}
                   className="my-2"
                 />
                 <p className="text-xs text-slate-500">
@@ -410,13 +443,13 @@ const VideoToVideo = () => {
               
               <div className="flex items-center space-x-2 col-span-2">
                 <input
-                  id="maskAwayClip"
+                  id="maskAway"
                   type="checkbox"
-                  checked={config.maskAwayClip}
-                  onChange={(e) => handleConfigChange('maskAwayClip', e.target.checked)}
+                  checked={config.maskAway}
+                  onChange={(e) => handleConfigChange('maskAway', e.target.checked)}
                   className="h-4 w-4"
                 />
-                <Label htmlFor="maskAwayClip">Mask Away Original Content</Label>
+                <Label htmlFor="maskAway">Mask Away Original Content</Label>
               </div>
             </div>
             
