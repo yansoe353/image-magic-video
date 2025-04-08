@@ -367,6 +367,7 @@ const StoryToVideo = () => {
         updatedStory[sceneIndex] = { ...updatedStory[sceneIndex], imageUrl: result.data.images[0].url };
         setGeneratedStory(updatedStory);
 
+        // Update counts after successful generation
         setCounts(await getRemainingCountsAsync());
 
         toast({
@@ -464,6 +465,7 @@ const StoryToVideo = () => {
           });
         }
 
+        // Update counts after successful generation
         setCounts(await getRemainingCountsAsync());
 
         toast({
