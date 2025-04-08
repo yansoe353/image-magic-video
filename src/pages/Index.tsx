@@ -186,7 +186,7 @@ const Index = () => {
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
                     <iframe
                       src="https://brainfusion.vercel.app/"
-                      title="Image Playground"
+                      title="Standard Image"
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
@@ -204,7 +204,7 @@ const Index = () => {
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
                     <iframe
                       src="https://alibaba-pai-easyanimate.hf.space"
-                      title="Video Playground"
+                      title="Standard Video"
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
