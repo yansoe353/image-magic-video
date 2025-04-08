@@ -2,7 +2,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import App from './App.tsx';
+import App, { ProtectedRoute } from './App.tsx';
 import './index.css';
 import Index from './pages/Index.tsx';
 import History from './pages/History.tsx';
@@ -13,6 +13,11 @@ import UserGallery from './pages/UserGallery.tsx';
 import BuyAccount from './pages/BuyAccount.tsx';
 import FAQ from './pages/FAQ.tsx';
 import OfflinePayment from './pages/OfflinePayment.tsx';
+import Login from './components/Login';
+import AddUser from './components/AddUser';
+import UserList from './components/UserList';
+import EditUser from './components/EditUser';
+import UserLimits from './components/UserLimits';
 
 const router = createBrowserRouter([
   {
@@ -26,11 +31,11 @@ const router = createBrowserRouter([
       },
       {
         path: "create",
-        element: <Index />,
+        element: <ProtectedRoute><Index /></ProtectedRoute>,
       },
       {
         path: "history",
-        element: <History />,
+        element: <ProtectedRoute><History /></ProtectedRoute>,
       },
       {
         path: "examples",
@@ -51,7 +56,27 @@ const router = createBrowserRouter([
       {
         path: "faq",
         element: <FAQ />,
-      }
+      },
+      {
+        path: "login",
+        element: <Login />,
+      },
+      {
+        path: "users",
+        element: <ProtectedRoute><UserList /></ProtectedRoute>,
+      },
+      {
+        path: "add-user",
+        element: <ProtectedRoute><AddUser /></ProtectedRoute>,
+      },
+      {
+        path: "edit-user/:userId",
+        element: <ProtectedRoute><EditUser /></ProtectedRoute>,
+      },
+      {
+        path: "user-limits/:userId",
+        element: <ProtectedRoute><UserLimits /></ProtectedRoute>,
+      },
     ]
   },
 ]);
