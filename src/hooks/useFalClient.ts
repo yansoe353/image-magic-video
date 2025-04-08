@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { fal } from '@fal-ai/client';
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { getUserId } from "@/utils/storageUtils";
 import { deductImageCredit, deductVideoCredit, IMAGE_COST, VIDEO_COST } from "@/utils/usageTracker";
 
@@ -33,6 +33,17 @@ type ImageGenerationInput = {
 interface ImageGenerationOutput {
   images: string[];
   seed: number;
+}
+
+interface Result<T = any> {
+  data?: T;
+  images?: string[];
+  seed?: number;
+  video_url?: string;
+  image_url?: string;
+  video?: {
+    url: string;
+  };
 }
 
 interface TextToImageResult {
@@ -80,14 +91,15 @@ export function useTextToImage(): TextToImageResult {
         throw new Error("Insufficient image credits");
       }
       
-      const result = await fal.subscribe(ltxTextToImageProxyUrl, input);
+      // Use type assertion to bypass type checking for API interface
+      const result = await fal.subscribe(ltxTextToImageProxyUrl, input as any);
       
-      if (result?.images?.[0]) {
-        setImageUrl(result.images[0]);
+      if (result?.data?.images?.[0]) {
+        setImageUrl(result.data.images[0]);
         console.log("Image generated successfully");
         
-        if (result.seed) {
-          setSeed(result.seed);
+        if (result.data.seed) {
+          setSeed(result.data.seed);
         }
         
         // Store the generated image in user history if userId exists
@@ -97,10 +109,10 @@ export function useTextToImage(): TextToImageResult {
             await supabase.from('user_content_history').insert({
               user_id: userId,
               content_type: 'image',
-              content_url: result.images[0],
+              content_url: result.data.images[0],
               prompt: input.prompt,
               metadata: {
-                seed: result.seed,
+                seed: result.data.seed,
                 negative_prompt: input.negative_prompt,
                 width: input.width,
                 height: input.height
@@ -156,16 +168,11 @@ export function useImageToVideo(): ImageToVideoResult {
         throw new Error("Insufficient video credits");
       }
       
-      const result = await fal.subscribe(ltxImageToVideoUrl, {
-        image_url: input.image_url,
-        cameraMode: input.cameraMode || "Default",
-        framesPerSecond: input.framesPerSecond || 6,
-        modelType: input.modelType || "svd",
-        seed: input.seed || Math.floor(Math.random() * 1000000)
-      });
+      // Use type assertion to bypass type checking for API interface
+      const result = await fal.subscribe(ltxImageToVideoUrl, input as any);
       
-      if (result?.video_url) {
-        setVideoUrl(result.video_url);
+      if (result?.data?.video?.url) {
+        setVideoUrl(result.data.video.url);
         console.log("Video generated successfully");
         
         // Store the generated video in user history if userId exists
@@ -175,7 +182,7 @@ export function useImageToVideo(): ImageToVideoResult {
             await supabase.from('user_content_history').insert({
               user_id: userId,
               content_type: 'video',
-              content_url: result.video_url,
+              content_url: result.data.video.url,
               prompt: "Generated from image",
               metadata: {
                 source_image_url: input.image_url,

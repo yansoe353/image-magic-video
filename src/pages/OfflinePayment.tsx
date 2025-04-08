@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -171,8 +170,9 @@ const OfflinePayment = () => {
         screenshotUrl = urlData.publicUrl;
       }
       
-      // Store payment request in database
-      const { data, error } = await supabase
+      // Store payment request in database using any to bypass type checking
+      // until we update the database schema
+      const { error } = await (supabase as any)
         .from('payment_requests')
         .insert({
           user_id: user.id,

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,7 +12,7 @@ import { Languages, AlertCircle } from "lucide-react";
 import { LANGUAGES, translateText, type LanguageOption } from "@/utils/translationUtils";
 import { useVideoControls } from "@/hooks/useVideoControls";
 import { usePromptTranslation } from "@/hooks/usePromptTranslation";
-import { incrementVideoCount, getRemainingCounts, getRemainingCountsAsync, VIDEO_LIMIT } from "@/utils/usageTracker";
+import { getRemainingCounts, VIDEO_LIMIT, deductVideoCredit } from "@/utils/usageTracker";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import ImageUploader from "./ImageUploader";
 import VideoPreview from "./VideoPreview";
@@ -21,10 +22,11 @@ import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
 import ProLabel from "./ProLabel";
 import KlingAILabel from "./KlingAILabel";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
+import { UsageLimits } from "./image-generation/UsageLimits";
 
 // Initialize fal.ai client with proper environment variable handling for browser
 try {
-  const apiKey = import.meta.env.VITE_FAL_API_KEY;
+  const apiKey = import.meta.env.NEXT_PUBLIC_FAL_KEY;
   if (apiKey) {
     fal.config({
       credentials: apiKey
@@ -61,11 +63,11 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
 
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
-  const [counts, setCounts] = useState(getRemainingCounts());
+  const [counts, setCounts] = useState<{remainingImages: number; remainingVideos: number}>({remainingImages: 0, remainingVideos: 0});
 
   useEffect(() => {
     const updateCounts = async () => {
-      const freshCounts = await getRemainingCountsAsync();
+      const freshCounts = await getRemainingCounts();
       setCounts(freshCounts);
     };
     updateCounts();
@@ -203,19 +205,14 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
           setIsStoringVideo(false);
         }
 
-        if (await incrementVideoCount()) {
+        // Deduct credits after successful generation
+        if (await deductVideoCredit()) {
           toast({
             title: "Success",
             description: "Video generated successfully!",
           });
-          const freshCounts = await getRemainingCountsAsync();
+          const freshCounts = await getRemainingCounts();
           setCounts(freshCounts);
-        } else {
-          toast({
-            title: "Usage Limit Reached",
-            description: "You've reached your video generation limit.",
-            variant: "destructive",
-          });
         }
       } else {
         throw new Error("No video URL in response");
@@ -242,15 +239,10 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
             <KlingAILabel />
           </div>
 
-          {counts.remainingVideos <= 5 && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Usage Limit Warning</AlertTitle>
-              <AlertDescription>
-                You have {counts.remainingVideos} video generation{counts.remainingVideos === 1 ? '' : 's'} remaining.
-              </AlertDescription>
-            </Alert>
-          )}
+          <UsageLimits
+            remainingCredits={counts.remainingVideos}
+            creditType="video"
+          />
 
           <div className="space-y-4">
             <div>
