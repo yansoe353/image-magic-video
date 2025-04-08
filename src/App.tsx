@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { Outlet, Navigate, useLocation } from "react-router-dom";
 import { supabase } from "./integrations/supabase/client";
 import type { AppUser } from "./utils/authUtils";
+import { ensureUserProfileExists } from "./utils/usageTracker";
 
 const queryClient = new QueryClient();
 
@@ -18,6 +19,11 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     const checkAuth = async () => {
       const { data } = await supabase.auth.getSession();
       setIsAuthenticated(!!data.session);
+      
+      // Ensure user profile exists if authenticated
+      if (data.session?.user) {
+        await ensureUserProfileExists(data.session.user.id);
+      }
     };
     
     checkAuth();

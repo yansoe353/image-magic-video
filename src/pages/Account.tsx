@@ -6,9 +6,9 @@ import { Loader2, CreditCard, Coins, History } from "lucide-react";
 import Header from "@/components/Header";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { getRemainingCountsAsync } from "@/utils/usageTracker";
+import { getRemainingCountsAsync, ensureUserProfileExists } from "@/utils/usageTracker";
 import { BuyCreditButton } from "@/components/image-generation/BuyCreditButton";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { UsageLimits } from "@/components/image-generation/UsageLimits";
 
 const Account = () => {
@@ -16,6 +16,7 @@ const Account = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [usageCounts, setUsageCounts] = useState({ remainingImages: 0, remainingVideos: 0 });
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -32,8 +33,12 @@ const Account = () => {
             variant: "destructive",
           });
           setIsLoading(false);
+          navigate('/login');
           return;
         }
+
+        // Ensure profile exists before trying to get it
+        await ensureUserProfileExists(user.id);
 
         // Get user's profile from the profiles table
         const { data: profile, error } = await supabase
@@ -46,8 +51,18 @@ const Account = () => {
           console.error("Error fetching profile:", error);
           toast({
             title: "Error",
-            description: "Failed to load account details",
+            description: "Failed to load account details. Creating new profile.",
             variant: "destructive",
+          });
+          
+          // If we still have an error after ensuring profile exists,
+          // at least show the default limits
+          setUserProfile({
+            id: user.id,
+            email: user.email,
+            image_credits: 100,
+            video_credits: 100,
+            created_at: new Date().toISOString()
           });
         } else if (profile) {
           setUserProfile(profile);
@@ -70,7 +85,7 @@ const Account = () => {
     };
 
     fetchUserProfile();
-  }, [toast]);
+  }, [toast, navigate]);
 
   if (isLoading) {
     return (
@@ -104,6 +119,10 @@ const Account = () => {
     );
   }
 
+  // Calculate total credits from the profile
+  const totalImageCredits = userProfile.image_credits || 100;
+  const totalVideoCredits = userProfile.video_credits || 100;
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 to-slate-800">
       <Header />
@@ -135,13 +154,13 @@ const Account = () => {
                 <div className="pt-4">
                   <UsageLimits 
                     remainingCredits={usageCounts.remainingImages} 
-                    totalCredits={userProfile.image_credits}
+                    totalCredits={totalImageCredits}
                     type="image" 
                   />
                   <div className="h-2"></div>
                   <UsageLimits 
                     remainingCredits={usageCounts.remainingVideos} 
-                    totalCredits={userProfile.video_credits}
+                    totalCredits={totalVideoCredits}
                     type="video" 
                   />
                 </div>

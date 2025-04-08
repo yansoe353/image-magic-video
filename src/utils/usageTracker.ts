@@ -22,12 +22,54 @@ export interface ApiKeyUsage {
   videoCredits?: number;
 }
 
+// Ensure user profile exists
+export const ensureUserProfileExists = async (userId: string): Promise<boolean> => {
+  if (!userId) return false;
+  
+  try {
+    // Check if profile exists
+    const { data: existingProfile, error: checkError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single();
+    
+    // If profile doesn't exist, create it
+    if (checkError || !existingProfile) {
+      console.log("Creating new user profile for:", userId);
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          image_credits: IMAGE_LIMIT,
+          video_credits: VIDEO_LIMIT,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      
+      if (insertError) {
+        console.error("Failed to create user profile:", insertError);
+        return false;
+      }
+      return true;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error ensuring user profile exists:", error);
+    return false;
+  }
+};
+
 // Get usage from user profile in Supabase
 export const getApiKeyUsage = async (): Promise<ApiKeyUsage | null> => {
   const user = await getCurrentUser();
   if (!user) return null;
   
   try {
+    // Ensure profile exists before trying to get data
+    await ensureUserProfileExists(user.id);
+    
     // Get user's credits from profiles table
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
@@ -100,6 +142,9 @@ export const decrementImageCredits = async (amount: number = IMAGE_CREDIT_COST):
   if (!user) return false;
   
   try {
+    // Ensure profile exists before trying to decrement credits
+    await ensureUserProfileExists(user.id);
+    
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('id, image_credits')
@@ -141,6 +186,9 @@ export const decrementVideoCredits = async (amount: number = VIDEO_CREDIT_COST):
   if (!user) return false;
   
   try {
+    // Ensure profile exists before trying to decrement credits
+    await ensureUserProfileExists(user.id);
+    
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('id, video_credits')
