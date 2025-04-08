@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { fal } from '@fal-ai/client';
+import { createClient } from '@fal-ai/client';
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/hooks/use-toast";
@@ -8,10 +8,8 @@ import { getUserId } from "@/utils/storageUtils";
 
 // Initialize the FAL client with the environment variable
 const falApiKey = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA"; // Hardcoded API key
-// Configure the client
-fal.config({
-  credentials: falApiKey,
-});
+// Create a FAL client instance
+const fal = createClient({ key: falApiKey });
 
 // LTX Text to Image model
 const ltxTextToImageProxyUrl = "110602490-lcm-sd15-i2i/fast"; // Lt. Create model
@@ -74,15 +72,20 @@ export function useTextToImage(): TextToImageResult {
     try {
       console.log("Starting image generation with prompt:", input.prompt);
       
-      // Use the ltxTextToImageProxyUrl endpoint
-      const result = await fal.run(ltxTextToImageProxyUrl, input);
+      // Use the ltxTextToImageProxyUrl endpoint with proper parameter structure
+      const result = await fal.run({
+        input: input,
+        model: ltxTextToImageProxyUrl,
+      });
       
-      if (result?.images?.[0]) {
-        setImageUrl(result.images[0]);
+      // Access the data properly from the result
+      const data = result.data;
+      if (data?.images?.[0]) {
+        setImageUrl(data.images[0]);
         console.log("Image generated successfully");
         
-        if (result.seed) {
-          setSeed(result.seed);
+        if (data.seed) {
+          setSeed(data.seed);
         }
         
         // Store the generated image in user history if userId exists
@@ -92,10 +95,10 @@ export function useTextToImage(): TextToImageResult {
             await supabase.from('user_content_history').insert({
               user_id: userId,
               content_type: 'image',
-              content_url: result.images[0],
+              content_url: data.images[0],
               prompt: input.prompt,
               metadata: {
-                seed: result.seed,
+                seed: data.seed,
                 negative_prompt: input.negative_prompt,
                 width: input.width,
                 height: input.height
@@ -145,17 +148,22 @@ export function useImageToVideo(): ImageToVideoResult {
     try {
       console.log("Starting video generation from image:", input.image_url);
       
-      // Use the ltxImageToVideoUrl endpoint
-      const result = await fal.run(ltxImageToVideoUrl, {
-        image_url: input.image_url,
-        cameraMode: input.cameraMode || "Default",
-        framesPerSecond: input.framesPerSecond || 6,
-        modelType: input.modelType || "svd",
-        seed: input.seed || Math.floor(Math.random() * 1000000)
+      // Use the ltxImageToVideoUrl endpoint with proper parameter structure
+      const result = await fal.run({
+        input: {
+          image_url: input.image_url,
+          cameraMode: input.cameraMode || "Default",
+          framesPerSecond: input.framesPerSecond || 6,
+          modelType: input.modelType || "svd",
+          seed: input.seed || Math.floor(Math.random() * 1000000)
+        },
+        model: ltxImageToVideoUrl,
       });
       
-      if (result?.video_url) {
-        setVideoUrl(result.video_url);
+      // Access the data properly from the result
+      const data = result.data;
+      if (data?.video_url) {
+        setVideoUrl(data.video_url);
         console.log("Video generated successfully");
         
         // Store the generated video in user history if userId exists
@@ -165,7 +173,7 @@ export function useImageToVideo(): ImageToVideoResult {
             await supabase.from('user_content_history').insert({
               user_id: userId,
               content_type: 'video',
-              content_url: result.video_url,
+              content_url: data.video_url,
               prompt: "Generated from image",
               metadata: {
                 source_image_url: input.image_url,
