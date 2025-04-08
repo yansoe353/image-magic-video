@@ -100,7 +100,7 @@ const Index = () => {
           className="w-full"
           onValueChange={(value) => setActiveTab(value)}
         >
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-8 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md rounded-xl overflow-x-auto">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md rounded-xl overflow-x-auto">
             <TabsTrigger 
               value="text-to-image" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
@@ -118,12 +118,6 @@ const Index = () => {
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
               {isMobile ? "Story→Video" : "Story to Video"}
-            </TabsTrigger>
-            <TabsTrigger 
-              value="video-to-video" 
-              className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
-            >
-              {isMobile ? "Video→Audio" : "Video to Audio"}
             </TabsTrigger>
             <TabsTrigger 
               value="video-editor" 
@@ -165,10 +159,6 @@ const Index = () => {
           
           <TabsContent value="story-to-video" className="mt-0">
             <StoryToVideo />
-          </TabsContent>
-
-          <TabsContent value="video-to-video" className="mt-0">
-            <VideoToVideo />
           </TabsContent>
           
           <TabsContent value="video-editor" className="mt-0">

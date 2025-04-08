@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/components/ui/use-toast";
 import { getUserId } from "@/utils/storageUtils";
+import { incrementImageCount, incrementVideoCount } from "@/utils/usageTracker";
 
 // Initialize the FAL client with the environment variable
 const falApiKey = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA"; // Hardcoded API key
@@ -72,6 +73,12 @@ export function useTextToImage(): TextToImageResult {
     
     try {
       console.log("Starting image generation with prompt:", input.prompt);
+      
+      // Check if user can generate more images before starting generation
+      const canGenerate = await incrementImageCount();
+      if (!canGenerate) {
+        throw new Error("You have reached your image generation limit");
+      }
       
       const result = await fal.subscribe(ltxTextToImageProxyUrl, input);
       
@@ -142,6 +149,12 @@ export function useImageToVideo(): ImageToVideoResult {
     
     try {
       console.log("Starting video generation from image:", input.image_url);
+      
+      // Check if user can generate more videos before starting generation
+      const canGenerate = await incrementVideoCount();
+      if (!canGenerate) {
+        throw new Error("You have reached your video generation limit");
+      }
       
       const result = await fal.subscribe(ltxImageToVideoUrl, {
         image_url: input.image_url,

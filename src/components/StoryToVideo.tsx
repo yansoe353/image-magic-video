@@ -338,6 +338,16 @@ const StoryToVideo = () => {
         return;
       }
 
+      const canGenerate = await incrementImageCount();
+      if (!canGenerate) {
+        toast({
+          title: "Limit Reached",
+          description: "You've used all your image generations",
+          variant: "destructive",
+        });
+        return;
+      }
+
       fal.config({ credentials: apiKey });
 
       const enhancedPrompt = characterDetails.mainCharacter 
@@ -357,7 +367,6 @@ const StoryToVideo = () => {
         updatedStory[sceneIndex] = { ...updatedStory[sceneIndex], imageUrl: result.data.images[0].url };
         setGeneratedStory(updatedStory);
 
-        await incrementImageCount();
         setCounts(await getRemainingCountsAsync());
 
         toast({
@@ -410,9 +419,19 @@ const StoryToVideo = () => {
         return;
       }
 
+      const canGenerate = await incrementVideoCount();
+      if (!canGenerate) {
+        toast({
+          title: "Limit Reached",
+          description: "You've used all your video generations",
+          variant: "destructive",
+        });
+        return;
+      }
+
       fal.config({ credentials: apiKey });
 
-      const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
+      const result = await fal.subscribe("fal-ai/kling-video/v1/standard/image-to-video", {
         input: {
           prompt: scene.imagePrompt,
           image_url: scene.imageUrl,
@@ -445,7 +464,6 @@ const StoryToVideo = () => {
           });
         }
 
-        await incrementVideoCount();
         setCounts(await getRemainingCountsAsync());
 
         toast({
