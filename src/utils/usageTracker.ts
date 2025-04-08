@@ -3,136 +3,175 @@ import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUser } from "./authUtils";
 
 // Define constants for usage limits
-export const IMAGE_LIMIT = 100;
-export const VIDEO_LIMIT = 20;
-export const RUNWAY_VIDEO_LIMIT = 5;
+export const DEFAULT_IMAGE_CREDITS = 100;
+export const DEFAULT_VIDEO_CREDITS = 100;
+export const IMAGE_COST = 1;
+export const VIDEO_COST = 5;
+export const STORY_IMAGE_COST = 1;
+export const STORY_VIDEO_COST = 1;
 
-// Define interface for usage tracking
-export interface ApiKeyUsage {
-  imageCount: number;
-  videoCount: number;
-  runwayVideoCount?: number;
+// Define interface for credit tracking
+export interface UserCredits {
+  imageCredits: number;
+  videoCredits: number;
   userId?: string;
 }
 
-// Get usage from supabase for current user
-export const getApiKeyUsage = async (): Promise<ApiKeyUsage | null> => {
+// Get credits from supabase for current user
+export const getUserCredits = async (): Promise<UserCredits | null> => {
   const user = await getCurrentUser();
   if (!user) return null;
   
   try {
-    // Get user's generation counts from user_content_history
-    const { data: imageData, error: imageError } = await supabase
-      .from('user_content_history')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('content_type', 'image');
+    // Get user's credits from the profiles table (or another appropriate table)
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('image_credits, video_credits')
+      .eq('id', user.id)
+      .single();
     
-    if (imageError) throw imageError;
-    
-    const { data: videoData, error: videoError } = await supabase
-      .from('user_content_history')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('content_type', 'video');
-    
-    if (videoError) throw videoError;
-    
-    // Get count of Runway generations specifically
-    const { data: runwayVideoData, error: runwayVideoError } = await supabase
-      .from('user_content_history')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('content_type', 'video')
-      .eq('metadata->>source', 'runway');
-    
-    if (runwayVideoError) throw runwayVideoError;
+    if (error) throw error;
     
     return {
-      imageCount: imageData?.length || 0,
-      videoCount: videoData?.length || 0,
-      runwayVideoCount: runwayVideoData?.length || 0,
+      imageCredits: data?.image_credits ?? DEFAULT_IMAGE_CREDITS,
+      videoCredits: data?.video_credits ?? DEFAULT_VIDEO_CREDITS,
       userId: user.id
     };
   } catch (error) {
-    console.error("Error getting API key usage data:", error);
-    return null;
+    console.error("Error getting user credits data:", error);
+    return {
+      imageCredits: DEFAULT_IMAGE_CREDITS,
+      videoCredits: DEFAULT_VIDEO_CREDITS,
+      userId: user.id
+    };
   }
 };
 
-export const getUserLimits = async (): Promise<{ imageLimit: number; videoLimit: number }> => {
+export const checkImageCredit = async (cost: number = IMAGE_COST): Promise<boolean> => {
+  const credits = await getUserCredits();
+  return credits ? credits.imageCredits >= cost : false;
+};
+
+export const checkVideoCredit = async (cost: number = VIDEO_COST): Promise<boolean> => {
+  const credits = await getUserCredits();
+  return credits ? credits.videoCredits >= cost : false;
+};
+
+export const deductImageCredit = async (cost: number = IMAGE_COST): Promise<boolean> => {
   const user = await getCurrentUser();
-  if (!user) {
-    return { imageLimit: IMAGE_LIMIT, videoLimit: VIDEO_LIMIT }; // Use constants
-  }
+  if (!user) return false;
   
-  return {
-    imageLimit: user.imageLimit || IMAGE_LIMIT,
-    videoLimit: user.videoLimit || VIDEO_LIMIT
-  };
+  const credits = await getUserCredits();
+  if (!credits || credits.imageCredits < cost) return false;
+  
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        image_credits: credits.imageCredits - cost
+      })
+      .eq('id', user.id);
+    
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error("Error deducting image credits:", error);
+    return false;
+  }
 };
 
-export const incrementImageCount = async (): Promise<boolean> => {
-  // Don't increment count, as it will be handled by history entries
-  // Just check if user can generate more images
-  const { remainingImages } = await getRemainingCountsAsync();
-  return remainingImages > 0;
+export const deductVideoCredit = async (cost: number = VIDEO_COST): Promise<boolean> => {
+  const user = await getCurrentUser();
+  if (!user) return false;
+  
+  const credits = await getUserCredits();
+  if (!credits || credits.videoCredits < cost) return false;
+  
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        video_credits: credits.videoCredits - cost
+      })
+      .eq('id', user.id);
+    
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error("Error deducting video credits:", error);
+    return false;
+  }
 };
 
-export const incrementVideoCount = async (): Promise<boolean> => {
-  // Don't increment count, as it will be handled by history entries
-  // Just check if user can generate more videos
-  const { remainingVideos } = await getRemainingCountsAsync();
-  return remainingVideos > 0;
+export const addImageCredit = async (amount: number): Promise<boolean> => {
+  const user = await getCurrentUser();
+  if (!user) return false;
+  
+  const credits = await getUserCredits();
+  if (!credits) return false;
+  
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        image_credits: credits.imageCredits + amount
+      })
+      .eq('id', user.id);
+    
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error("Error adding image credits:", error);
+    return false;
+  }
 };
 
-export const incrementRunwayVideoCount = async (): Promise<boolean> => {
-  // Don't increment count, as it will be handled by history entries
-  // Just check if user can generate more Runway videos
-  const { remainingRunwayVideos } = await getRemainingCountsAsync();
-  return (remainingRunwayVideos || 0) > 0;
+export const addVideoCredit = async (amount: number): Promise<boolean> => {
+  const user = await getCurrentUser();
+  if (!user) return false;
+  
+  const credits = await getUserCredits();
+  if (!credits) return false;
+  
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        video_credits: credits.videoCredits + amount
+      })
+      .eq('id', user.id);
+    
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error("Error adding video credits:", error);
+    return false;
+  }
 };
 
-// Get remaining counts (synchronous version with default values)
-export const getRemainingCounts = (): { 
-  remainingImages: number; 
-  remainingVideos: number; 
-  remainingRunwayVideos?: number;
-} => {
-  // Default values when not initialized
-  return { 
-    remainingImages: IMAGE_LIMIT, 
-    remainingVideos: VIDEO_LIMIT,
-    remainingRunwayVideos: RUNWAY_VIDEO_LIMIT
-  };
-};
-
-// Asynchronous version for when we need to wait for actual counts
-export const getRemainingCountsAsync = async (): Promise<{ 
+// These functions are kept for backward compatibility
+export const getRemainingCounts = async (): Promise<{ 
   remainingImages: number; 
   remainingVideos: number;
-  remainingRunwayVideos?: number; 
 }> => {
-  const usage = await getApiKeyUsage();
-  const { imageLimit, videoLimit } = await getUserLimits();
+  const credits = await getUserCredits();
   
-  if (!usage) {
+  if (!credits) {
     return { 
-      remainingImages: imageLimit, 
-      remainingVideos: videoLimit,
-      remainingRunwayVideos: RUNWAY_VIDEO_LIMIT
+      remainingImages: DEFAULT_IMAGE_CREDITS, 
+      remainingVideos: DEFAULT_VIDEO_CREDITS
     };
   }
   
   return {
-    remainingImages: Math.max(0, imageLimit - usage.imageCount),
-    remainingVideos: Math.max(0, videoLimit - usage.videoCount),
-    remainingRunwayVideos: Math.max(0, RUNWAY_VIDEO_LIMIT - (usage.runwayVideoCount || 0))
+    remainingImages: credits.imageCredits,
+    remainingVideos: Math.floor(credits.videoCredits / VIDEO_COST)
   };
 };
 
-export const initializeApiKeyUsage = async (apiKey: string): Promise<void> => {
-  // We don't need to track the API key usage in local storage anymore
-  // The apiKey parameter is kept for backward compatibility
-  console.log("API key initialized, usage tracking is now based on user account");
-};
+// For backward compatibility
+export const getRemainingCountsAsync = getRemainingCounts;
+
+// For backward compatibility
+export const IMAGE_LIMIT = DEFAULT_IMAGE_CREDITS;
+export const VIDEO_LIMIT = DEFAULT_VIDEO_CREDITS;

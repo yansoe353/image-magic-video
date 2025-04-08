@@ -5,9 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TextToImage from "@/components/TextToImage";
 import ImageToVideo from "@/components/ImageToVideo";
 import StoryToVideo from "@/components/StoryToVideo";
-import VideoToVideo from "@/components/VideoToVideo";
 import Header from "@/components/Header";
-import { getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
+import { getRemainingCounts } from "@/utils/usageTracker";
 import { Card, CardContent } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AIAssistant } from "@/components/AIAssistant";
@@ -22,15 +21,12 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState<string>("text-to-image");
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
-  const [hasApiKey, setHasApiKey] = useState(true);
-  const [usageCounts, setUsageCounts] = useState(getRemainingCounts());
+  const [usageCounts, setUsageCounts] = useState({remainingImages: 0, remainingVideos: 0});
   const isMobile = useIsMobile();
 
   useEffect(() => {
     const initialize = async () => {
-      setHasApiKey(true);
-      
-      const counts = await getRemainingCountsAsync();
+      const counts = await getRemainingCounts();
       setUsageCounts(counts);
       
       const selectedContent = location.state?.selectedContent as SelectedContent | undefined;
@@ -48,7 +44,7 @@ const Index = () => {
     initialize();
     
     const interval = setInterval(async () => {
-      const freshCounts = await getRemainingCountsAsync();
+      const freshCounts = await getRemainingCounts();
       setUsageCounts(freshCounts);
     }, 5000);
     
@@ -77,22 +73,14 @@ const Index = () => {
             Transform your ideas into stunning videos with our AI-powered tools. Generate images from text, then convert them into captivating videos.
           </p>
           
-          {!hasApiKey && (
-            <div className="mt-4 p-4 bg-yellow-900/30 border border-yellow-700/50 rounded-md text-yellow-200 text-sm glass-morphism">
-              Please set your Infinity API key using the button in the header to enable image and video generation.
+          <div className="mt-4 flex flex-wrap justify-center gap-4 md:gap-8 text-sm">
+            <div className="px-4 py-2 bg-blue-900/20 border border-blue-700/30 rounded-md text-blue-200 neo-blur">
+              <span className="font-medium">Image Credits:</span> {usageCounts.remainingImages} remaining
             </div>
-          )}
-          
-          {hasApiKey && (
-            <div className="mt-4 flex flex-wrap justify-center gap-4 md:gap-8 text-sm">
-              <div className="px-4 py-2 bg-blue-900/20 border border-blue-700/30 rounded-md text-blue-200 neo-blur">
-                <span className="font-medium">Images:</span> {usageCounts.remainingImages}/{IMAGE_LIMIT} remaining
-              </div>
-              <div className="px-4 py-2 bg-purple-900/20 border border-purple-700/30 rounded-md text-purple-200 neo-blur">
-                <span className="font-medium">Videos:</span> {usageCounts.remainingVideos}/{VIDEO_LIMIT} remaining
-              </div>
+            <div className="px-4 py-2 bg-purple-900/20 border border-purple-700/30 rounded-md text-purple-200 neo-blur">
+              <span className="font-medium">Video Credits:</span> {usageCounts.remainingVideos} remaining
             </div>
-          )}
+          </div>
         </section>
 
         <Tabs 
@@ -100,7 +88,7 @@ const Index = () => {
           className="w-full"
           onValueChange={(value) => setActiveTab(value)}
         >
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-8 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md rounded-xl overflow-x-auto">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md rounded-xl overflow-x-auto">
             <TabsTrigger 
               value="text-to-image" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
@@ -118,12 +106,6 @@ const Index = () => {
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
               {isMobile ? "Story→Video" : "Story to Video"}
-            </TabsTrigger>
-            <TabsTrigger 
-              value="video-to-video" 
-              className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
-            >
-              {isMobile ? "Video→Audio" : "Video to Audio"}
             </TabsTrigger>
             <TabsTrigger 
               value="video-editor" 
@@ -167,10 +149,6 @@ const Index = () => {
             <StoryToVideo />
           </TabsContent>
 
-          <TabsContent value="video-to-video" className="mt-0">
-            <VideoToVideo />
-          </TabsContent>
-          
           <TabsContent value="video-editor" className="mt-0">
             <Card className="border-0 shadow-lg glass-morphism overflow-hidden">
               <CardContent className="p-0">
