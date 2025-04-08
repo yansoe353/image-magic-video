@@ -72,7 +72,20 @@ export function useTextToImage(): TextToImageResult {
     try {
       console.log("Starting image generation with prompt:", input.prompt);
       
-      // Correctly call fal.run with proper typing
+      // First, try to decrement credits before generating the image
+      const hasCredits = await incrementImageCount();
+      if (!hasCredits) {
+        toast({
+          title: "Usage Limit Reached",
+          description: "You've reached your image generation limit or are out of credits.",
+          variant: "destructive",
+        });
+        setError("No image credits available");
+        setIsGenerating(false);
+        return;
+      }
+      
+      // Correctly call fal.subscribe with proper typing
       const result = await fal.subscribe(ltxTextToImageProxyUrl, {
         input: input,
       });
@@ -107,6 +120,11 @@ export function useTextToImage(): TextToImageResult {
             console.error("Failed to save image to history:", historyError);
           }
         }
+        
+        toast({
+          title: "Success",
+          description: "Image generated successfully!",
+        });
       } else {
         throw new Error("No image was returned from the API");
       }
@@ -146,7 +164,20 @@ export function useImageToVideo(): ImageToVideoResult {
     try {
       console.log("Starting video generation from image:", input.image_url);
       
-      // Correctly call fal.run with proper typing for video generation
+      // First, try to decrement credits before generating the video
+      const hasCredits = await incrementVideoCount();
+      if (!hasCredits) {
+        toast({
+          title: "Usage Limit Reached",
+          description: "You've reached your video generation limit or are out of credits.",
+          variant: "destructive",
+        });
+        setError("No video credits available");
+        setIsGenerating(false);
+        return;
+      }
+      
+      // Correctly call fal.subscribe with proper typing for video generation
       const result = await fal.subscribe(ltxImageToVideoUrl, {
         input: {
           image_url: input.image_url,
@@ -183,6 +214,11 @@ export function useImageToVideo(): ImageToVideoResult {
             console.error("Failed to save video to history:", historyError);
           }
         }
+        
+        toast({
+          title: "Success",
+          description: "Video generated successfully!",
+        });
       } else {
         throw new Error("No video was returned from the API");
       }

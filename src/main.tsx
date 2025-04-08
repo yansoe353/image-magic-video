@@ -18,6 +18,7 @@ import AddUser from './components/AddUser';
 import UserList from './components/UserList';
 import EditUser from './components/EditUser';
 import UserLimits from './components/UserLimits';
+import Account from './pages/Account.tsx';
 
 const router = createBrowserRouter([
   {
@@ -60,6 +61,10 @@ const router = createBrowserRouter([
       {
         path: "login",
         element: <Login />,
+      },
+      {
+        path: "account",
+        element: <ProtectedRoute><Account /></ProtectedRoute>,
       },
       {
         path: "users",

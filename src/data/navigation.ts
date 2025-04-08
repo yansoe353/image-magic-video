@@ -21,6 +21,10 @@ export const navigation = [
     href: "/gallery",
   },
   {
+    label: "Account",
+    href: "/account",
+  },
+  {
     label: "FAQ",
     href: "/faq",
   },
