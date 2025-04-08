@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { DEFAULT_IMAGE_CREDITS, DEFAULT_VIDEO_CREDITS } from "./usageTracker";
+import { IMAGE_LIMIT, VIDEO_LIMIT } from "./usageTracker";
 
 // Define interface for our app's user data
 export interface AppUser {
@@ -8,8 +8,8 @@ export interface AppUser {
   email: string;
   name?: string;
   isAdmin?: boolean;
-  imageCredits?: number;
-  videoCredits?: number;
+  imageLimit?: number;
+  videoLimit?: number;
 }
 
 // Define interface for session data
@@ -43,9 +43,9 @@ export const getCurrentUser = async (): Promise<AppUser | null> => {
     id: data.user.id,
     email: data.user.email || '',
     name: data.user.user_metadata?.name,
-    isAdmin: isAdmin,
-    imageCredits: data.user.user_metadata?.imageCredits || DEFAULT_IMAGE_CREDITS,
-    videoCredits: data.user.user_metadata?.videoCredits || DEFAULT_VIDEO_CREDITS
+    isAdmin: isAdmin, // Use the extracted isAdmin value
+    imageLimit: data.user.user_metadata?.imageLimit || IMAGE_LIMIT, // Use constant
+    videoLimit: data.user.user_metadata?.videoLimit || VIDEO_LIMIT   // Use constant
   };
 };
 
@@ -76,15 +76,15 @@ export const addNewUser = async (
   password: string, 
   name?: string, 
   isAdmin: boolean = false, 
-  imageCredits: number = DEFAULT_IMAGE_CREDITS, 
-  videoCredits: number = DEFAULT_VIDEO_CREDITS
+  imageLimit: number = IMAGE_LIMIT, 
+  videoLimit: number = VIDEO_LIMIT
 ): Promise<boolean> => {
   // Use regular signup method instead of admin method
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: { name, isAdmin, imageCredits, videoCredits }
+      data: { name, isAdmin, imageLimit, videoLimit }
     }
   });
   
@@ -104,8 +104,8 @@ export const updateUser = async (
     email?: string;
     password?: string;
     isAdmin?: boolean;
-    imageCredits?: number;
-    videoCredits?: number;
+    imageLimit?: number;
+    videoLimit?: number;
   }
 ): Promise<boolean> => {
   // For non-admin users, only allow self-updates
@@ -121,8 +121,8 @@ export const updateUser = async (
   const userMetadata: any = {};
   if (data.name !== undefined) userMetadata.name = data.name;
   if (data.isAdmin !== undefined) userMetadata.isAdmin = data.isAdmin;
-  if (data.imageCredits !== undefined) userMetadata.imageCredits = data.imageCredits;
-  if (data.videoCredits !== undefined) userMetadata.videoCredits = data.videoCredits;
+  if (data.imageLimit !== undefined) userMetadata.imageLimit = data.imageLimit;
+  if (data.videoLimit !== undefined) userMetadata.videoLimit = data.videoLimit;
   
   if (Object.keys(userMetadata).length > 0) {
     const { error: metadataError } = await supabase.auth.updateUser({
@@ -175,35 +175,11 @@ export const getAllUsers = async (): Promise<AppUser[]> => {
   return [];
 };
 
-// Set user credits
-export const setUserCredits = async (
+// Set user limits
+export const setUserLimits = async (
   userId: string, 
-  imageCredits: number, 
-  videoCredits: number
+  imageLimit: number, 
+  videoLimit: number
 ): Promise<boolean> => {
-  return updateUser(userId, { imageCredits, videoCredits });
-};
-
-// Add credits to user account
-export const addUserCredits = async (
-  userId: string,
-  additionalImageCredits: number = 0,
-  additionalVideoCredits: number = 0
-): Promise<boolean> => {
-  // Get current user data
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) return false;
-  
-  const currentImageCredits = data.user.user_metadata?.imageCredits || DEFAULT_IMAGE_CREDITS;
-  const currentVideoCredits = data.user.user_metadata?.videoCredits || DEFAULT_VIDEO_CREDITS;
-  
-  // Calculate new credit amounts
-  const newImageCredits = currentImageCredits + additionalImageCredits;
-  const newVideoCredits = currentVideoCredits + additionalVideoCredits;
-  
-  // Update user with new credits
-  return updateUser(userId, {
-    imageCredits: newImageCredits,
-    videoCredits: newVideoCredits
-  });
+  return updateUser(userId, { imageLimit, videoLimit });
 };

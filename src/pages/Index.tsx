@@ -1,17 +1,16 @@
+
 import { useState, useEffect } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TextToImage from "@/components/TextToImage";
 import ImageToVideo from "@/components/ImageToVideo";
 import StoryToVideo from "@/components/StoryToVideo";
 import VideoToVideo from "@/components/VideoToVideo";
 import Header from "@/components/Header";
-import { getRemainingCredits, getRemainingCreditsAsync, DEFAULT_IMAGE_CREDITS, DEFAULT_VIDEO_CREDITS } from "@/utils/usageTracker";
+import { getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
 import { Card, CardContent } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AIAssistant } from "@/components/AIAssistant";
-import { Button } from "@/components/ui/button";
-import { CreditCard } from "lucide-react";
 
 interface SelectedContent {
   url: string;
@@ -24,15 +23,15 @@ const Index = () => {
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState(true);
-  const [creditCounts, setCreditCounts] = useState(getRemainingCredits());
+  const [usageCounts, setUsageCounts] = useState(getRemainingCounts());
   const isMobile = useIsMobile();
 
   useEffect(() => {
     const initialize = async () => {
       setHasApiKey(true);
       
-      const counts = await getRemainingCreditsAsync();
-      setCreditCounts(counts);
+      const counts = await getRemainingCountsAsync();
+      setUsageCounts(counts);
       
       const selectedContent = location.state?.selectedContent as SelectedContent | undefined;
       if (selectedContent) {
@@ -49,8 +48,8 @@ const Index = () => {
     initialize();
     
     const interval = setInterval(async () => {
-      const freshCounts = await getRemainingCreditsAsync();
-      setCreditCounts(freshCounts);
+      const freshCounts = await getRemainingCountsAsync();
+      setUsageCounts(freshCounts);
     }, 5000);
     
     return () => clearInterval(interval);
@@ -85,22 +84,13 @@ const Index = () => {
           )}
           
           {hasApiKey && (
-            <div className="mt-4 flex flex-col items-center gap-4">
-              <div className="flex flex-wrap justify-center gap-4 md:gap-8 text-sm">
-                <div className="px-4 py-2 bg-blue-900/20 border border-blue-700/30 rounded-md text-blue-200 neo-blur">
-                  <span className="font-medium">Image Credits:</span> {creditCounts.imageCredits}/{DEFAULT_IMAGE_CREDITS} remaining
-                </div>
-                <div className="px-4 py-2 bg-purple-900/20 border border-purple-700/30 rounded-md text-purple-200 neo-blur">
-                  <span className="font-medium">Video Credits:</span> {creditCounts.videoCredits}/{DEFAULT_VIDEO_CREDITS} remaining
-                </div>
+            <div className="mt-4 flex flex-wrap justify-center gap-4 md:gap-8 text-sm">
+              <div className="px-4 py-2 bg-blue-900/20 border border-blue-700/30 rounded-md text-blue-200 neo-blur">
+                <span className="font-medium">Images:</span> {usageCounts.remainingImages}/{IMAGE_LIMIT} remaining
               </div>
-              
-              <Link to="/purchase-credits">
-                <Button variant="outline" size="sm" className="flex items-center gap-2 mt-2">
-                  <CreditCard className="h-4 w-4" />
-                  Buy More Credits
-                </Button>
-              </Link>
+              <div className="px-4 py-2 bg-purple-900/20 border border-purple-700/30 rounded-md text-purple-200 neo-blur">
+                <span className="font-medium">Videos:</span> {usageCounts.remainingVideos}/{VIDEO_LIMIT} remaining
+              </div>
             </div>
           )}
         </section>
@@ -110,7 +100,7 @@ const Index = () => {
           className="w-full"
           onValueChange={(value) => setActiveTab(value)}
         >
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md rounded-xl overflow-x-auto">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-8 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md rounded-xl overflow-x-auto">
             <TabsTrigger 
               value="text-to-image" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
@@ -128,6 +118,12 @@ const Index = () => {
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
               {isMobile ? "Story→Video" : "Story to Video"}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="video-to-video" 
+              className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
+            >
+              {isMobile ? "Video→Audio" : "Video to Audio"}
             </TabsTrigger>
             <TabsTrigger 
               value="video-editor" 
@@ -161,7 +157,7 @@ const Index = () => {
           
           <TabsContent value="image-to-video" className="mt-0">
             <ImageToVideo 
-              initialImageUrl={generatedImageUrl || null}
+              initialImageUrl={generatedImageUrl}
               onVideoGenerated={handleVideoGenerated}
               onSwitchToEditor={() => setActiveTab("video-editor")}
             />
@@ -169,6 +165,10 @@ const Index = () => {
           
           <TabsContent value="story-to-video" className="mt-0">
             <StoryToVideo />
+          </TabsContent>
+
+          <TabsContent value="video-to-video" className="mt-0">
+            <VideoToVideo />
           </TabsContent>
           
           <TabsContent value="video-editor" className="mt-0">
@@ -231,7 +231,7 @@ const Index = () => {
                 <div className="w-full overflow-hidden rounded-lg">
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
                     <iframe
-                      src="https://waloneai-wl-tts-text-to-speech.hf.space/"
+                      src="https://waloneai-wl-tts-text-to-speech.hf.space"
                       title="AI Voice Generator"
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

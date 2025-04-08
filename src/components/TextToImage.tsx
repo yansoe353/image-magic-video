@@ -166,7 +166,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       return;
     }
 
-    if (counts.imageCredits <= 0) {
+    if (counts.remainingImages <= 0) {
       toast({
         title: "Usage Limit Reached",
         description: `You've reached the limit of ${IMAGE_LIMIT} image generations.`,
@@ -194,6 +194,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         credentials: apiKey
       });
 
+      // Remove guidance_scale which is not supported by the model
       const result = await fal.subscribe("fal-ai/imagen3/fast", {
         input: {
           prompt: promptToUse,
@@ -214,6 +215,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           setSupabaseImageUrl(supabaseUrl);
           setGeneratedImage(supabaseUrl);
 
+          // Save to history with the is_public flag
           await saveToHistory(supabaseUrl, falImageUrl);
 
           toast({
@@ -224,11 +226,13 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           console.error("Failed to upload to Supabase:", uploadError);
           setGeneratedImage(falImageUrl);
           
+          // Even if upload fails, try to save to history
           await saveToHistory(falImageUrl, falImageUrl);
         } finally {
           setIsUploading(false);
         }
 
+        // Increment the count after successful generation
         if (await incrementImageCount()) {
           toast({
             title: "Success",
@@ -329,8 +333,8 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           )}
 
           <UsageLimits
-            remainingCredits={counts.imageCredits}
-            totalCredits={IMAGE_LIMIT}
+            remainingImages={counts.remainingImages}
+            imageLimit={IMAGE_LIMIT}
           />
 
           <div className="space-y-4">
@@ -361,7 +365,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             <div className="flex items-center justify-between">
               <Button
                 onClick={generateImage}
-                disabled={isLoading || !prompt.trim() || counts.imageCredits <= 0 || !isApiKeySet}
+                disabled={isLoading || !prompt.trim() || counts.remainingImages <= 0 || !isApiKeySet}
                 className="w-full"
               >
                 {isLoading ? (
@@ -378,9 +382,9 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
               </Button>
             </div>
 
-            {counts.imageCredits > 0 && (
+            {counts.remainingImages > 0 && (
               <p className="text-xs text-slate-500 text-center">
-                {counts.imageCredits} of {IMAGE_LIMIT} image generations remaining
+                {counts.remainingImages} of {IMAGE_LIMIT} image generations remaining
               </p>
             )}
           </div>
