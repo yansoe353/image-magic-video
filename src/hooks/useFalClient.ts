@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import * as fal from '@fal-ai/client';
+import { fal } from '@fal-ai/client';
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/hooks/use-toast";
@@ -9,7 +9,7 @@ import { getUserId } from "@/utils/storageUtils";
 // Initialize the FAL client with the environment variable
 const falApiKey = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA"; // Hardcoded API key
 // Configure the client
-fal.default.config({
+fal.config({
   credentials: falApiKey,
 });
 
@@ -75,7 +75,7 @@ export function useTextToImage(): TextToImageResult {
       console.log("Starting image generation with prompt:", input.prompt);
       
       // Use the ltxTextToImageProxyUrl endpoint
-      const result = await fal.default.subscribe(ltxTextToImageProxyUrl, input);
+      const result = await fal.run(ltxTextToImageProxyUrl, input);
       
       if (result?.images?.[0]) {
         setImageUrl(result.images[0]);
@@ -146,7 +146,7 @@ export function useImageToVideo(): ImageToVideoResult {
       console.log("Starting video generation from image:", input.image_url);
       
       // Use the ltxImageToVideoUrl endpoint
-      const result = await fal.default.subscribe(ltxImageToVideoUrl, {
+      const result = await fal.run(ltxImageToVideoUrl, {
         image_url: input.image_url,
         cameraMode: input.cameraMode || "Default",
         framesPerSecond: input.framesPerSecond || 6,
