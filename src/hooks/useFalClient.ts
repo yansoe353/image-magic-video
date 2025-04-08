@@ -1,10 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { createFalClient } from '@fal-ai/client';
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/hooks/use-toast";
 import { getUserId } from "@/utils/storageUtils";
+import { incrementImageCount, incrementVideoCount } from "@/utils/usageTracker";
 
 // Initialize the FAL client with the environment variable
 const falApiKey = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA"; // Hardcoded API key
