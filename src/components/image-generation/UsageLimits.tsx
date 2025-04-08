@@ -5,10 +5,10 @@ import { AlertCircle } from "lucide-react";
 interface UsageLimitsProps {
   remainingCredits: number;
   totalCredits: number;
-  type: "image" | "video";
+  type?: "image" | "video";
 }
 
-export const UsageLimits = ({ remainingCredits, totalCredits, type }: UsageLimitsProps) => {
+export const UsageLimits = ({ remainingCredits, totalCredits, type = "image" }: UsageLimitsProps) => {
   return (
     <>
       {remainingCredits <= 10 && (

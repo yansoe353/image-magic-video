@@ -66,8 +66,8 @@ const OfflinePayment = () => {
 
       if (error) throw error;
       if (data && data.length > 0) {
-        setPackages(data);
-        setSelectedPackage(data[0]);
+        setPackages(data as CreditPackage[]);
+        setSelectedPackage(data[0] as CreditPackage);
       }
     } catch (error) {
       console.error("Error loading credit packages:", error);
@@ -88,12 +88,12 @@ const OfflinePayment = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, image_credits, video_credits')
         .eq('id', user.id)
         .single();
 
       if (error) throw error;
-      setUserProfile(data);
+      setUserProfile(data as { id: string; image_credits: number; video_credits: number });
     } catch (error) {
       console.error("Error loading user profile:", error);
     }
@@ -111,7 +111,7 @@ const OfflinePayment = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPaymentRequests(data || []);
+      setPaymentRequests(data as PaymentRequest[] || []);
     } catch (error) {
       console.error("Error loading payment requests:", error);
     }

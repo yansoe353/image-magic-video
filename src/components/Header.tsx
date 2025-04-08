@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useLocation } from 'react-router-dom';
@@ -15,7 +16,7 @@ import { ModeToggle } from "@/components/ModeToggle";
 import { navigation } from "@/data/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { LogIn, Menu, User, UserPlus } from "lucide-react";
-import { isLoggedIn, logoutUser, getCurrentUser, AppUser } from "@/utils/authUtils";
+import { isLoggedIn as checkIsLoggedIn, logoutUser, getCurrentUser, AppUser } from "@/utils/authUtils";
 import ApiKeyDialog from "./api-key/ApiKeyDialog";
 
 const Header = () => {
@@ -29,7 +30,7 @@ const Header = () => {
 
   useEffect(() => {
     const checkAuthStatus = async () => {
-      const loggedIn = await isLoggedIn();
+      const loggedIn = await checkIsLoggedIn();
       setIsLoggedIn(loggedIn);
       
       if (loggedIn) {

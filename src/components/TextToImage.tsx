@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -333,8 +332,9 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           )}
 
           <UsageLimits
-            remainingImages={counts.remainingImages}
-            imageLimit={IMAGE_LIMIT}
+            remainingCredits={counts.remainingImages}
+            totalCredits={IMAGE_LIMIT}
+            type="image"
           />
 
           <div className="space-y-4">

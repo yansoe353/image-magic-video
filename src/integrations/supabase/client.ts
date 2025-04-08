@@ -14,7 +14,12 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
   console.error("Supabase URL or publishable key is missing");
 }
 
+// Create the custom types file to include our new tables
 export const supabase = createClient<Database>(
   SUPABASE_URL,
   SUPABASE_PUBLISHABLE_KEY
 );
+
+// Define types for our manual use of tables
+export type Tables = Database['public']['Tables'];
+export type TableNames = keyof Database['public']['Tables'];

@@ -31,11 +31,14 @@ export const getApiKeyUsage = async (): Promise<ApiKeyUsage | null> => {
     // Get user's credits from profiles table
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
-      .select('image_credits, video_credits')
+      .select('id, image_credits, video_credits')
       .eq('id', user.id)
       .single();
     
-    if (profileError) throw profileError;
+    if (profileError) {
+      console.error("Error getting profile data:", profileError);
+      return null;
+    }
     
     // Get historical usage counts from user_content_history
     const { data: imageData, error: imageError } = await supabase
@@ -97,26 +100,31 @@ export const decrementImageCredits = async (amount: number = IMAGE_CREDIT_COST):
   if (!user) return false;
   
   try {
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from('profiles')
-      .select('image_credits')
+      .select('id, image_credits')
       .eq('id', user.id)
       .single();
     
-    if (!profile || profile.image_credits < amount) {
+    if (error || !profile) {
+      console.error("Error fetching profile:", error);
       return false;
     }
     
-    const { error } = await supabase
+    if (profile.image_credits < amount) {
+      return false;
+    }
+    
+    const { error: updateError } = await supabase
       .from('profiles')
-      .update({ 
+      .update({
         image_credits: profile.image_credits - amount,
         updated_at: new Date().toISOString()
       })
       .eq('id', user.id);
     
-    if (error) {
-      console.error("Failed to decrement image credits:", error);
+    if (updateError) {
+      console.error("Failed to decrement image credits:", updateError);
       return false;
     }
     
@@ -133,26 +141,31 @@ export const decrementVideoCredits = async (amount: number = VIDEO_CREDIT_COST):
   if (!user) return false;
   
   try {
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from('profiles')
-      .select('video_credits')
+      .select('id, video_credits')
       .eq('id', user.id)
       .single();
     
-    if (!profile || profile.video_credits < amount) {
+    if (error || !profile) {
+      console.error("Error fetching profile:", error);
       return false;
     }
     
-    const { error } = await supabase
+    if (profile.video_credits < amount) {
+      return false;
+    }
+    
+    const { error: updateError } = await supabase
       .from('profiles')
-      .update({ 
+      .update({
         video_credits: profile.video_credits - amount,
         updated_at: new Date().toISOString()
       })
       .eq('id', user.id);
     
-    if (error) {
-      console.error("Failed to decrement video credits:", error);
+    if (updateError) {
+      console.error("Failed to decrement video credits:", updateError);
       return false;
     }
     
