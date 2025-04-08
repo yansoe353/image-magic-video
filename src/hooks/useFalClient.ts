@@ -72,16 +72,18 @@ export function useTextToImage(): TextToImageResult {
     try {
       console.log("Starting image generation with prompt:", input.prompt);
       
-      // The correct way to call fal.run with the latest version of the library
-      const result = await fal.run(ltxTextToImageProxyUrl, input);
+      // Correctly call fal.run with proper typing
+      const result = await fal.subscribe(ltxTextToImageProxyUrl, {
+        input: input,
+      });
       
-      // Access the data properly from the result
-      if (result.images?.[0]) {
-        setImageUrl(result.images[0]);
+      // Access the data properly from the result with proper type checking
+      if (result.data?.images?.[0]?.url) {
+        setImageUrl(result.data.images[0].url);
         console.log("Image generated successfully");
         
-        if (result.seed) {
-          setSeed(result.seed);
+        if (result.data.seed) {
+          setSeed(result.data.seed);
         }
         
         // Store the generated image in user history if userId exists
@@ -91,10 +93,10 @@ export function useTextToImage(): TextToImageResult {
             await supabase.from('user_content_history').insert({
               user_id: userId,
               content_type: 'image',
-              content_url: result.images[0],
+              content_url: result.data.images[0].url,
               prompt: input.prompt,
               metadata: {
-                seed: result.seed,
+                seed: result.data.seed,
                 negative_prompt: input.negative_prompt,
                 width: input.width,
                 height: input.height
@@ -144,18 +146,20 @@ export function useImageToVideo(): ImageToVideoResult {
     try {
       console.log("Starting video generation from image:", input.image_url);
       
-      // The correct way to call fal.run with the latest version of the library
-      const result = await fal.run(ltxImageToVideoUrl, {
-        image_url: input.image_url,
-        cameraMode: input.cameraMode || "Default",
-        framesPerSecond: input.framesPerSecond || 6,
-        modelType: input.modelType || "svd",
-        seed: input.seed || Math.floor(Math.random() * 1000000)
+      // Correctly call fal.run with proper typing for video generation
+      const result = await fal.subscribe(ltxImageToVideoUrl, {
+        input: {
+          image_url: input.image_url,
+          cameraMode: input.cameraMode || "Default",
+          framesPerSecond: input.framesPerSecond || 6,
+          modelType: input.modelType || "svd",
+          seed: input.seed || Math.floor(Math.random() * 1000000)
+        }
       });
       
       // Access the data properly from the result
-      if (result.video_url) {
-        setVideoUrl(result.video_url);
+      if (result.data?.video_url) {
+        setVideoUrl(result.data.video_url);
         console.log("Video generated successfully");
         
         // Store the generated video in user history if userId exists
@@ -165,7 +169,7 @@ export function useImageToVideo(): ImageToVideoResult {
             await supabase.from('user_content_history').insert({
               user_id: userId,
               content_type: 'video',
-              content_url: result.video_url,
+              content_url: result.data.video_url,
               prompt: "Generated from image",
               metadata: {
                 source_image_url: input.image_url,
