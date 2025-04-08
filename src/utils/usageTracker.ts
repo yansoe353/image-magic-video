@@ -5,184 +5,145 @@ import { getCurrentUser } from "./authUtils";
 // Define constants for usage limits
 export const DEFAULT_IMAGE_CREDITS = 100;
 export const DEFAULT_VIDEO_CREDITS = 100;
-export const IMAGE_COST = 1;
-export const VIDEO_COST = 5;
-export const STORY_IMAGE_COST = 1;
-export const STORY_VIDEO_COST = 1;
+// Export constants with naming convention expected by components
+export const IMAGE_LIMIT = DEFAULT_IMAGE_CREDITS;
+export const VIDEO_LIMIT = DEFAULT_VIDEO_CREDITS;
 
-// Define interface for credit tracking
-export interface UserCredits {
+// Define interface for usage tracking
+export interface ApiKeyUsage {
   imageCredits: number;
   videoCredits: number;
   userId?: string;
 }
 
-// Get credits from supabase for current user
-export const getUserCredits = async (): Promise<UserCredits> => {
+// Get usage from supabase for current user
+export const getApiKeyUsage = async (): Promise<ApiKeyUsage | null> => {
   const user = await getCurrentUser();
-  
-  // Default credits if no user or database error
-  const defaultCredits: UserCredits = {
-    imageCredits: DEFAULT_IMAGE_CREDITS,
-    videoCredits: DEFAULT_VIDEO_CREDITS,
-    userId: user?.id
-  };
-  
-  if (!user) return defaultCredits;
+  if (!user) return null;
   
   try {
-    // Try to get user's credits from the profiles table
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('image_credits, video_credits')
-      .eq('id', user.id)
-      .single();
+    // Get user from auth.users to check current credits
+    const { data, error } = await supabase.auth.getUser();
     
-    if (error) {
-      console.error("Error getting user credits:", error);
-      return defaultCredits;
-    }
+    if (error) throw error;
+    
+    if (!data.user) return null;
+    
+    // Get the image and video credits from user metadata
+    const imageCredits = data.user.user_metadata?.imageCredits ?? DEFAULT_IMAGE_CREDITS;
+    const videoCredits = data.user.user_metadata?.videoCredits ?? DEFAULT_VIDEO_CREDITS;
+    
+    // Get usage counts
+    const { data: imageData, error: imageError } = await supabase
+      .from('user_content_history')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('content_type', 'image');
+    
+    if (imageError) throw imageError;
+    
+    const { data: videoData, error: videoError } = await supabase
+      .from('user_content_history')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('content_type', 'video');
+    
+    if (videoError) throw videoError;
+    
+    const usedImageCredits = imageData?.length || 0;
+    const usedVideoCredits = videoData?.length || 0;
     
     return {
-      imageCredits: data?.image_credits ?? DEFAULT_IMAGE_CREDITS,
-      videoCredits: data?.video_credits ?? DEFAULT_VIDEO_CREDITS,
+      imageCredits: Math.max(0, imageCredits - usedImageCredits),
+      videoCredits: Math.max(0, videoCredits - usedVideoCredits),
       userId: user.id
     };
   } catch (error) {
-    console.error("Error getting user credits data:", error);
-    return defaultCredits;
+    console.error("Error getting API key usage data:", error);
+    return null;
   }
 };
 
-export const checkImageCredit = async (cost: number = IMAGE_COST): Promise<boolean> => {
-  const credits = await getUserCredits();
-  return credits.imageCredits >= cost;
-};
-
-export const checkVideoCredit = async (cost: number = VIDEO_COST): Promise<boolean> => {
-  const credits = await getUserCredits();
-  return credits.videoCredits >= cost;
-};
-
-export const deductImageCredit = async (cost: number = IMAGE_COST): Promise<boolean> => {
+// Get user limits (total credits)
+export const getUserCredits = async (): Promise<{ totalImageCredits: number; totalVideoCredits: number }> => {
   const user = await getCurrentUser();
-  if (!user) return false;
-  
-  const credits = await getUserCredits();
-  if (credits.imageCredits < cost) return false;
-  
-  try {
-    // Use any to bypass type checking until we update the database schema
-    const { error } = await (supabase as any)
-      .from('profiles')
-      .update({
-        image_credits: credits.imageCredits - cost
-      })
-      .eq('id', user.id);
-    
-    if (error) throw error;
-    return true;
-  } catch (error) {
-    console.error("Error deducting image credits:", error);
-    return false;
+  if (!user) {
+    return { 
+      totalImageCredits: DEFAULT_IMAGE_CREDITS, 
+      totalVideoCredits: DEFAULT_VIDEO_CREDITS 
+    };
   }
-};
-
-export const deductVideoCredit = async (cost: number = VIDEO_COST): Promise<boolean> => {
-  const user = await getCurrentUser();
-  if (!user) return false;
-  
-  const credits = await getUserCredits();
-  if (credits.videoCredits < cost) return false;
-  
-  try {
-    // Use any to bypass type checking until we update the database schema
-    const { error } = await (supabase as any)
-      .from('profiles')
-      .update({
-        video_credits: credits.videoCredits - cost
-      })
-      .eq('id', user.id);
-    
-    if (error) throw error;
-    return true;
-  } catch (error) {
-    console.error("Error deducting video credits:", error);
-    return false;
-  }
-};
-
-export const addImageCredit = async (amount: number): Promise<boolean> => {
-  const user = await getCurrentUser();
-  if (!user) return false;
-  
-  const credits = await getUserCredits();
-  
-  try {
-    // Use any to bypass type checking until we update the database schema
-    const { error } = await (supabase as any)
-      .from('profiles')
-      .update({
-        image_credits: credits.imageCredits + amount
-      })
-      .eq('id', user.id);
-    
-    if (error) throw error;
-    return true;
-  } catch (error) {
-    console.error("Error adding image credits:", error);
-    return false;
-  }
-};
-
-export const addVideoCredit = async (amount: number): Promise<boolean> => {
-  const user = await getCurrentUser();
-  if (!user) return false;
-  
-  const credits = await getUserCredits();
-  
-  try {
-    // Use any to bypass type checking until we update the database schema
-    const { error } = await (supabase as any)
-      .from('profiles')
-      .update({
-        video_credits: credits.videoCredits + amount
-      })
-      .eq('id', user.id);
-    
-    if (error) throw error;
-    return true;
-  } catch (error) {
-    console.error("Error adding video credits:", error);
-    return false;
-  }
-};
-
-// Add functions that were missing and causing the errors
-export const incrementImageCount = async (): Promise<boolean> => {
-  return await deductImageCredit(IMAGE_COST);
-};
-
-export const incrementVideoCount = async (): Promise<boolean> => {
-  return await deductVideoCredit(VIDEO_COST);
-};
-
-// These functions are kept for backward compatibility
-export const getRemainingCounts = async (): Promise<{ 
-  remainingImages: number; 
-  remainingVideos: number;
-}> => {
-  const credits = await getUserCredits();
   
   return {
-    remainingImages: credits.imageCredits,
-    remainingVideos: credits.videoCredits
+    totalImageCredits: user.imageCredits || DEFAULT_IMAGE_CREDITS,
+    totalVideoCredits: user.videoCredits || DEFAULT_VIDEO_CREDITS
   };
 };
 
-// For backward compatibility
-export const getRemainingCountsAsync = getRemainingCounts;
+// Check if user can generate more images
+export const checkImageCredits = async (): Promise<boolean> => {
+  const { imageCredits } = await getRemainingCreditsAsync();
+  return imageCredits > 0;
+};
 
-// For backward compatibility
-export const IMAGE_LIMIT = DEFAULT_IMAGE_CREDITS;
-export const VIDEO_LIMIT = DEFAULT_VIDEO_CREDITS;
+// Check if user can generate more videos
+export const checkVideoCredits = async (): Promise<boolean> => {
+  const { videoCredits } = await getRemainingCreditsAsync();
+  return videoCredits > 0;
+};
+
+// Get remaining credits (synchronous version with default values)
+export const getRemainingCredits = (): { 
+  imageCredits: number; 
+  videoCredits: number; 
+} => {
+  // Default values when not initialized
+  return { 
+    imageCredits: DEFAULT_IMAGE_CREDITS, 
+    videoCredits: DEFAULT_VIDEO_CREDITS,
+  };
+};
+
+// Alias for getRemainingCredits to match expected function name
+export const getRemainingCounts = getRemainingCredits;
+
+// Asynchronous version for when we need to wait for actual counts
+export const getRemainingCreditsAsync = async (): Promise<{ 
+  imageCredits: number; 
+  videoCredits: number;
+}> => {
+  const usage = await getApiKeyUsage();
+  
+  if (!usage) {
+    return { 
+      imageCredits: DEFAULT_IMAGE_CREDITS, 
+      videoCredits: DEFAULT_VIDEO_CREDITS,
+    };
+  }
+  
+  return {
+    imageCredits: usage.imageCredits,
+    videoCredits: usage.videoCredits
+  };
+};
+
+// Alias for getRemainingCreditsAsync to match expected function name
+export const getRemainingCountsAsync = getRemainingCreditsAsync;
+
+// Add content to user's history and decrement credit count
+export const incrementImageCount = async (): Promise<boolean> => {
+  // No need to decrement credits here as we're tracking usage based on history entries
+  return true;
+};
+
+// Add video content to user's history and decrement credit count
+export const incrementVideoCount = async (): Promise<boolean> => {
+  // No need to decrement credits here as we're tracking usage based on history entries
+  return true;
+};
+
+export const initializeApiKeyUsage = async (apiKey: string): Promise<void> => {
+  // We don't need to track the API key usage in local storage anymore
+  // The apiKey parameter is kept for backward compatibility
+  console.log("API key initialized, credit system is now based on user account");
+};

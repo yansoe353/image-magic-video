@@ -1,15 +1,17 @@
-
 import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TextToImage from "@/components/TextToImage";
 import ImageToVideo from "@/components/ImageToVideo";
 import StoryToVideo from "@/components/StoryToVideo";
+import VideoToVideo from "@/components/VideoToVideo";
 import Header from "@/components/Header";
-import { getRemainingCounts } from "@/utils/usageTracker";
+import { getRemainingCredits, getRemainingCreditsAsync, DEFAULT_IMAGE_CREDITS, DEFAULT_VIDEO_CREDITS } from "@/utils/usageTracker";
 import { Card, CardContent } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AIAssistant } from "@/components/AIAssistant";
+import { Button } from "@/components/ui/button";
+import { CreditCard } from "lucide-react";
 
 interface SelectedContent {
   url: string;
@@ -21,13 +23,16 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState<string>("text-to-image");
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
-  const [usageCounts, setUsageCounts] = useState({remainingImages: 0, remainingVideos: 0});
+  const [hasApiKey, setHasApiKey] = useState(true);
+  const [creditCounts, setCreditCounts] = useState(getRemainingCredits());
   const isMobile = useIsMobile();
 
   useEffect(() => {
     const initialize = async () => {
-      const counts = await getRemainingCounts();
-      setUsageCounts(counts);
+      setHasApiKey(true);
+      
+      const counts = await getRemainingCreditsAsync();
+      setCreditCounts(counts);
       
       const selectedContent = location.state?.selectedContent as SelectedContent | undefined;
       if (selectedContent) {
@@ -44,8 +49,8 @@ const Index = () => {
     initialize();
     
     const interval = setInterval(async () => {
-      const freshCounts = await getRemainingCounts();
-      setUsageCounts(freshCounts);
+      const freshCounts = await getRemainingCreditsAsync();
+      setCreditCounts(freshCounts);
     }, 5000);
     
     return () => clearInterval(interval);
@@ -73,14 +78,31 @@ const Index = () => {
             Transform your ideas into stunning videos with our AI-powered tools. Generate images from text, then convert them into captivating videos.
           </p>
           
-          <div className="mt-4 flex flex-wrap justify-center gap-4 md:gap-8 text-sm">
-            <div className="px-4 py-2 bg-blue-900/20 border border-blue-700/30 rounded-md text-blue-200 neo-blur">
-              <span className="font-medium">Image Credits:</span> {usageCounts.remainingImages} remaining
+          {!hasApiKey && (
+            <div className="mt-4 p-4 bg-yellow-900/30 border border-yellow-700/50 rounded-md text-yellow-200 text-sm glass-morphism">
+              Please set your Infinity API key using the button in the header to enable image and video generation.
             </div>
-            <div className="px-4 py-2 bg-purple-900/20 border border-purple-700/30 rounded-md text-purple-200 neo-blur">
-              <span className="font-medium">Video Credits:</span> {usageCounts.remainingVideos} remaining
+          )}
+          
+          {hasApiKey && (
+            <div className="mt-4 flex flex-col items-center gap-4">
+              <div className="flex flex-wrap justify-center gap-4 md:gap-8 text-sm">
+                <div className="px-4 py-2 bg-blue-900/20 border border-blue-700/30 rounded-md text-blue-200 neo-blur">
+                  <span className="font-medium">Image Credits:</span> {creditCounts.imageCredits}/{DEFAULT_IMAGE_CREDITS} remaining
+                </div>
+                <div className="px-4 py-2 bg-purple-900/20 border border-purple-700/30 rounded-md text-purple-200 neo-blur">
+                  <span className="font-medium">Video Credits:</span> {creditCounts.videoCredits}/{DEFAULT_VIDEO_CREDITS} remaining
+                </div>
+              </div>
+              
+              <Link to="/purchase-credits">
+                <Button variant="outline" size="sm" className="flex items-center gap-2 mt-2">
+                  <CreditCard className="h-4 w-4" />
+                  Buy More Credits
+                </Button>
+              </Link>
             </div>
-          </div>
+          )}
         </section>
 
         <Tabs 
@@ -117,13 +139,13 @@ const Index = () => {
               value="image-playground" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
-              {isMobile ? "Free Image" : "Unlimited Image"}
+              {isMobile ? "Free Image" : "Free Image"}
             </TabsTrigger>
             <TabsTrigger 
               value="video-playground" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
-              {isMobile ? "Free Video" : "Unlimited Video"}
+              {isMobile ? "Free Video" : "Free Video"}
             </TabsTrigger>
             <TabsTrigger 
               value="ai-voice" 
@@ -139,7 +161,7 @@ const Index = () => {
           
           <TabsContent value="image-to-video" className="mt-0">
             <ImageToVideo 
-              initialImageUrl={generatedImageUrl}
+              initialImageUrl={generatedImageUrl || null}
               onVideoGenerated={handleVideoGenerated}
               onSwitchToEditor={() => setActiveTab("video-editor")}
             />
@@ -148,7 +170,7 @@ const Index = () => {
           <TabsContent value="story-to-video" className="mt-0">
             <StoryToVideo />
           </TabsContent>
-
+          
           <TabsContent value="video-editor" className="mt-0">
             <Card className="border-0 shadow-lg glass-morphism overflow-hidden">
               <CardContent className="p-0">
@@ -209,7 +231,7 @@ const Index = () => {
                 <div className="w-full overflow-hidden rounded-lg">
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
                     <iframe
-                      src="https://waloneai-wl-tts-text-to-speech.hf.space"
+                      src="https://waloneai-wl-tts-text-to-speech.hf.space/"
                       title="AI Voice Generator"
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

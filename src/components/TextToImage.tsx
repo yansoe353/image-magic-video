@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { fal } from "@fal-ai/client";
 import { Loader2, ImageIcon } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { getRemainingCounts, IMAGE_LIMIT, deductImageCredit } from "@/utils/usageTracker";
+import { incrementImageCount, getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT } from "@/utils/usageTracker";
 import { supabase } from "@/integrations/supabase/client";
 import { isLoggedIn } from "@/utils/authUtils";
 import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
@@ -42,17 +42,19 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [imageSize, setImageSize] = useState<ImageSizeOption>("square_hd");
   const { toast } = useToast();
-  const [counts, setCounts] = useState<{remainingImages: number; remainingVideos: number}>({remainingImages: 0, remainingVideos: 0});
+  const [counts, setCounts] = useState(getRemainingCounts());
   const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
   const [supabaseImageUrl, setSupabaseImageUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedLoras, setSelectedLoras] = useState<LoraOption[]>([]);
   const [guidanceScale, setGuidanceScale] = useState(9);
+  const [apiKey, setApiKey] = useState<string>(localStorage.getItem("falApiKey") || "");
+  const [isApiKeySet, setIsApiKeySet] = useState<boolean>(!!localStorage.getItem("falApiKey"));
   const [isPublic, setIsPublic] = useState(false);
 
   useEffect(() => {
     const updateCounts = async () => {
-      const freshCounts = await getRemainingCounts();
+      const freshCounts = await getRemainingCountsAsync();
       setCounts(freshCounts);
     };
     updateCounts();
@@ -68,6 +70,40 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         ? current.filter(id => id !== loraId)
         : [...current, loraId]
     );
+  };
+
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setApiKey(e.target.value);
+  };
+
+  const saveApiKey = () => {
+    if (!apiKey.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid API key",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      localStorage.setItem("falApiKey", apiKey);
+      fal.config({
+        credentials: apiKey
+      });
+      setIsApiKeySet(true);
+      toast({
+        title: "Success",
+        description: "API key saved successfully",
+      });
+    } catch (error) {
+      console.error("Failed to save API key:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save API key",
+        variant: "destructive",
+      });
+    }
   };
 
   const getAspectRatio = (sizeOption: ImageSizeOption): string => {
@@ -121,7 +157,16 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       return;
     }
 
-    if (counts.remainingImages <= 0) {
+    if (!isApiKeySet) {
+      toast({
+        title: "API Key Required",
+        description: "Please set your FAL.AI API key first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (counts.imageCredits <= 0) {
       toast({
         title: "Usage Limit Reached",
         description: `You've reached the limit of ${IMAGE_LIMIT} image generations.`,
@@ -145,13 +190,10 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         }
       }
 
-      // Get API key from environment
-      const apiKey = import.meta.env.NEXT_PUBLIC_FAL_KEY;
       fal.config({
         credentials: apiKey
       });
 
-      // Remove guidance_scale which is not supported by the model
       const result = await fal.subscribe("fal-ai/imagen3/fast", {
         input: {
           prompt: promptToUse,
@@ -172,7 +214,6 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           setSupabaseImageUrl(supabaseUrl);
           setGeneratedImage(supabaseUrl);
 
-          // Save to history with the is_public flag
           await saveToHistory(supabaseUrl, falImageUrl);
 
           toast({
@@ -183,19 +224,17 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           console.error("Failed to upload to Supabase:", uploadError);
           setGeneratedImage(falImageUrl);
           
-          // Even if upload fails, try to save to history
           await saveToHistory(falImageUrl, falImageUrl);
         } finally {
           setIsUploading(false);
         }
 
-        // Deduct credits after successful generation
-        if (await deductImageCredit()) {
+        if (await incrementImageCount()) {
           toast({
             title: "Success",
             description: "Image generated successfully!",
           });
-          const freshCounts = await getRemainingCounts();
+          const freshCounts = await getRemainingCountsAsync();
           setCounts(freshCounts);
         }
       } else {
@@ -254,9 +293,44 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             <ProLabel />
           </div>
 
-          <UsageLimits 
-            remainingCredits={counts.remainingImages} 
-            creditType="image" 
+          {!isApiKeySet && (
+            <Alert className="mb-4">
+              <AlertTitle>API Key Required</AlertTitle>
+              <AlertDescription>
+                <div className="space-y-4 mt-2">
+                  <p>ပုံတွေ ဗွီဒီယိုတွေ ထုတ်ဖို့ Infinity Tech မှဝယ်ယူထားသည့် Infinity API Key ထည့်ရပါမယ်</p>
+                  <div>
+                    <Label htmlFor="apiKey">Infinity API Key</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        id="apiKey"
+                        type="password"
+                        value={apiKey}
+                        onChange={handleApiKeyChange}
+                        placeholder="Enter your Infinity API key"
+                        className="flex-1"
+                      />
+                      <Button onClick={saveApiKey}>Save Key</Button>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      <a
+                        href="https://m.me/infinitytechmyanmar"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:underline"
+                      >
+                        Get your key here
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <UsageLimits
+            remainingCredits={counts.imageCredits}
+            totalCredits={IMAGE_LIMIT}
           />
 
           <div className="space-y-4">
@@ -287,7 +361,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             <div className="flex items-center justify-between">
               <Button
                 onClick={generateImage}
-                disabled={isLoading || !prompt.trim() || counts.remainingImages <= 0}
+                disabled={isLoading || !prompt.trim() || counts.imageCredits <= 0 || !isApiKeySet}
                 className="w-full"
               >
                 {isLoading ? (
@@ -304,9 +378,9 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
               </Button>
             </div>
 
-            {counts.remainingImages > 0 && (
+            {counts.imageCredits > 0 && (
               <p className="text-xs text-slate-500 text-center">
-                {counts.remainingImages} of {IMAGE_LIMIT} image generations remaining
+                {counts.imageCredits} of {IMAGE_LIMIT} image generations remaining
               </p>
             )}
           </div>

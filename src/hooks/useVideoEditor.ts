@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
@@ -19,12 +19,6 @@ export interface AudioTrack {
   url: string;
   name: string;
 }
-
-// Create FFmpeg instance outside the hook to ensure it's only created once
-const ffmpeg = createFFmpeg({ 
-  log: true,
-  corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
-});
 
 // Flag to track if ffmpeg is loaded
 let ffmpegLoaded = false;

@@ -1,523 +1,321 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
+import { VideoUploader } from "./VideoUploader";
+import { falClient } from "@/hooks/useFalClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, Video } from "lucide-react";
-import VideoPreview from "@/components/VideoPreview";
-import { useVideoControls } from "@/hooks/useVideoControls";
-import { fal } from "@fal-ai/client";
+import { Loader2, Video, Music } from "lucide-react";
+import { checkVideoCredits } from "@/utils/usageTracker";
 import { supabase } from "@/integrations/supabase/client";
-import { getUserId } from "@/utils/storageUtils";
-import { incrementVideoCount } from "@/utils/usageTracker";
-import { cn } from "@/lib/utils";
-
-// Configuration constants
-const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
-const MAX_DURATION = 10; // seconds
-const DEFAULT_DURATION = 4; // Default duration in seconds
+import { getCurrentUser } from "@/utils/authUtils";
+import { useNavigate } from "react-router-dom";
+import { QueueStatus } from "@/hooks/useFalClient";
 
 const VideoToVideo = () => {
-  const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string>("");
-  const [prompt, setPrompt] = useState<string>("");
-  const [negativePrompt, setNegativePrompt] = useState<string>("");
-  const [isGenerating, setIsGenerating] = useState<boolean>(false);
-  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string>("");
-  const [generationLogs, setGenerationLogs] = useState<string[]>([]);
-  const [progress, setProgress] = useState<number>(0);
-  const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [apiAvailable, setApiAvailable] = useState(true);
-  const [config, setConfig] = useState({
-    modelName: "base", // Default to base model for smaller payloads
-    numSteps: 25,
-    duration: DEFAULT_DURATION,
-    cfgScale: 4.5,
-    seed: Math.floor(Math.random() * 1000000),
-    maskAway: false,
-  });
-
-  const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState("");
+  const [negativePrompt, setNegativePrompt] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
+  const [seed, setSeed] = useState(42);
+  const [numSteps, setNumSteps] = useState(50);
+  const [duration, setDuration] = useState(3);
+  const [cfgStrength, setCfgStrength] = useState(7);
+  const [maskAwayClip, setMaskAwayClip] = useState(false);
+  const [status, setStatus] = useState<QueueStatus | null>(null);
   const { toast } = useToast();
-  const videoInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
 
-  // Check API availability on mount
-  useEffect(() => {
-    const checkApi = async () => {
-      try {
-        setApiAvailable(true);
-      } catch (error) {
-        setApiAvailable(false);
-        setError("API service is currently unavailable. Please try again later.");
-      }
-    };
-    checkApi();
-  }, []);
-
-  const handleFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setError(null);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      await validateAndSetVideoFile(file);
-    }
-  };
-  
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    setError(null);
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      await validateAndSetVideoFile(file);
-    }
+  const handleVideoSelected = (url: string) => {
+    setVideoUrl(url);
   };
 
-  const validateAndSetVideoFile = async (file: File) => {
-    if (!file.type.startsWith("video/")) {
-      setError("Invalid file type. Please upload a video file.");
-      return;
-    }
-    
-    if (file.size > MAX_FILE_SIZE) {
-      setError(`Video file must be smaller than ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
-      return;
-    }
-
-    const duration = await getVideoDuration(file);
-    if (duration > MAX_DURATION) {
-      setError(`Video must be shorter than ${MAX_DURATION} seconds`);
-      return;
-    }
-
-    setVideoFile(file);
-    setVideoUrl(URL.createObjectURL(file));
-    // Auto-adjust duration to match video length if it's shorter
-    if (duration < config.duration) {
-      setConfig(prev => ({ ...prev, duration: Math.floor(duration) }));
-    }
-  };
-
-  const getVideoDuration = (file: File): Promise<number> => {
-    return new Promise((resolve) => {
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      video.onloadedmetadata = () => {
-        resolve(video.duration);
-        URL.revokeObjectURL(video.src);
-      };
-      video.src = URL.createObjectURL(file);
-    });
-  };
-
-  const handleGenerationSuccess = async (resultUrl: string) => {
-    setGeneratedVideoUrl(resultUrl);
-    setProgress(100);
-    
-    try {
-      const userId = await getUserId();
-      if (userId) {
-        await supabase.from('user_content_history').insert({
-          user_id: userId,
-          content_type: 'video',
-          content_url: resultUrl,
-          prompt: prompt,
-          metadata: {
-            model: 'fal-ai/mmaudio-v2',
-            config: {
-              ...config,
-              negative_prompt: negativePrompt,
-            }
-          }
-        });
-      }
-      
-      await incrementVideoCount();
-      
+  const handleGenerate = async () => {
+    if (!videoUrl) {
       toast({
-        title: "Success",
-        description: "Video generated successfully!",
+        title: "No Video Selected",
+        description: "Please upload a video first.",
+        variant: "destructive",
       });
-    } catch (dbError) {
-      console.error("Failed to save generation history:", dbError);
+      return;
+    }
+
+    if (!prompt) {
+      toast({
+        title: "No Prompt",
+        description: "Please enter a prompt to guide the generation.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if user has enough credits
+    const hasCredits = await checkVideoCredits();
+    if (!hasCredits) {
+      toast({
+        title: "Insufficient Credits",
+        description: "You don't have enough video credits. Please purchase more.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    setStatus(null);
+    setGeneratedVideoUrl(null);
+
+    try {
+      const result = await falClient.subscribe("mm-audio/mm-audio", {
+        input: {
+          video_url: videoUrl,
+          prompt: prompt,
+          negative_prompt: negativePrompt || undefined,
+          seed: seed,
+          num_steps: numSteps,
+          duration: duration,
+          cfg_strength: cfgStrength,
+          mask_away_clip: maskAwayClip,
+        },
+        pollInterval: 1000,
+        onQueueUpdate: (update) => {
+          setStatus(update as QueueStatus);
+        },
+      });
+
+      if (result.status !== "IN_PROGRESS" && result.status !== "IN_QUEUE") {
+        toast({
+          title: "Generation Failed",
+          description: "Failed to generate video. Please try again.",
+          variant: "destructive",
+        });
+        setIsGenerating(false);
+        return;
+      }
+
+      if (result.data?.video?.url) {
+        setGeneratedVideoUrl(result.data.video.url);
+        
+        // Save to history
+        const user = await getCurrentUser();
+        if (user) {
+          await supabase.from("user_content_history").insert({
+            user_id: user.id,
+            content_type: "video",
+            prompt: prompt,
+            negative_prompt: negativePrompt || null,
+            result_url: result.data.video.url,
+            settings: {
+              seed,
+              numSteps,
+              duration,
+              cfgStrength,
+              maskAwayClip,
+            },
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error generating video:", error);
+      toast({
+        title: "Generation Error",
+        description: "An error occurred during video generation.",
+        variant: "destructive",
+      });
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleGenerateVideo = async () => {
-    if (!apiAvailable) {
-      setError("API service is currently unavailable. Please try again later.");
-      return;
-    }
-
-    if (!videoUrl) {
-      setError("Please upload a video first.");
-      return;
-    }
-    
-    if (!prompt) {
-      setError("Please enter a prompt for the video generation.");
-      return;
-    }
-
-    setIsGenerating(true);
-    setError(null);
-    setGenerationLogs([]);
-    setProgress(0);
-
-    try {
-      setGenerationLogs(prev => [...prev, "Initializing video generation..."]);
-      setProgress(10);
-
-      // Initialize the realtime connection first
-      const connection = await fal.realtime.connect("fal-ai/mmaudio-v2", {
-        connectionKey: "video-generation",
-        onResult: (result) => {
-          if (result.video?.url) {
-            handleGenerationSuccess(result.video.url);
-          }
-        },
-        onError: (error) => {
-          handleGenerationError(error);
-        },
-        onLog: (log) => {
-          setGenerationLogs(prev => [...prev, log.message]);
-        },
-      });
-
-      // Handle file upload if we have a file
-      let videoInputUrl = videoUrl;
-      if (videoFile) {
-        setGenerationLogs(prev => [...prev, "Uploading video file..."]);
-        setIsUploading(true);
-        setProgress(20);
-
-        try {
-          const uploadResult = await fal.storage.upload(videoFile);
-          videoInputUrl = uploadResult.url;
-        } catch (uploadError) {
-          throw new Error(`Failed to upload video: ${uploadError.message}`);
-        } finally {
-          setIsUploading(false);
-        }
-      }
-
-      setGenerationLogs(prev => [...prev, "Starting video generation..."]);
-      setProgress(80);
-
-      // Send the generation request
-      await connection.send({
-        model_name: config.modelName,
-        video_url: videoInputUrl,
-        prompt,
-        negative_prompt: negativePrompt || undefined,
-        num_steps: config.numSteps,
-        duration: config.duration,
-        cfg_scale: config.cfgScale,
-        seed: config.seed,
-        mask_away: config.maskAway,
-      });
-
-      setProgress(90);
-    } catch (error) {
-      handleGenerationError(error);
-    }
-  };
-
-  const handleGenerationError = (error: any) => {
-    console.error("Video generation failed:", error);
-    let errorMessage = "Failed to generate video. Please try again.";
-
-    if (error.status === 401) {
-      errorMessage = "Authentication failed. Please check your API key.";
-    } else if (error.status === 413) {
-      errorMessage = `Request too large. Please use videos smaller than ${MAX_FILE_SIZE / (1024 * 1024)}MB and shorter than ${MAX_DURATION} seconds.`;
-    } else if (error.message?.includes('duration')) {
-      errorMessage = error.message;
-    } else if (error.response?.data?.detail) {
-      errorMessage = typeof error.response.data.detail === 'string' 
-        ? error.response.data.detail
-        : JSON.stringify(error.response.data.detail);
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-
-    setError(errorMessage);
-    setGenerationLogs(prev => [...prev, `Error: ${errorMessage}`]);
-    
-    toast({
-      title: "Error",
-      description: errorMessage,
-      variant: "destructive",
-    });
-    
-    setIsGenerating(false);
-    setProgress(0);
-  };
-
-  const handleConfigChange = <K extends keyof typeof config>(key: K, value: typeof config[K]) => {
-    setConfig(prev => ({
-      ...prev,
-      [key]: value,
-    }));
-  };
-
-  const handleGenerateRandomSeed = () => {
-    handleConfigChange('seed', Math.floor(Math.random() * 1000000));
-  };
-
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardContent className="p-6">
-          <h2 className="text-2xl font-bold mb-4 flex items-center">
-            <Video className="mr-2 h-6 w-6" />
-            Video to Video Generation
-          </h2>
-          
-          {error && (
-            <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-              {error}
-            </div>
-          )}
-          
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="videoUpload">Upload Video</Label>
+    <div className="space-y-4">
+      <Tabs defaultValue="upload" className="w-full">
+        <TabsList className="grid grid-cols-2">
+          <TabsTrigger value="upload" className="flex items-center gap-2">
+            <Video className="h-4 w-4" />
+            <span>Upload Video</span>
+          </TabsTrigger>
+          <TabsTrigger value="audio" className="flex items-center gap-2">
+            <Music className="h-4 w-4" />
+            <span>Audio Settings</span>
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="upload" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Upload Video</CardTitle>
+              <CardDescription>
+                Upload a video to add AI-generated audio
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <VideoUploader onVideoSelected={(url) => handleVideoSelected(url)} />
               
-              {!videoUrl ? (
-                <div 
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:bg-gray-50 transition-colors"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={handleFileDrop}
-                  onClick={() => videoInputRef.current?.click()}
-                >
-                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                  <p className="mt-2 text-sm text-gray-500">Drag and drop a video file here, or click to select</p>
-                  <input 
-                    ref={videoInputRef}
-                    type="file"
-                    id="videoUpload"
-                    accept="video/*"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                </div>
-              ) : (
-                <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+              {videoUrl && (
+                <div className="mt-4">
                   <video 
                     src={videoUrl} 
-                    className="w-full h-full object-contain" 
                     controls 
-                    ref={videoRef}
+                    className="w-full rounded-md border border-gray-200"
                   />
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="absolute top-2 right-2"
-                    onClick={() => {
-                      setVideoUrl("");
-                      setVideoFile(null);
-                    }}
-                  >
-                    Remove
-                  </Button>
                 </div>
               )}
-              
-              <p className="text-xs text-slate-500 mt-1">
-                Supported formats: MP4, WebM, AVI, MOV (max {MAX_FILE_SIZE / (1024 * 1024)}MB, up to {MAX_DURATION}s)
-              </p>
-            </div>
-            
-            <div>
-              <Label htmlFor="prompt">Video Prompt</Label>
-              <Input
-                id="prompt"
-                placeholder="e.g., 'A futuristic cityscape', 'Anime style animation', 'Watercolor painting coming to life'"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                className="mb-2"
-              />
-              <p className="text-xs text-slate-500">
-                Describe the video style you want to generate
-              </p>
-            </div>
-            
-            <div>
-              <Label htmlFor="negativePrompt">Negative Prompt (Optional)</Label>
-              <Input
-                id="negativePrompt"
-                placeholder="e.g., 'blurry', 'low quality', 'distorted'"
-                value={negativePrompt}
-                onChange={(e) => setNegativePrompt(e.target.value)}
-                className="mb-2"
-              />
-              <p className="text-xs text-slate-500">
-                Describe what you want to avoid in the generated video
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Model Version</Label>
-                <select
-                  value={config.modelName}
-                  onChange={(e) => handleConfigChange('modelName', e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="base">Base (Faster, smaller files)</option>
-                  <option value="xl">XL (Higher Quality)</option>
-                </select>
-                <p className="text-xs text-slate-500 mt-1">
-                  {config.modelName === 'base' ? 'Faster generation with smaller file sizes' : 'Higher quality but requires more resources'}
-                </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="audio" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Audio Generation Settings</CardTitle>
+              <CardDescription>
+                Configure how the AI generates audio for your video
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="prompt">Prompt</Label>
+                <Textarea
+                  id="prompt"
+                  placeholder="Describe the audio you want to generate..."
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                />
               </div>
               
-              <div>
-                <Label htmlFor="numSteps">Number of Steps: {config.numSteps}</Label>
+              <div className="space-y-2">
+                <Label htmlFor="negativePrompt">Negative Prompt (Optional)</Label>
+                <Textarea
+                  id="negativePrompt"
+                  placeholder="Describe what you want to avoid in the audio..."
+                  value={negativePrompt}
+                  onChange={(e) => setNegativePrompt(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="seed">Seed: {seed}</Label>
+                <Slider
+                  id="seed"
+                  min={0}
+                  max={1000}
+                  step={1}
+                  value={[seed]}
+                  onValueChange={(value) => setSeed(value[0])}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="numSteps">Number of Steps: {numSteps}</Label>
                 <Slider
                   id="numSteps"
-                  value={[config.numSteps]}
                   min={10}
-                  max={50}
+                  max={100}
                   step={1}
-                  onValueChange={(value) => handleConfigChange('numSteps', value[0])}
-                  className="my-2"
+                  value={[numSteps]}
+                  onValueChange={(value) => setNumSteps(value[0])}
                 />
-                <p className="text-xs text-slate-500">
-                  More steps = higher quality, but slower generation (10-50)
-                </p>
               </div>
               
-              <div>
-                <Label htmlFor="duration">Duration: {config.duration}s</Label>
+              <div className="space-y-2">
+                <Label htmlFor="duration">Duration (seconds): {duration}</Label>
                 <Slider
                   id="duration"
-                  value={[config.duration]}
-                  min={1}
-                  max={MAX_DURATION}
-                  step={0.5}
-                  onValueChange={(value) => handleConfigChange('duration', value[0])}
-                  className="my-2"
-                />
-                <p className="text-xs text-slate-500">
-                  Shorter durations process faster (1-{MAX_DURATION}s)
-                </p>
-              </div>
-              
-              <div>
-                <Label htmlFor="cfgScale">CFG Scale: {config.cfgScale}</Label>
-                <Slider
-                  id="cfgScale"
-                  value={[config.cfgScale]}
                   min={1}
                   max={10}
+                  step={1}
+                  value={[duration]}
+                  onValueChange={(value) => setDuration(value[0])}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="cfgStrength">CFG Strength: {cfgStrength}</Label>
+                <Slider
+                  id="cfgStrength"
+                  min={1}
+                  max={15}
                   step={0.1}
-                  onValueChange={(value) => handleConfigChange('cfgScale', value[0])}
-                  className="my-2"
+                  value={[cfgStrength]}
+                  onValueChange={(value) => setCfgStrength(value[0])}
                 />
-                <p className="text-xs text-slate-500">
-                  How closely to follow the prompt (1-10)
-                </p>
               </div>
               
-              <div>
-                <Label htmlFor="seed">Seed</Label>
-                <div className="flex gap-2 my-2">
-                  <Input
-                    id="seed"
-                    type="number"
-                    value={config.seed}
-                    onChange={(e) => handleConfigChange('seed', parseInt(e.target.value))}
-                  />
-                  <Button 
-                    variant="outline" 
-                    onClick={handleGenerateRandomSeed}
-                    className="flex-shrink-0"
-                  >
-                    Random
-                  </Button>
-                </div>
-                <p className="text-xs text-slate-500">
-                  Use the same seed for reproducible results
-                </p>
-              </div>
-              
-              <div className="flex items-center space-x-2 col-span-2">
+              <div className="flex items-center space-x-2">
                 <input
-                  id="maskAway"
                   type="checkbox"
-                  checked={config.maskAway}
-                  onChange={(e) => handleConfigChange('maskAway', e.target.checked)}
-                  className="h-4 w-4"
+                  id="maskAwayClip"
+                  checked={maskAwayClip}
+                  onChange={(e) => setMaskAwayClip(e.target.checked)}
+                  className="rounded border-gray-300"
                 />
-                <Label htmlFor="maskAway">Mask Away Original Content</Label>
+                <Label htmlFor="maskAwayClip">Mask Away Original Audio</Label>
               </div>
-            </div>
-            
-            <Button
-              onClick={handleGenerateVideo}
-              disabled={isGenerating || !videoUrl || !prompt || !apiAvailable}
-              className="w-full"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isUploading ? "Uploading Video..." : "Generating Video..."}
-                  <span className="ml-2">{progress}%</span>
-                </>
-              ) : (
-                <>
-                  <Video className="mr-2 h-4 w-4" />
-                  Generate Video
-                </>
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {(isGenerating || generatedVideoUrl) && (
-        <Card>
-          <CardContent className="p-6">
-            <h3 className="text-xl font-bold mb-4">Video Preview</h3>
-            
-            {isGenerating && (
-              <div className="mb-4">
-                <div className="w-full bg-slate-200 rounded-full h-2.5 mb-2">
-                  <div 
-                    className={cn("bg-brand-purple h-2.5 rounded-full", 
-                      progress < 100 ? "animate-pulse" : ""
-                    )} 
-                    style={{ width: `${progress}%` }}
-                  />
+            </CardContent>
+            <CardFooter>
+              <Button 
+                onClick={handleGenerate} 
+                disabled={isGenerating || !videoUrl}
+                className="w-full"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  "Generate Audio"
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
+          
+          {status && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Generation Status</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p>Status: {status.status}</p>
+                <div className="text-xs text-muted-foreground mt-2">
+                  {status.logs && Array.isArray(status.logs) ? status.logs.map((log, i) => (
+                    <p key={i}>{log.message}</p>
+                  )) : null}
                 </div>
-                
-                <div className="mt-4 p-4 bg-slate-100 rounded-lg max-h-40 overflow-y-auto">
-                  {generationLogs.map((log, index) => (
-                    <p key={index} className="text-xs font-mono text-slate-700">
-                      {log}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            <VideoPreview
-              videoUrl={generatedVideoUrl}
-              isLoading={isGenerating}
-              generationLogs={generationLogs}
-              videoRef={videoRef}
-              isPlaying={isPlaying}
-              handlePlayPause={handlePlayPause}
-            />
-          </CardContent>
-        </Card>
-      )}
+              </CardContent>
+            </Card>
+          )}
+          
+          {generatedVideoUrl && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Generated Result</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <video 
+                  src={generatedVideoUrl} 
+                  controls 
+                  className="w-full rounded-md border border-gray-200"
+                />
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  onClick={() => window.open(generatedVideoUrl, "_blank")}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Open in New Tab
+                </Button>
+              </CardFooter>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

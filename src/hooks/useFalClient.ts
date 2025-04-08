@@ -1,221 +1,157 @@
 
-import { useState, useEffect } from "react";
-import { fal } from '@fal-ai/client';
-import { supabase } from "@/integrations/supabase/client";
-import { v4 as uuidv4 } from 'uuid';
-import { useToast } from "@/hooks/use-toast";
-import { getUserId } from "@/utils/storageUtils";
-import { deductImageCredit, deductVideoCredit, IMAGE_COST, VIDEO_COST } from "@/utils/usageTracker";
+import { fal } from "@fal-ai/client";
 
-// Initialize the FAL client with the environment variable
-const falApiKey = import.meta.env.NEXT_PUBLIC_FAL_KEY; 
-fal.config({
-  credentials: falApiKey,
-});
-
-// LTX Text to Image model
-const ltxTextToImageProxyUrl = "110602490-lcm-sd15-i2i/fast"; // Lt. Create model
-
-// LTX Image to Video model
-const ltxImageToVideoUrl = "110602490-ltx-animation/run";
-
-type ImageGenerationInput = {
-  prompt: string;
-  negative_prompt?: string;
-  height?: number;
-  width?: number;
-  guidance_scale?: number;
-  num_inference_steps?: number;
-  seed?: number;
-  strength?: number;
-};
-
-interface ImageGenerationOutput {
-  images: string[];
-  seed: number;
+// Initialize the fal.ai client
+try {
+  // Initialize with credentials - can be API key or 'include' for browser auth
+  fal.config({
+    credentials: 'include',
+  });
+} catch (error) {
+  console.error("Error initializing fal.ai client:", error);
 }
 
-interface Result<T = any> {
-  data?: T;
-  images?: string[];
+// Define effect type enum to match the API requirements exactly as listed in the documentation
+export type EffectType = 
+  | "squish" | "muscle" | "inflate" | "crush" | "rotate" | "cakeify"
+  | "baby" | "disney-princess" | "painting" | "pirate-captain" 
+  | "jungle" | "samurai" | "warrior" | "fire" | "super-saiyan"
+  | "gun-shooting" | "deflate" | "hulk" | "bride" | "princess" | "zen" | "assassin"
+  | "classy" | "puppy" | "snow-white" | "mona-lisa" | "vip"
+  | "timelapse" | "tsunami" | "zoom-call" | "doom-fps" | "fus-ro-dah"
+  | "hug-jesus" | "robot-face-reveal"; 
+
+// Define aspect ratio enum
+export type AspectRatio = "16:9" | "9:16" | "1:1";
+
+// Define Video Clip interface
+export interface VideoClip {
+  id: string;
+  url: string;
+  name: string;
+  duration?: number;
+  startTime?: number;
+  endTime?: number;
+}
+
+// Define MMAudio input interface
+export interface MMAudioInput {
+  video_url: string;
+  prompt: string;
+  negative_prompt?: string;
   seed?: number;
-  video_url?: string;
-  image_url?: string;
-  video?: {
+  num_steps?: number;
+  duration?: number;
+  cfg_strength?: number;
+  mask_away_clip?: boolean;
+}
+
+// Define MMAudio output interface
+export interface MMAudioOutput {
+  video: {
+    url: string;
+    file_name: string;
+    file_size: number;
+    content_type: string;
+  };
+}
+
+// Updated LTXVideo input interface to match the required parameters
+export interface LTXVideoInput {
+  image_url: string;
+  prompt: string;
+  negative_prompt?: string;
+  num_inference_steps?: number;
+  guidance_scale?: number;
+  width?: number;
+  height?: number;
+  seed?: number;
+  motion_bucket_id?: number;
+  noise_aug_strength?: number;
+}
+
+// Updated LtxVideoImageToVideoInput interface to match required parameters
+export interface LtxVideoImageToVideoInput {
+  image_url: string;
+  prompt: string;
+  negative_prompt?: string;
+  num_inference_steps?: number;
+  guidance_scale?: number;
+  width?: number;
+  height?: number;
+  seed?: number;
+  motion_bucket_id?: number;
+  noise_aug_strength?: number;
+}
+
+// Define LTXVideo output interface
+export interface LTXVideoOutput {
+  video: {
     url: string;
   };
 }
 
-interface TextToImageResult {
-  imageUrl: string | null;
-  seed: number | null;
-  isGenerating: boolean;
-  error: string | null;
-  generate: (input: ImageGenerationInput) => Promise<void>;
+// Define queue status interfaces
+export interface QueueLogs {
+  message: string;
 }
 
-// Image to Video interfaces
-interface ImageToVideoResult {
-  videoUrl: string | null;
-  isGenerating: boolean;
-  error: string | null;
-  generate: (input: ImageToVideoInput) => Promise<void>;
+export interface InProgressQueueStatus {
+  status: "IN_PROGRESS";
+  logs?: QueueLogs[];
 }
 
-interface ImageToVideoInput {
-  image_url: string;
-  cameraMode?: string;
-  framesPerSecond?: number;
-  modelType?: string; 
-  seed?: number;
+export interface InQueueQueueStatus {
+  status: "IN_QUEUE";
+  logs?: QueueLogs[];
 }
 
-// Hook for text-to-image generation
-export function useTextToImage(): TextToImageResult {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [seed, setSeed] = useState<number | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
-  
-  const generate = async (input: ImageGenerationInput) => {
-    setIsGenerating(true);
-    setError(null);
-    
-    try {
-      console.log("Starting image generation with prompt:", input.prompt);
-      
-      // First, check and deduct credits
-      const canGenerate = await deductImageCredit(IMAGE_COST);
-      if (!canGenerate) {
-        throw new Error("Insufficient image credits");
-      }
-      
-      // Use type assertion to bypass type checking for API interface
-      const result = await fal.subscribe(ltxTextToImageProxyUrl, input as any);
-      
-      if (result?.data?.images?.[0]) {
-        setImageUrl(result.data.images[0]);
-        console.log("Image generated successfully");
-        
-        if (result.data.seed) {
-          setSeed(result.data.seed);
-        }
-        
-        // Store the generated image in user history if userId exists
-        const userId = await getUserId();
-        if (userId) {
-          try {
-            await supabase.from('user_content_history').insert({
-              user_id: userId,
-              content_type: 'image',
-              content_url: result.data.images[0],
-              prompt: input.prompt,
-              metadata: {
-                seed: result.data.seed,
-                negative_prompt: input.negative_prompt,
-                width: input.width,
-                height: input.height
-              }
-            });
-            console.log("Image saved to history");
-          } catch (historyError) {
-            console.error("Failed to save image to history:", historyError);
-          }
-        }
-      } else {
-        throw new Error("No image was returned from the API");
-      }
-    } catch (e) {
-      console.error("Error generating image:", e);
-      setError(e instanceof Error ? e.message : "Unknown error occurred");
-      toast({
-        title: "Image Generation Failed",
-        description: e instanceof Error ? e.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGenerating(false);
+export type QueueStatus = InProgressQueueStatus | InQueueQueueStatus;
+
+// Create a function to generate video from image using the fal client
+export const generateVideoFromImage = async (params: { 
+  imageUrl: string; 
+  prompt: string;
+  negativePrompt?: string;
+}) => {
+  try {
+    const result = await fal.subscribe("fal-ai/ltx-video/image-to-video", {
+      input: {
+        image_url: params.imageUrl,
+        prompt: params.prompt,
+        negative_prompt: params.negativePrompt || "low quality, bad anatomy, worst quality, deformed, distorted, disfigured",
+        guidance_scale: 8.5,
+        num_inference_steps: 50,
+        motion_bucket_id: 127
+      },
+    });
+
+    if (result.data?.video?.url) {
+      return {
+        success: true,
+        videoUrl: result.data.video.url
+      };
+    } else {
+      return {
+        success: false,
+        error: "No video URL in response"
+      };
     }
-  };
+  } catch (error) {
+    console.error("Error generating video:", error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+};
 
+export const falClient = fal;
+
+// Export a custom hook for FAL client operations
+export const useFalClient = () => {
   return {
-    imageUrl,
-    seed,
-    isGenerating,
-    error,
-    generate
+    falClient,
+    generateVideoFromImage
   };
-}
-
-// Hook for image-to-video generation
-export function useImageToVideo(): ImageToVideoResult {
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
-
-  const generate = async (input: ImageToVideoInput) => {
-    setIsGenerating(true);
-    setError(null);
-    
-    try {
-      console.log("Starting video generation from image:", input.image_url);
-      
-      // First, check and deduct credits
-      const canGenerate = await deductVideoCredit(VIDEO_COST);
-      if (!canGenerate) {
-        throw new Error("Insufficient video credits");
-      }
-      
-      // Use type assertion to bypass type checking for API interface
-      const result = await fal.subscribe(ltxImageToVideoUrl, input as any);
-      
-      if (result?.data?.video?.url) {
-        setVideoUrl(result.data.video.url);
-        console.log("Video generated successfully");
-        
-        // Store the generated video in user history if userId exists
-        const userId = await getUserId();
-        if (userId) {
-          try {
-            await supabase.from('user_content_history').insert({
-              user_id: userId,
-              content_type: 'video',
-              content_url: result.data.video.url,
-              prompt: "Generated from image",
-              metadata: {
-                source_image_url: input.image_url,
-                cameraMode: input.cameraMode,
-                framesPerSecond: input.framesPerSecond,
-                modelType: input.modelType
-              }
-            });
-            console.log("Video saved to history");
-          } catch (historyError) {
-            console.error("Failed to save video to history:", historyError);
-          }
-        }
-      } else {
-        throw new Error("No video was returned from the API");
-      }
-    } catch (e) {
-      console.error("Error generating video:", e);
-      setError(e instanceof Error ? e.message : "Unknown error occurred");
-      toast({
-        title: "Video Generation Failed",
-        description: e instanceof Error ? e.message : "An unknown error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  return {
-    videoUrl,
-    isGenerating,
-    error,
-    generate
-  };
-}
+};

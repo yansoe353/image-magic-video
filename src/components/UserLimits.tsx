@@ -6,13 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { setUserLimits, isAdmin, getAllUsers, AppUser } from "@/utils/authUtils";
+import { setUserCredits, isAdmin, getAllUsers, AppUser } from "@/utils/authUtils";
 import { BarChart } from "lucide-react";
 
 const UserLimits = () => {
   const { userId } = useParams<{ userId: string }>();
-  const [imageLimit, setImageLimit] = useState<number>(100);
-  const [videoLimit, setVideoLimit] = useState<number>(20);
+  const [imageCredits, setImageCredits] = useState<number>(100);
+  const [videoCredits, setVideoCredits] = useState<number>(100);
   const [isLoading, setIsLoading] = useState(false);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
   const [user, setUser] = useState<AppUser | null>(null);
@@ -29,7 +29,7 @@ const UserLimits = () => {
       if (!adminStatus) {
         toast({
           title: "Access Denied",
-          description: "You need admin privileges to edit user limits",
+          description: "You need admin privileges to edit user credits",
           variant: "destructive",
         });
         navigate("/");
@@ -43,8 +43,8 @@ const UserLimits = () => {
         
         if (foundUser) {
           setUser(foundUser);
-          setImageLimit(foundUser.imageLimit || 100);
-          setVideoLimit(foundUser.videoLimit || 20);
+          setImageCredits(foundUser.imageCredits || 100);
+          setVideoCredits(foundUser.videoCredits || 100);
         } else {
           toast({
             title: "Error",
@@ -62,10 +62,10 @@ const UserLimits = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (imageLimit < 0 || videoLimit < 0) {
+    if (imageCredits < 0 || videoCredits < 0) {
       toast({
         title: "Error",
-        description: "Limits cannot be negative",
+        description: "Credits cannot be negative",
         variant: "destructive",
       });
       return;
@@ -74,26 +74,26 @@ const UserLimits = () => {
     setIsLoading(true);
     
     try {
-      const success = await setUserLimits(userId!, imageLimit, videoLimit);
+      const success = await setUserCredits(userId!, imageCredits, videoCredits);
       
       if (success) {
         toast({
           title: "Success",
-          description: "User limits updated successfully",
+          description: "User credits updated successfully",
         });
         navigate("/users");
       } else {
         toast({
           title: "Error",
-          description: "Failed to update user limits",
+          description: "Failed to update user credits",
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error("Error updating user limits:", error);
+      console.error("Error updating user credits:", error);
       toast({
         title: "Error",
-        description: "An error occurred while updating the user limits",
+        description: "An error occurred while updating the user credits",
         variant: "destructive",
       });
     } finally {
@@ -111,9 +111,9 @@ const UserLimits = () => {
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-2xl font-bold">User Generation Limits</CardTitle>
+              <CardTitle className="text-2xl font-bold">User Generation Credits</CardTitle>
               <CardDescription>
-                Set content generation limits for {user.name || user.email}
+                Set content generation credits for {user.name || user.email}
               </CardDescription>
             </div>
             <BarChart className="h-10 w-10 text-muted-foreground" />
@@ -123,25 +123,25 @@ const UserLimits = () => {
           <form onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="imageLimit">Image Generation Limit</Label>
+                <Label htmlFor="imageCredits">Image Generation Credits</Label>
                 <Input
-                  id="imageLimit"
+                  id="imageCredits"
                   type="number"
                   min="0"
-                  value={imageLimit}
-                  onChange={(e) => setImageLimit(parseInt(e.target.value) || 0)}
+                  value={imageCredits}
+                  onChange={(e) => setImageCredits(parseInt(e.target.value) || 0)}
                   required
                 />
                 <p className="text-xs text-muted-foreground">Maximum number of images this user can generate</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="videoLimit">Video Generation Limit</Label>
+                <Label htmlFor="videoCredits">Video Generation Credits</Label>
                 <Input
-                  id="videoLimit"
+                  id="videoCredits"
                   type="number"
                   min="0"
-                  value={videoLimit}
-                  onChange={(e) => setVideoLimit(parseInt(e.target.value) || 0)}
+                  value={videoCredits}
+                  onChange={(e) => setVideoCredits(parseInt(e.target.value) || 0)}
                   required
                 />
                 <p className="text-xs text-muted-foreground">Maximum number of videos this user can generate</p>
@@ -157,7 +157,7 @@ const UserLimits = () => {
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save Limits"}
+                {isLoading ? "Saving..." : "Save Credits"}
               </Button>
             </CardFooter>
           </form>
