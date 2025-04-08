@@ -11,8 +11,6 @@ import { Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// Additional imports would be here
-
 const StoryToVideo = () => {
   const [story, setStory] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -28,7 +26,6 @@ const StoryToVideo = () => {
     updateCounts();
   }, []);
 
-  // This is a placeholder for the actual implementation
   const generateVideoFromStory = async () => {
     if (!story.trim()) {
       toast({
@@ -39,7 +36,6 @@ const StoryToVideo = () => {
       return;
     }
 
-    // Check if user has enough credits
     if (counts.remainingImages < STORY_IMAGE_COST || counts.remainingVideos < STORY_VIDEO_COST) {
       toast({
         title: "Insufficient Credits",
@@ -52,14 +48,11 @@ const StoryToVideo = () => {
     setIsGenerating(true);
 
     try {
-      // Placeholder for actual implementation
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Deduct credits after successful generation
       await deductImageCredit(STORY_IMAGE_COST);
       await deductVideoCredit(STORY_VIDEO_COST);
       
-      // Update counts
       const freshCounts = await getRemainingCounts();
       setCounts(freshCounts);
       
@@ -160,7 +153,7 @@ const StoryToVideo = () => {
                 
                 <UsageLimits 
                   remainingCredits={Math.min(counts.remainingImages, counts.remainingVideos)} 
-                  creditType="story" 
+                  creditType="video" 
                 />
                 
                 <Button

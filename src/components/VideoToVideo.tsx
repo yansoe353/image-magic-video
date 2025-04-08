@@ -48,7 +48,6 @@ const VideoToVideo = () => {
   useEffect(() => {
     const checkApi = async () => {
       try {
-        await fal.checkConnection();
         setApiAvailable(true);
       } catch (error) {
         setApiAvailable(false);
@@ -175,10 +174,7 @@ const VideoToVideo = () => {
 
       // Initialize the realtime connection first
       const connection = await fal.realtime.connect("fal-ai/mmaudio-v2", {
-        connection: {
-          autoReconnect: true,
-          maxRetries: 3,
-        },
+        connectionKey: "video-generation",
         onResult: (result) => {
           if (result.video?.url) {
             handleGenerationSuccess(result.video.url);
@@ -200,12 +196,7 @@ const VideoToVideo = () => {
         setProgress(20);
 
         try {
-          const uploadResult = await fal.storage.upload(videoFile, {
-            timeout: 30000,
-            onUploadProgress: (uploadProgress) => {
-              setProgress(20 + Math.floor(uploadProgress * 60)); // 20-80% for upload
-            },
-          });
+          const uploadResult = await fal.storage.upload(videoFile);
           videoInputUrl = uploadResult.url;
         } catch (uploadError) {
           throw new Error(`Failed to upload video: ${uploadError.message}`);
