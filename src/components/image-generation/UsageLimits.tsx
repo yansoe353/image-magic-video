@@ -3,27 +3,26 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
 interface UsageLimitsProps {
-  remainingCredits: number;
-  totalCredits: number;
-  type?: "image" | "video";
+  remainingImages: number;
+  imageLimit: number;
 }
 
-export const UsageLimits = ({ remainingCredits, totalCredits, type = "image" }: UsageLimitsProps) => {
+export const UsageLimits = ({ remainingImages, imageLimit }: UsageLimitsProps) => {
   return (
     <>
-      {remainingCredits <= 10 && (
+      {remainingImages <= 10 && (
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Credit Limit Warning</AlertTitle>
+          <AlertTitle>Usage Limit Warning</AlertTitle>
           <AlertDescription>
-            You have {remainingCredits} {type} credit{remainingCredits === 1 ? '' : 's'} remaining.
+            You have {remainingImages} image generation{remainingImages === 1 ? '' : 's'} remaining.
           </AlertDescription>
         </Alert>
       )}
       
-      {remainingCredits > 0 && (
+      {remainingImages > 0 && (
         <p className="text-xs text-slate-500 text-center">
-          {remainingCredits} of {totalCredits} {type} credits remaining
+          {remainingImages} of {imageLimit} image generations remaining
         </p>
       )}
     </>

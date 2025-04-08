@@ -1,15 +1,16 @@
+
 import { useState, useEffect } from "react";
-import { createFalClient } from '@fal-ai/client';
+import * as fal from '@fal-ai/client';
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { getUserId } from "@/utils/storageUtils";
-import { incrementImageCount, incrementVideoCount } from "@/utils/usageTracker";
 
 // Initialize the FAL client with the environment variable
 const falApiKey = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA"; // Hardcoded API key
-// Create a FAL client instance
-const fal = createFalClient({ credentials: falApiKey });
+fal.config({
+  credentials: falApiKey,
+});
 
 // LTX Text to Image model
 const ltxTextToImageProxyUrl = "110602490-lcm-sd15-i2i/fast"; // Lt. Create model
@@ -72,31 +73,14 @@ export function useTextToImage(): TextToImageResult {
     try {
       console.log("Starting image generation with prompt:", input.prompt);
       
-      // First, try to decrement credits before generating the image
-      const hasCredits = await incrementImageCount();
-      if (!hasCredits) {
-        toast({
-          title: "Usage Limit Reached",
-          description: "You've reached your image generation limit or are out of credits.",
-          variant: "destructive",
-        });
-        setError("No image credits available");
-        setIsGenerating(false);
-        return;
-      }
+      const result = await fal.subscribe(ltxTextToImageProxyUrl, input);
       
-      // Correctly call fal.subscribe with proper typing
-      const result = await fal.subscribe(ltxTextToImageProxyUrl, {
-        input: input,
-      });
-      
-      // Access the data properly from the result with proper type checking
-      if (result.data?.images?.[0]?.url) {
-        setImageUrl(result.data.images[0].url);
+      if (result?.images?.[0]) {
+        setImageUrl(result.images[0]);
         console.log("Image generated successfully");
         
-        if (result.data.seed) {
-          setSeed(result.data.seed);
+        if (result.seed) {
+          setSeed(result.seed);
         }
         
         // Store the generated image in user history if userId exists
@@ -106,10 +90,10 @@ export function useTextToImage(): TextToImageResult {
             await supabase.from('user_content_history').insert({
               user_id: userId,
               content_type: 'image',
-              content_url: result.data.images[0].url,
+              content_url: result.images[0],
               prompt: input.prompt,
               metadata: {
-                seed: result.data.seed,
+                seed: result.seed,
                 negative_prompt: input.negative_prompt,
                 width: input.width,
                 height: input.height
@@ -120,11 +104,6 @@ export function useTextToImage(): TextToImageResult {
             console.error("Failed to save image to history:", historyError);
           }
         }
-        
-        toast({
-          title: "Success",
-          description: "Image generated successfully!",
-        });
       } else {
         throw new Error("No image was returned from the API");
       }
@@ -164,33 +143,16 @@ export function useImageToVideo(): ImageToVideoResult {
     try {
       console.log("Starting video generation from image:", input.image_url);
       
-      // First, try to decrement credits before generating the video
-      const hasCredits = await incrementVideoCount();
-      if (!hasCredits) {
-        toast({
-          title: "Usage Limit Reached",
-          description: "You've reached your video generation limit or are out of credits.",
-          variant: "destructive",
-        });
-        setError("No video credits available");
-        setIsGenerating(false);
-        return;
-      }
-      
-      // Correctly call fal.subscribe with proper typing for video generation
       const result = await fal.subscribe(ltxImageToVideoUrl, {
-        input: {
-          image_url: input.image_url,
-          cameraMode: input.cameraMode || "Default",
-          framesPerSecond: input.framesPerSecond || 6,
-          modelType: input.modelType || "svd",
-          seed: input.seed || Math.floor(Math.random() * 1000000)
-        }
+        image_url: input.image_url,
+        cameraMode: input.cameraMode || "Default",
+        framesPerSecond: input.framesPerSecond || 6,
+        modelType: input.modelType || "svd",
+        seed: input.seed || Math.floor(Math.random() * 1000000)
       });
       
-      // Access the data properly from the result
-      if (result.data?.video_url) {
-        setVideoUrl(result.data.video_url);
+      if (result?.video_url) {
+        setVideoUrl(result.video_url);
         console.log("Video generated successfully");
         
         // Store the generated video in user history if userId exists
@@ -200,7 +162,7 @@ export function useImageToVideo(): ImageToVideoResult {
             await supabase.from('user_content_history').insert({
               user_id: userId,
               content_type: 'video',
-              content_url: result.data.video_url,
+              content_url: result.video_url,
               prompt: "Generated from image",
               metadata: {
                 source_image_url: input.image_url,
@@ -214,11 +176,6 @@ export function useImageToVideo(): ImageToVideoResult {
             console.error("Failed to save video to history:", historyError);
           }
         }
-        
-        toast({
-          title: "Success",
-          description: "Video generated successfully!",
-        });
       } else {
         throw new Error("No video was returned from the API");
       }
