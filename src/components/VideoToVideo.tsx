@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,11 @@ import { getUserId } from "@/utils/storageUtils";
 import { incrementVideoCount } from "@/utils/usageTracker";
 import { cn } from "@/lib/utils";
 
+// Configuration constants
+const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
+const MAX_DURATION = 10; // seconds
+const DEFAULT_DURATION = 4; // Default duration in seconds
+
 const VideoToVideo = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string>("");
@@ -25,43 +30,41 @@ const VideoToVideo = () => {
   const [progress, setProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [requestId, setRequestId] = useState<string | null>(null);
+  const [apiAvailable, setApiAvailable] = useState(true);
   const [config, setConfig] = useState({
-    modelName: "xl", // 'xl' or 'base' as per API docs
+    modelName: "base", // Default to base model for smaller payloads
     numSteps: 25,
-    duration: 8,
-    cfgScale: 4.5, // Changed from cfgStrength to cfgScale
+    duration: DEFAULT_DURATION,
+    cfgScale: 4.5,
     seed: Math.floor(Math.random() * 1000000),
-    maskAway: false, // Changed from maskAwayClip to maskAway
+    maskAway: false,
   });
 
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
   const videoInputRef = useRef<HTMLInputElement>(null);
-  
+
+  // Check API availability on mount
+  useEffect(() => {
+    const checkApi = async () => {
+      try {
+        await fal.checkConnection();
+        setApiAvailable(true);
+      } catch (error) {
+        setApiAvailable(false);
+        setError("API service is currently unavailable. Please try again later.");
+      }
+    };
+    checkApi();
+  }, []);
+
   const handleFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setError(null);
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
-      if (!file.type.startsWith("video/")) {
-        setError("Invalid file type. Please upload a video file.");
-        toast({
-          title: "Invalid file type",
-          description: "Please upload a video file.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      if (file.size > 50 * 1024 * 1024) {
-        setError("Video file must be smaller than 50MB");
-        return;
-      }
-      
-      setVideoFile(file);
-      setVideoUrl(URL.createObjectURL(file));
+      await validateAndSetVideoFile(file);
     }
   };
   
@@ -69,91 +72,188 @@ const VideoToVideo = () => {
     setError(null);
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      if (!file.type.startsWith("video/")) {
-        setError("Invalid file type. Please upload a video file.");
-        return;
-      }
-      
-      if (file.size > 50 * 1024 * 1024) {
-        setError("Video file must be smaller than 50MB");
-        return;
-      }
-      
-      setVideoFile(file);
-      setVideoUrl(URL.createObjectURL(file));
+      await validateAndSetVideoFile(file);
     }
   };
-  
-  const checkRequestStatus = async (requestId: string) => {
-    try {
-      const status = await fal.queue.status("fal-ai/mmaudio-v2", {
-        requestId,
-        logs: true,
-      });
-      
-      if (status.logs) {
-        const newLogs = status.logs.map(log => log.message);
-        setGenerationLogs(prev => [...prev, ...newLogs.filter(log => !prev.includes(log))]);
-      }
-      
-      if (status.status === "COMPLETED") {
-        const result = await fal.queue.result("fal-ai/mmaudio-v2", { requestId });
-        if (result.data?.video?.url) {
-          handleGenerationSuccess(result.data.video.url);
-        } else {
-          throw new Error("No video URL in response");
-        }
-      } else if (status.status === "FAILED") {
-        throw new Error("Video generation failed");
-      } else {
-        setTimeout(() => checkRequestStatus(requestId), 2000);
-      }
-    } catch (error) {
-      handleGenerationError(error);
+
+  const validateAndSetVideoFile = async (file: File) => {
+    if (!file.type.startsWith("video/")) {
+      setError("Invalid file type. Please upload a video file.");
+      return;
+    }
+    
+    if (file.size > MAX_FILE_SIZE) {
+      setError(`Video file must be smaller than ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
+      return;
+    }
+
+    const duration = await getVideoDuration(file);
+    if (duration > MAX_DURATION) {
+      setError(`Video must be shorter than ${MAX_DURATION} seconds`);
+      return;
+    }
+
+    setVideoFile(file);
+    setVideoUrl(URL.createObjectURL(file));
+    // Auto-adjust duration to match video length if it's shorter
+    if (duration < config.duration) {
+      setConfig(prev => ({ ...prev, duration: Math.floor(duration) }));
     }
   };
-  
+
+  const getVideoDuration = (file: File): Promise<number> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        resolve(video.duration);
+        URL.revokeObjectURL(video.src);
+      };
+      video.src = URL.createObjectURL(file);
+    });
+  };
+
   const handleGenerationSuccess = async (resultUrl: string) => {
     setGeneratedVideoUrl(resultUrl);
     setProgress(100);
     
-    const userId = await getUserId();
-    if (userId) {
-      await supabase.from('user_content_history').insert({
-        user_id: userId,
-        content_type: 'video',
-        content_url: resultUrl,
-        prompt: prompt,
-        metadata: {
-          model: 'fal-ai/mmaudio-v2',
-          config: {
-            ...config,
-            negative_prompt: negativePrompt,
+    try {
+      const userId = await getUserId();
+      if (userId) {
+        await supabase.from('user_content_history').insert({
+          user_id: userId,
+          content_type: 'video',
+          content_url: resultUrl,
+          prompt: prompt,
+          metadata: {
+            model: 'fal-ai/mmaudio-v2',
+            config: {
+              ...config,
+              negative_prompt: negativePrompt,
+            }
           }
-        }
+        });
+      }
+      
+      await incrementVideoCount();
+      
+      toast({
+        title: "Success",
+        description: "Video generated successfully!",
       });
+    } catch (dbError) {
+      console.error("Failed to save generation history:", dbError);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleGenerateVideo = async () => {
+    if (!apiAvailable) {
+      setError("API service is currently unavailable. Please try again later.");
+      return;
+    }
+
+    if (!videoUrl) {
+      setError("Please upload a video first.");
+      return;
     }
     
-    await incrementVideoCount();
-    
-    toast({
-      title: "Success",
-      description: "Video generated successfully!",
-    });
-    
-    setIsGenerating(false);
+    if (!prompt) {
+      setError("Please enter a prompt for the video generation.");
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+    setGenerationLogs([]);
+    setProgress(0);
+
+    try {
+      setGenerationLogs(prev => [...prev, "Initializing video generation..."]);
+      setProgress(10);
+
+      // Initialize the realtime connection first
+      const connection = await fal.realtime.connect("fal-ai/mmaudio-v2", {
+        connection: {
+          autoReconnect: true,
+          maxRetries: 3,
+        },
+        onResult: (result) => {
+          if (result.video?.url) {
+            handleGenerationSuccess(result.video.url);
+          }
+        },
+        onError: (error) => {
+          handleGenerationError(error);
+        },
+        onLog: (log) => {
+          setGenerationLogs(prev => [...prev, log.message]);
+        },
+      });
+
+      // Handle file upload if we have a file
+      let videoInputUrl = videoUrl;
+      if (videoFile) {
+        setGenerationLogs(prev => [...prev, "Uploading video file..."]);
+        setIsUploading(true);
+        setProgress(20);
+
+        try {
+          const uploadResult = await fal.storage.upload(videoFile, {
+            timeout: 30000,
+            onUploadProgress: (uploadProgress) => {
+              setProgress(20 + Math.floor(uploadProgress * 60)); // 20-80% for upload
+            },
+          });
+          videoInputUrl = uploadResult.url;
+        } catch (uploadError) {
+          throw new Error(`Failed to upload video: ${uploadError.message}`);
+        } finally {
+          setIsUploading(false);
+        }
+      }
+
+      setGenerationLogs(prev => [...prev, "Starting video generation..."]);
+      setProgress(80);
+
+      // Send the generation request
+      await connection.send({
+        model_name: config.modelName,
+        video_url: videoInputUrl,
+        prompt,
+        negative_prompt: negativePrompt || undefined,
+        num_steps: config.numSteps,
+        duration: config.duration,
+        cfg_scale: config.cfgScale,
+        seed: config.seed,
+        mask_away: config.maskAway,
+      });
+
+      setProgress(90);
+    } catch (error) {
+      handleGenerationError(error);
+    }
   };
-  
+
   const handleGenerationError = (error: any) => {
     console.error("Video generation failed:", error);
     let errorMessage = "Failed to generate video. Please try again.";
-    
-    if (error.response?.data?.detail) {
-      errorMessage = JSON.stringify(error.response.data.detail);
+
+    if (error.status === 401) {
+      errorMessage = "Authentication failed. Please check your API key.";
+    } else if (error.status === 413) {
+      errorMessage = `Request too large. Please use videos smaller than ${MAX_FILE_SIZE / (1024 * 1024)}MB and shorter than ${MAX_DURATION} seconds.`;
+    } else if (error.message?.includes('duration')) {
+      errorMessage = error.message;
+    } else if (error.response?.data?.detail) {
+      errorMessage = typeof error.response.data.detail === 'string' 
+        ? error.response.data.detail
+        : JSON.stringify(error.response.data.detail);
     } else if (error.message) {
       errorMessage = error.message;
     }
-    
+
     setError(errorMessage);
     setGenerationLogs(prev => [...prev, `Error: ${errorMessage}`]);
     
@@ -164,106 +264,20 @@ const VideoToVideo = () => {
     });
     
     setIsGenerating(false);
-  };
-  
-  const handleGenerateVideo = async () => {
-    if (!videoUrl) {
-      setError("Please upload a video first.");
-      return;
-    }
-    
-    if (!prompt) {
-      setError("Please enter a prompt for the video generation.");
-      return;
-    }
-    
-    setIsGenerating(true);
-    setError(null);
-    setGenerationLogs([]);
     setProgress(0);
-    setRequestId(null);
-    
-    try {
-      let videoInput: string | Uint8Array;
-      
-      if (videoFile) {
-        setGenerationLogs(prev => [...prev, "Preparing video file..."]);
-        setIsUploading(true);
-        
-        try {
-          const arrayBuffer = await videoFile.arrayBuffer();
-          videoInput = new Uint8Array(arrayBuffer);
-          setGenerationLogs(prev => [...prev, "Video prepared successfully."]);
-        } catch (error) {
-          console.error("Error preparing video:", error);
-          throw new Error("Failed to prepare video file.");
-        } finally {
-          setIsUploading(false);
-        }
-      } else {
-        videoInput = videoUrl;
-      }
-      
-      setGenerationLogs(prev => [...prev, "Starting video generation..."]);
-      setProgress(10);
-      
-      const modelInput = {
-        model_name: config.modelName,
-        video: videoInput,
-        prompt,
-        ...(negativePrompt && { negative_prompt: negativePrompt }),
-        num_steps: config.numSteps,
-        duration: config.duration,
-        cfg_scale: config.cfgScale,
-        seed: config.seed,
-        mask_away: config.maskAway,
-      };
-      
-      console.log("API Request Payload:", modelInput); // Debug log
-      
-      setGenerationLogs(prev => [...prev, "Submitting request to fal.ai..."]);
-      setProgress(20);
-      
-      const result = await fal.subscribe("fal-ai/mmaudio-v2", {
-        input: modelInput,
-        logs: true,
-        onQueueUpdate: (update) => {
-          if (update.status === "IN_PROGRESS") {
-            const logs = update.logs?.map((log) => log.message) || [];
-            setGenerationLogs(prev => [...prev, ...logs.filter(log => !prev.includes(log))]);
-            
-            if (logs.some(log => log.includes("Generating"))) {
-              setProgress(40);
-            } else if (logs.some(log => log.includes("Processing"))) {
-              setProgress(60);
-            }
-          }
-        },
-      });
-      
-      setRequestId(result.requestId);
-      
-      if (result.data?.video?.url) {
-        await handleGenerationSuccess(result.data.video.url);
-      } else {
-        throw new Error("No video URL in response");
-      }
-    } catch (error: any) {
-      handleGenerationError(error);
-    }
   };
-  
+
   const handleConfigChange = <K extends keyof typeof config>(key: K, value: typeof config[K]) => {
     setConfig(prev => ({
       ...prev,
       [key]: value,
     }));
   };
-  
+
   const handleGenerateRandomSeed = () => {
     handleConfigChange('seed', Math.floor(Math.random() * 1000000));
   };
-  
+
   return (
     <div className="space-y-6">
       <Card>
@@ -307,6 +321,7 @@ const VideoToVideo = () => {
                     src={videoUrl} 
                     className="w-full h-full object-contain" 
                     controls 
+                    ref={videoRef}
                   />
                   <Button
                     variant="destructive"
@@ -323,7 +338,7 @@ const VideoToVideo = () => {
               )}
               
               <p className="text-xs text-slate-500 mt-1">
-                Supported formats: MP4, WebM, AVI, MOV (max 50MB)
+                Supported formats: MP4, WebM, AVI, MOV (max {MAX_FILE_SIZE / (1024 * 1024)}MB, up to {MAX_DURATION}s)
               </p>
             </div>
             
@@ -363,11 +378,11 @@ const VideoToVideo = () => {
                   onChange={(e) => handleConfigChange('modelName', e.target.value)}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
+                  <option value="base">Base (Faster, smaller files)</option>
                   <option value="xl">XL (Higher Quality)</option>
-                  <option value="base">Base (Faster)</option>
                 </select>
                 <p className="text-xs text-slate-500 mt-1">
-                  XL produces higher quality but is slower
+                  {config.modelName === 'base' ? 'Faster generation with smaller file sizes' : 'Higher quality but requires more resources'}
                 </p>
               </div>
               
@@ -383,7 +398,7 @@ const VideoToVideo = () => {
                   className="my-2"
                 />
                 <p className="text-xs text-slate-500">
-                  More steps = higher quality, but slower generation
+                  More steps = higher quality, but slower generation (10-50)
                 </p>
               </div>
               
@@ -393,13 +408,13 @@ const VideoToVideo = () => {
                   id="duration"
                   value={[config.duration]}
                   min={1}
-                  max={30}
+                  max={MAX_DURATION}
                   step={0.5}
                   onValueChange={(value) => handleConfigChange('duration', value[0])}
                   className="my-2"
                 />
                 <p className="text-xs text-slate-500">
-                  How long the generated video should be (in seconds)
+                  Shorter durations process faster (1-{MAX_DURATION}s)
                 </p>
               </div>
               
@@ -415,7 +430,7 @@ const VideoToVideo = () => {
                   className="my-2"
                 />
                 <p className="text-xs text-slate-500">
-                  How closely to follow the prompt (higher = more precise)
+                  How closely to follow the prompt (1-10)
                 </p>
               </div>
               
@@ -455,13 +470,14 @@ const VideoToVideo = () => {
             
             <Button
               onClick={handleGenerateVideo}
-              disabled={isGenerating || !videoUrl || !prompt}
+              disabled={isGenerating || !videoUrl || !prompt || !apiAvailable}
               className="w-full"
             >
               {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating Video...
+                  {isUploading ? "Uploading Video..." : "Generating Video..."}
+                  <span className="ml-2">{progress}%</span>
                 </>
               ) : (
                 <>
@@ -489,9 +505,6 @@ const VideoToVideo = () => {
                     style={{ width: `${progress}%` }}
                   />
                 </div>
-                <p className="text-sm text-slate-600">
-                  {isUploading ? "Uploading video..." : "Generating video..."}
-                </p>
                 
                 <div className="mt-4 p-4 bg-slate-100 rounded-lg max-h-40 overflow-y-auto">
                   {generationLogs.map((log, index) => (
