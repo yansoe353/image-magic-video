@@ -2,10 +2,15 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUser } from "./authUtils";
 
-// Define constants for usage limits
+// Define constants for usage limits (default values)
 export const IMAGE_LIMIT = 100;
-export const VIDEO_LIMIT = 20;
+export const VIDEO_LIMIT = 100;
 export const RUNWAY_VIDEO_LIMIT = 5;
+
+// Credit costs for different operations
+export const IMAGE_CREDIT_COST = 1;
+export const VIDEO_CREDIT_COST = 5;
+export const STORY_VIDEO_CREDIT_COST = 1;
 
 // Define interface for usage tracking
 export interface ApiKeyUsage {
@@ -13,15 +18,26 @@ export interface ApiKeyUsage {
   videoCount: number;
   runwayVideoCount?: number;
   userId?: string;
+  imageCredits?: number;
+  videoCredits?: number;
 }
 
-// Get usage from supabase for current user
+// Get usage from user profile in Supabase
 export const getApiKeyUsage = async (): Promise<ApiKeyUsage | null> => {
   const user = await getCurrentUser();
   if (!user) return null;
   
   try {
-    // Get user's generation counts from user_content_history
+    // Get user's credits from profiles table
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('image_credits, video_credits')
+      .eq('id', user.id)
+      .single();
+    
+    if (profileError) throw profileError;
+    
+    // Get historical usage counts from user_content_history
     const { data: imageData, error: imageError } = await supabase
       .from('user_content_history')
       .select('id')
@@ -52,7 +68,9 @@ export const getApiKeyUsage = async (): Promise<ApiKeyUsage | null> => {
       imageCount: imageData?.length || 0,
       videoCount: videoData?.length || 0,
       runwayVideoCount: runwayVideoData?.length || 0,
-      userId: user.id
+      userId: user.id,
+      imageCredits: profileData?.image_credits || IMAGE_LIMIT,
+      videoCredits: profileData?.video_credits || VIDEO_LIMIT
     };
   } catch (error) {
     console.error("Error getting API key usage data:", error);
@@ -61,36 +79,103 @@ export const getApiKeyUsage = async (): Promise<ApiKeyUsage | null> => {
 };
 
 export const getUserLimits = async (): Promise<{ imageLimit: number; videoLimit: number }> => {
-  const user = await getCurrentUser();
-  if (!user) {
-    return { imageLimit: IMAGE_LIMIT, videoLimit: VIDEO_LIMIT }; // Use constants
+  const usage = await getApiKeyUsage();
+  
+  if (!usage) {
+    return { imageLimit: IMAGE_LIMIT, videoLimit: VIDEO_LIMIT };
   }
   
   return {
-    imageLimit: user.imageLimit || IMAGE_LIMIT,
-    videoLimit: user.videoLimit || VIDEO_LIMIT
+    imageLimit: usage.imageCredits || IMAGE_LIMIT,
+    videoLimit: usage.videoCredits || VIDEO_LIMIT
   };
 };
 
+// Decrement image credits
+export const decrementImageCredits = async (amount: number = IMAGE_CREDIT_COST): Promise<boolean> => {
+  const user = await getCurrentUser();
+  if (!user) return false;
+  
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('image_credits')
+      .eq('id', user.id)
+      .single();
+    
+    if (!profile || profile.image_credits < amount) {
+      return false;
+    }
+    
+    const { error } = await supabase
+      .from('profiles')
+      .update({ 
+        image_credits: profile.image_credits - amount,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user.id);
+    
+    if (error) {
+      console.error("Failed to decrement image credits:", error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error decrementing image credits:", error);
+    return false;
+  }
+};
+
+// Decrement video credits
+export const decrementVideoCredits = async (amount: number = VIDEO_CREDIT_COST): Promise<boolean> => {
+  const user = await getCurrentUser();
+  if (!user) return false;
+  
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('video_credits')
+      .eq('id', user.id)
+      .single();
+    
+    if (!profile || profile.video_credits < amount) {
+      return false;
+    }
+    
+    const { error } = await supabase
+      .from('profiles')
+      .update({ 
+        video_credits: profile.video_credits - amount,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user.id);
+    
+    if (error) {
+      console.error("Failed to decrement video credits:", error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error decrementing video credits:", error);
+    return false;
+  }
+};
+
+// Check if user can generate more images
 export const incrementImageCount = async (): Promise<boolean> => {
-  // Don't increment count, as it will be handled by history entries
-  // Just check if user can generate more images
-  const { remainingImages } = await getRemainingCountsAsync();
-  return remainingImages > 0;
+  return await decrementImageCredits(IMAGE_CREDIT_COST);
 };
 
+// Check if user can generate more videos
 export const incrementVideoCount = async (): Promise<boolean> => {
-  // Don't increment count, as it will be handled by history entries
-  // Just check if user can generate more videos
-  const { remainingVideos } = await getRemainingCountsAsync();
-  return remainingVideos > 0;
+  return await decrementVideoCredits(VIDEO_CREDIT_COST);
 };
 
+// Check if user can generate more Runway videos
 export const incrementRunwayVideoCount = async (): Promise<boolean> => {
-  // Don't increment count, as it will be handled by history entries
-  // Just check if user can generate more Runway videos
-  const { remainingRunwayVideos } = await getRemainingCountsAsync();
-  return (remainingRunwayVideos || 0) > 0;
+  return await decrementVideoCredits(VIDEO_CREDIT_COST);
 };
 
 // Get remaining counts (synchronous version with default values)
@@ -114,20 +199,19 @@ export const getRemainingCountsAsync = async (): Promise<{
   remainingRunwayVideos?: number; 
 }> => {
   const usage = await getApiKeyUsage();
-  const { imageLimit, videoLimit } = await getUserLimits();
   
   if (!usage) {
     return { 
-      remainingImages: imageLimit, 
-      remainingVideos: videoLimit,
+      remainingImages: IMAGE_LIMIT, 
+      remainingVideos: VIDEO_LIMIT,
       remainingRunwayVideos: RUNWAY_VIDEO_LIMIT
     };
   }
   
   return {
-    remainingImages: Math.max(0, imageLimit - usage.imageCount),
-    remainingVideos: Math.max(0, videoLimit - usage.videoCount),
-    remainingRunwayVideos: Math.max(0, RUNWAY_VIDEO_LIMIT - (usage.runwayVideoCount || 0))
+    remainingImages: Math.max(0, usage.imageCredits || 0),
+    remainingVideos: Math.max(0, usage.videoCredits || 0),
+    remainingRunwayVideos: Math.max(0, RUNWAY_VIDEO_LIMIT)
   };
 };
 

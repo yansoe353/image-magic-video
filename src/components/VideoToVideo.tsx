@@ -76,7 +76,6 @@ const VideoToVideo = () => {
     try {
       const status = await fal.queue.status("fal-ai/mmaudio-v2", {
         requestId,
-        logs: true,
       });
       
       if (status.logs) {
@@ -86,7 +85,7 @@ const VideoToVideo = () => {
       
       if (status.status === "COMPLETED") {
         const result = await fal.queue.result("fal-ai/mmaudio-v2", { requestId });
-        if (result.data?.video?.url) {
+        if (result?.data?.video?.url) {
           handleGenerationSuccess(result.data.video.url);
         } else {
           throw new Error("No video URL in response");
@@ -176,7 +175,8 @@ const VideoToVideo = () => {
         setIsUploading(true);
         
         try {
-          uploadedVideoUrl = await fal.storage.upload(videoFile);
+          const uploadResult = await fal.storage.upload(videoFile);
+          uploadedVideoUrl = uploadResult || ""; // Ensure we have a string
           setGenerationLogs(prev => [...prev, "Video uploaded successfully."]);
         } catch (error) {
           console.error("Error uploading video:", error);
@@ -207,7 +207,6 @@ const VideoToVideo = () => {
       // Submit request to fal.ai
       const result = await fal.subscribe("fal-ai/mmaudio-v2", {
         input: modelInput,
-        logs: true,
         onQueueUpdate: (update) => {
           if (update.status === "IN_PROGRESS") {
             const logs = update.logs?.map((log) => log.message) || [];
@@ -225,7 +224,7 @@ const VideoToVideo = () => {
       
       setRequestId(result.requestId);
       
-      if (result.data?.video?.url) {
+      if (result?.data?.video?.url) {
         await handleGenerationSuccess(result.data.video.url);
       } else {
         throw new Error("No video URL in response");
