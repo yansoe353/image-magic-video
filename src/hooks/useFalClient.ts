@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { createClient } from '@fal-ai/client';
+import { createFalClient } from '@fal-ai/client';
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/hooks/use-toast";
@@ -9,7 +9,7 @@ import { getUserId } from "@/utils/storageUtils";
 // Initialize the FAL client with the environment variable
 const falApiKey = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA"; // Hardcoded API key
 // Create a FAL client instance
-const fal = createClient({ key: falApiKey });
+const fal = createFalClient({ key: falApiKey });
 
 // LTX Text to Image model
 const ltxTextToImageProxyUrl = "110602490-lcm-sd15-i2i/fast"; // Lt. Create model
