@@ -73,17 +73,18 @@ export function useTextToImage(): TextToImageResult {
       console.log("Starting image generation with prompt:", input.prompt);
       
       // Use the ltxTextToImageProxyUrl endpoint with proper parameter structure
-      const result = await fal.run(ltxTextToImageProxyUrl, {
+      const result = await fal.run({
+        modelId: ltxTextToImageProxyUrl,
         input: input
       });
       
       // Access the data properly from the result
-      if (result.images?.[0]) {
-        setImageUrl(result.images[0]);
+      if (result.data?.images?.[0]) {
+        setImageUrl(result.data.images[0]);
         console.log("Image generated successfully");
         
-        if (result.seed) {
-          setSeed(result.seed);
+        if (result.data.seed) {
+          setSeed(result.data.seed);
         }
         
         // Store the generated image in user history if userId exists
@@ -93,10 +94,10 @@ export function useTextToImage(): TextToImageResult {
             await supabase.from('user_content_history').insert({
               user_id: userId,
               content_type: 'image',
-              content_url: result.images[0],
+              content_url: result.data.images[0],
               prompt: input.prompt,
               metadata: {
-                seed: result.seed,
+                seed: result.data.seed,
                 negative_prompt: input.negative_prompt,
                 width: input.width,
                 height: input.height
@@ -147,7 +148,8 @@ export function useImageToVideo(): ImageToVideoResult {
       console.log("Starting video generation from image:", input.image_url);
       
       // Use the ltxImageToVideoUrl endpoint with proper parameter structure
-      const result = await fal.run(ltxImageToVideoUrl, {
+      const result = await fal.run({
+        modelId: ltxImageToVideoUrl,
         input: {
           image_url: input.image_url,
           cameraMode: input.cameraMode || "Default",
@@ -158,8 +160,8 @@ export function useImageToVideo(): ImageToVideoResult {
       });
       
       // Access the data properly from the result
-      if (result.video_url) {
-        setVideoUrl(result.video_url);
+      if (result.data?.video_url) {
+        setVideoUrl(result.data.video_url);
         console.log("Video generated successfully");
         
         // Store the generated video in user history if userId exists
@@ -169,7 +171,7 @@ export function useImageToVideo(): ImageToVideoResult {
             await supabase.from('user_content_history').insert({
               user_id: userId,
               content_type: 'video',
-              content_url: result.video_url,
+              content_url: result.data.video_url,
               prompt: "Generated from image",
               metadata: {
                 source_image_url: input.image_url,
