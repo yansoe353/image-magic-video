@@ -432,7 +432,7 @@ const StoryToVideo = () => {
 
       fal.config({ credentials: apiKey });
 
-      const result = await fal.subscribe("fal-ai/kling-video/v1/standard/image-to-video", {
+      const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
         input: {
           prompt: scene.imagePrompt,
           image_url: scene.imageUrl,
