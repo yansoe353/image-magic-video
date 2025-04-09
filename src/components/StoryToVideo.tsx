@@ -20,8 +20,6 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import jsPDF from 'jspdf';
-import { franc } from 'franc';
 
 interface StoryScene {
   text: string;
@@ -76,7 +74,7 @@ const StoryToVideo = () => {
     setIsGeneratingStory(true);
     try {
       const response = await generateResponse(
-        `Create detailed character descriptions for a story about: "${storyPrompt}".
+        `Create detailed character descriptions for a story about: "${storyPrompt}". 
         Provide this information in valid JSON format only:
         {
           "mainCharacter": "Detailed description including age, gender, appearance, clothing and distinctive features",
@@ -84,7 +82,7 @@ const StoryToVideo = () => {
           "environment": "Description of the main setting/environment",
           "styleNotes": "Specific visual style requirements"
         }
-
+        
         Important: Only return valid JSON without any additional text or explanations.`
       );
 
@@ -107,9 +105,9 @@ const StoryToVideo = () => {
       }
 
       if (
-        typeof parsedResponse === 'object' &&
+        typeof parsedResponse === 'object' && 
         parsedResponse !== null &&
-        (parsedResponse.mainCharacter ||
+        (parsedResponse.mainCharacter || 
          parsedResponse.secondaryCharacters ||
          parsedResponse.environment ||
          parsedResponse.styleNotes)
@@ -143,11 +141,11 @@ const StoryToVideo = () => {
     let cleaned = response.replace(/```json|```/g, '').trim();
     const firstBrace = cleaned.indexOf('{');
     const lastBrace = cleaned.lastIndexOf('}');
-
+    
     if (firstBrace >= 0 && lastBrace > firstBrace) {
       cleaned = cleaned.slice(firstBrace, lastBrace + 1);
     }
-
+    
     return cleaned;
   };
 
@@ -179,11 +177,6 @@ const StoryToVideo = () => {
     throw new Error("Unable to parse story response");
   };
 
-  const detectLanguage = (text: string): string => {
-    const langCode = franc(text);
-    return langCode;
-  };
-
   const generateStory = async () => {
     if (!storyPrompt) {
       toast({
@@ -200,17 +193,14 @@ const StoryToVideo = () => {
 
     try {
       const numScenes = parseInt(sceneCount);
-      const characterContext = characterDetails.mainCharacter
+      const characterContext = characterDetails.mainCharacter 
         ? `Main Character: ${characterDetails.mainCharacter}\n` +
           `Secondary Characters: ${characterDetails.secondaryCharacters || 'none'}\n` +
           `Environment: ${characterDetails.environment || 'unspecified'}\n` +
           `Style: ${characterDetails.styleNotes || 'unspecified'}\n\n`
         : '';
 
-      const language = detectLanguage(storyPrompt);
-      const languagePrompt = language === 'my' ? 'in Myanmar language' : '';
-
-      const geminiPrompt = `${characterContext}Create a ${numScenes}-scene story about: "${storyPrompt}" ${languagePrompt}.
+      const geminiPrompt = `${characterContext}Create a ${numScenes}-scene story about: "${storyPrompt}".
 
       Requirements:
       1. Maintain strict consistency with provided character details
@@ -218,13 +208,13 @@ const StoryToVideo = () => {
       3. For each scene provide:
          - Narrative text (include character actions/dialogue)
          - Detailed image prompt that maintains visual consistency
-
+      
       Image Prompt Guidelines:
       - Always reference the established character details
       - Maintain consistent clothing/hairstyles/features
       - Keep environment/style coherent
       - Use same character names if provided
-
+      
       Format response as a JSON array following this exact structure:
       [
         {
@@ -232,7 +222,7 @@ const StoryToVideo = () => {
           "imagePrompt": "Detailed prompt with consistent characters..."
         }
       ]
-
+      
       Important: Only return valid JSON without any other text or markdown.`;
 
       const response = await generateResponse(geminiPrompt);
@@ -240,13 +230,13 @@ const StoryToVideo = () => {
 
       try {
         const parsedStory = parseStoryResponse(response);
-
+        
         if (!Array.isArray(parsedStory)) {
           throw new Error("Response was not an array");
         }
 
-        const isValidStory = parsedStory.every(scene =>
-          typeof scene.text === 'string' &&
+        const isValidStory = parsedStory.every(scene => 
+          typeof scene.text === 'string' && 
           typeof scene.imagePrompt === 'string'
         );
 
@@ -256,7 +246,7 @@ const StoryToVideo = () => {
 
         const enhancedStory = parsedStory.map(scene => ({
           text: scene.text,
-          imagePrompt: characterDetails.mainCharacter
+          imagePrompt: characterDetails.mainCharacter 
             ? `${characterDetails.mainCharacter}. ${scene.imagePrompt}`
             : scene.imagePrompt
         }));
@@ -290,11 +280,11 @@ const StoryToVideo = () => {
       });
 
       const numScenes = parseInt(sceneCount);
-      const fallbackPrompt = `Create a simple ${numScenes}-scene story about "${storyPrompt}".
+      const fallbackPrompt = `Create a simple ${numScenes}-scene story about "${storyPrompt}". 
         Each scene should have:
         1. A paragraph of story text
         2. An image description
-
+        
         Return as JSON array like: [{"text":"...","imagePrompt":"..."}]`;
 
       const fallbackResponse = await generateResponse(fallbackPrompt);
@@ -360,7 +350,7 @@ const StoryToVideo = () => {
 
       falService.initialize(apiKey);
 
-      const enhancedPrompt = characterDetails.mainCharacter
+      const enhancedPrompt = characterDetails.mainCharacter 
         ? `${characterDetails.mainCharacter}. ${scene.imagePrompt} in ${imageStyle} style`
         : `${scene.imagePrompt} in ${imageStyle} style`;
 
@@ -453,7 +443,7 @@ const StoryToVideo = () => {
       });
 
       const videoUrl = result.video_url || result.data?.video?.url;
-
+      
       if (videoUrl) {
         const newVideoUrls = [...videoUrls];
         newVideoUrls[sceneIndex] = videoUrl;
@@ -492,31 +482,6 @@ const StoryToVideo = () => {
     }
   };
 
-  const downloadStoryText = () => {
-    const doc = new jsPDF();
-    generatedStory.forEach((scene, index) => {
-      doc.text(`Scene ${index + 1}:`, 10, 10 + index * 20);
-      doc.text(scene.text, 10, 15 + index * 20);
-    });
-    doc.save('story.pdf');
-  };
-
-  const downloadImage = async (index) => {
-    const scene = generatedStory[index];
-    if (scene.imageUrl) {
-      const response = await fetch(scene.imageUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = `scene_${index + 1}.png`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-    }
-  };
-
   const CharacterDetailsForm = () => (
     <Card className="mt-4">
       <CardContent className="p-6 space-y-4">
@@ -524,7 +489,7 @@ const StoryToVideo = () => {
           <User className="mr-2 h-5 w-5" />
           Character Details
         </h3>
-
+        
         <div>
           <Label>Main Character</Label>
           <Textarea
@@ -566,13 +531,13 @@ const StoryToVideo = () => {
         </div>
 
         <div className="flex gap-2">
-          <Button
+          <Button 
             onClick={() => setShowCharacterForm(false)}
             variant="outline"
           >
             Done
           </Button>
-          <Button
+          <Button 
             onClick={generateCharacterTemplate}
             disabled={!storyPrompt || isGeneratingStory}
           >
@@ -700,14 +665,6 @@ const StoryToVideo = () => {
             <h2 className="text-xl font-bold mb-4">{storyTitle}</h2>
 
             <Button
-              onClick={downloadStoryText}
-              className="w-full mt-4"
-              variant="outline"
-            >
-              Download Story Text
-            </Button>
-
-            <Button
               onClick={() => setEditMode(!editMode)}
               disabled={isGeneratingStory}
               className="w-full mt-4"
@@ -798,16 +755,6 @@ const StoryToVideo = () => {
                         >
                           <ImageIcon className="mr-2 h-4 w-4" />
                           Generate Image ({counts.remainingImages} remaining)
-                        </Button>
-
-                        <Button
-                          onClick={() => downloadImage(index)}
-                          disabled={!scene.imageUrl}
-                          className="mt-2 w-full"
-                          variant="outline"
-                        >
-                          <ImageIcon className="mr-2 h-4 w-4" />
-                          Download Image
                         </Button>
                       </div>
 
