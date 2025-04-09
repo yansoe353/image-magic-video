@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { fal } from "@fal-ai/client";
+import { createClient } from '@fal-ai/client';
 import { isLoggedIn } from "@/utils/authUtils";
 import { useNavigate } from "react-router-dom";
 import ApiKeyDialog from "./api-key/ApiKeyDialog";
@@ -27,9 +27,8 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
   const storedApiKey = localStorage.getItem("falApiKey");
   if (storedApiKey) {
     try {
-      fal.config({
-        credentials: storedApiKey
-      });
+      // Just test creating a client with the API key
+      createClient({ credentials: storedApiKey });
       onApiKeySet(true);
     } catch (error) {
       console.error("Error initializing fal.ai client:", error);
@@ -70,10 +69,8 @@ const ApiKeyInput = ({ onApiKeySet }: ApiKeyInputProps) => {
     try {
       localStorage.setItem("falApiKey", apiKey);
 
-      // Configure fal client with the new API key
-      fal.config({
-        credentials: apiKey
-      });
+      // Test if the API key works by creating a client
+      createClient({ credentials: apiKey });
 
       onApiKeySet(true);
       setApiKeyDialogOpen(false);

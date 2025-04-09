@@ -1,5 +1,6 @@
 
-import * as fal from '@fal-ai/client';
+// Import fal-ai client properly
+import { createClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -15,8 +16,11 @@ export const IMAGEN_3_MODEL = "fal-ai/imagen3/fast";
 class FalService {
   private apiKey: string = DEFAULT_API_KEY;
   private isInitialized: boolean = false;
+  private falClient: ReturnType<typeof createClient>;
 
   constructor() {
+    // Create fal client with default API key
+    this.falClient = createClient({ credentials: this.apiKey });
     this.initialize();
   }
 
@@ -25,10 +29,8 @@ class FalService {
       // Use provided key or try to get from localStorage
       this.apiKey = apiKey || localStorage.getItem("falApiKey") || DEFAULT_API_KEY;
       
-      // Initialize client - directly use the credentials property
-      fal.default.config({
-        credentials: this.apiKey,
-      });
+      // Initialize client with the right credentials
+      this.falClient = createClient({ credentials: this.apiKey });
       
       this.isInitialized = true;
       console.log("FAL client initialized successfully");
@@ -61,7 +63,7 @@ class FalService {
     }
 
     try {
-      const result = await fal.default.run({
+      const result = await this.falClient.run({
         model: TEXT_TO_IMAGE_MODEL,
         input: {
           prompt,
@@ -92,7 +94,7 @@ class FalService {
     }
 
     try {
-      const result = await fal.default.run({
+      const result = await this.falClient.run({
         model: IMAGE_TO_VIDEO_MODEL,
         input: {
           image_url,
@@ -124,7 +126,7 @@ class FalService {
     }
 
     try {
-      const result = await fal.default.run({
+      const result = await this.falClient.run({
         model: VIDEO_TO_VIDEO_MODEL,
         input,
         connectionKey: `video-to-video-${Date.now()}`
@@ -144,7 +146,7 @@ class FalService {
     }
 
     try {
-      const result = await fal.default.run({
+      const result = await this.falClient.run({
         model: IMAGEN_3_MODEL,
         input: {
           prompt,
@@ -226,5 +228,6 @@ class FalService {
 // Create and export a singleton instance
 export const falService = new FalService();
 
-// Re-export the original fal module for direct access when needed
-export { fal };
+// Re-export the createClient function for direct access when needed
+export { createClient };
+
