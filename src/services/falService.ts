@@ -1,5 +1,5 @@
 
-import * as falModule from '@fal-ai/client';
+import * as fal from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -26,7 +26,7 @@ class FalService {
       this.apiKey = apiKey || localStorage.getItem("falApiKey") || DEFAULT_API_KEY;
       
       // Initialize client
-      falModule.realtime.config({
+      fal.config({
         credentials: this.apiKey,
       });
       
@@ -61,11 +61,13 @@ class FalService {
     }
 
     try {
-      const result = await falModule.realtime.connect(TEXT_TO_IMAGE_MODEL, {
-        connectionKey: `text-to-image-${Date.now()}`,
-        onResult: (result) => console.log("Image generation progress:", result),
-        ...options,
-        prompt,
+      const result = await fal.run({
+        model: TEXT_TO_IMAGE_MODEL,
+        input: {
+          prompt,
+          ...options
+        },
+        connectionKey: `text-to-image-${Date.now()}`
       });
 
       return result;
@@ -90,11 +92,13 @@ class FalService {
     }
 
     try {
-      const result = await falModule.realtime.connect(IMAGE_TO_VIDEO_MODEL, {
-        connectionKey: `image-to-video-${Date.now()}`,
-        onResult: (result) => console.log("Video generation progress:", result),
-        ...options,
-        image_url,
+      const result = await fal.run({
+        model: IMAGE_TO_VIDEO_MODEL,
+        input: {
+          image_url,
+          ...options
+        },
+        connectionKey: `image-to-video-${Date.now()}`
       });
 
       return result;
@@ -120,10 +124,10 @@ class FalService {
     }
 
     try {
-      const result = await falModule.realtime.connect(VIDEO_TO_VIDEO_MODEL, {
-        connectionKey: `video-to-video-${Date.now()}`,
-        onResult: (result) => console.log("Video processing progress:", result),
+      const result = await fal.run({
+        model: VIDEO_TO_VIDEO_MODEL,
         input,
+        connectionKey: `video-to-video-${Date.now()}`
       });
 
       return result;
@@ -140,15 +144,15 @@ class FalService {
     }
 
     try {
-      const result = await falModule.realtime.connect(IMAGEN_3_MODEL, {
-        connectionKey: `imagen3-${Date.now()}`,
-        onResult: (result) => console.log("Image generation progress:", result),
+      const result = await fal.run({
+        model: IMAGEN_3_MODEL,
         input: {
           prompt,
           aspect_ratio: options.aspect_ratio || "1:1",
           negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
-          ...options,
+          ...options
         },
+        connectionKey: `imagen3-${Date.now()}`
       });
 
       return result;
@@ -223,4 +227,4 @@ class FalService {
 export const falService = new FalService();
 
 // Re-export the original fal module for direct access when needed
-export { falModule };
+export { fal };
