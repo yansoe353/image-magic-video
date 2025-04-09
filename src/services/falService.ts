@@ -1,3 +1,4 @@
+
 // Import fal-ai client properly
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
@@ -11,6 +12,16 @@ export const TEXT_TO_IMAGE_MODEL = "110602490-lcm-sd15-i2i/fast"; // Lt. Create 
 export const IMAGE_TO_VIDEO_MODEL = "110602490-ltx-animation/run"; 
 export const VIDEO_TO_VIDEO_MODEL = "fal-ai/mmaudio-v2";
 export const IMAGEN_3_MODEL = "fal-ai/imagen3/fast";
+
+interface FalRunResult {
+  images?: { url: string }[];
+  seed?: number;
+  video_url?: string;
+  data?: {
+    images?: { url: string }[];
+    video?: { url: string };
+  };
+}
 
 class FalService {
   private apiKey: string = DEFAULT_API_KEY;
@@ -56,19 +67,19 @@ class FalService {
       seed?: number;
       strength?: number;
     } = {}
-  ) {
+  ): Promise<FalRunResult> {
     if (!this.isInitialized) {
       this.initialize();
     }
 
     try {
       const result = await this.falClient.run({
-        model: TEXT_TO_IMAGE_MODEL,
+        model_id: TEXT_TO_IMAGE_MODEL,
         input: {
           prompt,
           ...options
         },
-        connectionKey: `text-to-image-${Date.now()}`
+        connection_key: `text-to-image-${Date.now()}`
       });
 
       return result;
@@ -87,19 +98,19 @@ class FalService {
       modelType?: string;
       seed?: number;
     } = {}
-  ) {
+  ): Promise<FalRunResult> {
     if (!this.isInitialized) {
       this.initialize();
     }
 
     try {
       const result = await this.falClient.run({
-        model: IMAGE_TO_VIDEO_MODEL,
+        model_id: IMAGE_TO_VIDEO_MODEL,
         input: {
           image_url,
           ...options
         },
-        connectionKey: `image-to-video-${Date.now()}`
+        connection_key: `image-to-video-${Date.now()}`
       });
 
       return result;
@@ -119,16 +130,16 @@ class FalService {
     cfg_strength?: number;
     seed?: number;
     mask_away_clip?: boolean;
-  }) {
+  }): Promise<FalRunResult> {
     if (!this.isInitialized) {
       this.initialize();
     }
 
     try {
       const result = await this.falClient.run({
-        model: VIDEO_TO_VIDEO_MODEL,
+        model_id: VIDEO_TO_VIDEO_MODEL,
         input,
-        connectionKey: `video-to-video-${Date.now()}`
+        connection_key: `video-to-video-${Date.now()}`
       });
 
       return result;
@@ -139,21 +150,21 @@ class FalService {
   }
 
   // Image generation with Imagen 3
-  async generateImageWithImagen3(prompt: string, options: any = {}) {
+  async generateImageWithImagen3(prompt: string, options: any = {}): Promise<FalRunResult> {
     if (!this.isInitialized) {
       this.initialize();
     }
 
     try {
       const result = await this.falClient.run({
-        model: IMAGEN_3_MODEL,
+        model_id: IMAGEN_3_MODEL,
         input: {
           prompt,
           aspect_ratio: options.aspect_ratio || "1:1",
           negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
           ...options
         },
-        connectionKey: `imagen3-${Date.now()}`
+        connection_key: `imagen3-${Date.now()}`
       });
 
       return result;

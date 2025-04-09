@@ -1,5 +1,4 @@
 
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
@@ -80,12 +79,14 @@ export function useTextToImage(): TextToImageResult {
         strength: input.strength
       });
       
-      if (result?.images?.[0]) {
-        setImageUrl(result.images[0]);
+      if (result?.images?.[0]?.url || result?.data?.images?.[0]?.url) {
+        const imageUrl = result?.images?.[0]?.url || result?.data?.images?.[0]?.url;
+        setImageUrl(imageUrl);
         console.log("Image generated successfully");
         
-        if (result.seed) {
-          setSeed(result.seed);
+        const resultSeed = result?.seed || 0;
+        if (resultSeed) {
+          setSeed(resultSeed);
         }
         
         // Store the generated image in user history if userId exists
@@ -93,11 +94,11 @@ export function useTextToImage(): TextToImageResult {
         if (userId) {
           await falService.saveToHistory(
             'image',
-            result.images[0],
+            imageUrl,
             input.prompt,
             false, // isPublic
             {
-              seed: result.seed,
+              seed: resultSeed,
               negative_prompt: input.negative_prompt,
               width: input.width,
               height: input.height
@@ -156,14 +157,15 @@ export function useImageToVideo(): ImageToVideoResult {
         seed: input.seed
       });
       
-      if (result?.video_url) {
-        setVideoUrl(result.video_url);
+      if (result?.video_url || result?.data?.video?.url) {
+        const videoUrl = result?.video_url || result?.data?.video?.url;
+        setVideoUrl(videoUrl);
         console.log("Video generated successfully");
         
         // Store the generated video in user history if userId exists
         await falService.saveToHistory(
           'video',
-          result.video_url,
+          videoUrl,
           "Generated from image",
           false,
           {

@@ -338,7 +338,6 @@ const StoryToVideo = () => {
         return;
       }
 
-      // Check if user can generate more images before starting generation
       const canGenerate = await incrementImageCount();
       if (!canGenerate) {
         toast({
@@ -349,7 +348,6 @@ const StoryToVideo = () => {
         return;
       }
 
-      // Initialize the service with user's API key
       falService.initialize(apiKey);
 
       const enhancedPrompt = characterDetails.mainCharacter 
@@ -363,11 +361,9 @@ const StoryToVideo = () => {
         updatedStory[sceneIndex] = { ...updatedStory[sceneIndex], imageUrl: result.data.images[0].url };
         setGeneratedStory(updatedStory);
 
-        // Update counts after successful generation
         const freshCounts = await getRemainingCountsAsync();
         setCounts(freshCounts);
 
-        // Store the generated image in user history if userId exists
         await falService.saveToHistory(
           'image',
           result.data.images[0].url,
@@ -440,22 +436,22 @@ const StoryToVideo = () => {
         return;
       }
 
-      // Initialize the service with user's API key
       falService.initialize(apiKey);
 
       const result = await falService.generateVideoFromImage(scene.imageUrl, {
         seed: Math.floor(Math.random() * 1000000)
       });
 
-      if (result.video_url) {
+      const videoUrl = result.video_url || result.data?.video?.url;
+      
+      if (videoUrl) {
         const newVideoUrls = [...videoUrls];
-        newVideoUrls[sceneIndex] = result.video_url;
+        newVideoUrls[sceneIndex] = videoUrl;
         setVideoUrls(newVideoUrls);
 
-        // Save to history
         await falService.saveToHistory(
           'video',
-          result.video_url,
+          videoUrl,
           scene.imagePrompt,
           isPublic,
           {
@@ -465,13 +461,14 @@ const StoryToVideo = () => {
           }
         );
 
-        // Update counts after successful generation
         setCounts(await getRemainingCountsAsync());
 
         toast({
           title: "Success",
           description: "Video generated from scene!",
         });
+      } else {
+        throw new Error("No video URL in response");
       }
     } catch (error) {
       console.error("Video generation failed:", error);
