@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,7 +21,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import jsPDF from 'jspdf';
-import franc from 'franc';
+import { franc } from 'franc';
 
 interface StoryScene {
   text: string;
@@ -93,7 +92,7 @@ const StoryToVideo = () => {
       try {
         parsedResponse = JSON.parse(response.trim());
       } catch (e) {
-        const codeBlockMatch = response.match(/```(?\:json)?\s*([\s\S]*?)\s*```/);
+        const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
         if (codeBlockMatch) {
           parsedResponse = JSON.parse(codeBlockMatch[1].trim());
         } else {
@@ -159,7 +158,6 @@ const StoryToVideo = () => {
     } catch (e) {}
 
     try {
-      // Fix the regex pattern for code block extraction
       const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       if (codeBlockMatch) {
         const extracted = codeBlockMatch[1].trim();
