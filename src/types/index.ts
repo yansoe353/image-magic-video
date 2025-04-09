@@ -1,4 +1,3 @@
-
 export interface StoryScene {
   text: string;
   imagePrompt: string;
@@ -10,4 +9,5 @@ export interface CharacterDetails {
   secondaryCharacters?: string;
   environment?: string;
   styleNotes?: string;
+  [key: string]: string | undefined;
 }

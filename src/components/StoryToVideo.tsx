@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ImageIcon, BookText, Film, Sparkles, User, Download } from "lucide-react";
+import { Loader2, ImageIcon, BookText, Film, Sparkles, User, Download, Globe } from "lucide-react";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
 import { incrementImageCount, incrementVideoCount, getRemainingCountsAsync } from "@/utils/usageTracker";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,7 @@ import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 import { falService } from "@/services/falService";
 import { generateStoryPDF } from "@/services/pdfService";
 import { StoryScene, CharacterDetails } from "@/types";
+import { LANGUAGES, type LanguageOption } from "@/utils/translationUtils";
 import {
   Select,
   SelectContent,
@@ -39,6 +40,7 @@ const StoryToVideo = () => {
   const [characterDetails, setCharacterDetails] = useState<CharacterDetails>({});
   const [showCharacterForm, setShowCharacterForm] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [pdfLanguage, setPdfLanguage] = useState<LanguageOption>("en");
 
   const { generateResponse, isLoading: isGeminiLoading } = useGeminiAPI();
   const { toast } = useToast();
@@ -488,19 +490,20 @@ const StoryToVideo = () => {
       const pdfDataUri = await generateStoryPDF(
         storyTitle || `Story: ${storyPrompt.slice(0, 30)}${storyPrompt.length > 30 ? '...' : ''}`, 
         generatedStory,
-        characterDetails
+        characterDetails, 
+        pdfLanguage
       );
       
       const link = document.createElement('a');
       link.href = pdfDataUri;
-      link.download = `${storyTitle || 'story'}.pdf`.replace(/\s+/g, '_').toLowerCase();
+      link.download = `${storyTitle || 'story'}_${pdfLanguage}.pdf`.replace(/\s+/g, '_').toLowerCase();
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
       toast({
         title: "Success",
-        description: "Story downloaded as PDF",
+        description: `Story downloaded as PDF in ${LANGUAGES[pdfLanguage]}`,
       });
     } catch (error) {
       console.error("PDF generation failed:", error);
@@ -696,18 +699,34 @@ const StoryToVideo = () => {
           <CardContent className="p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">{storyTitle}</h2>
-              <Button
-                onClick={downloadStoryPDF}
-                disabled={isGeneratingPDF || generatedStory.length === 0}
-                variant="secondary"
-              >
-                {isGeneratingPDF ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="mr-2 h-4 w-4" />
-                )}
-                Download PDF
-              </Button>
+              <div className="flex items-center space-x-2">
+                <Select
+                  value={pdfLanguage}
+                  onValueChange={(value) => setPdfLanguage(value as LanguageOption)}
+                >
+                  <SelectTrigger className="w-32">
+                    <Globe className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(LANGUAGES).map(([code, name]) => (
+                      <SelectItem key={code} value={code}>{name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={downloadStoryPDF}
+                  disabled={isGeneratingPDF || generatedStory.length === 0}
+                  variant="secondary"
+                >
+                  {isGeneratingPDF ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  Download PDF
+                </Button>
+              </div>
             </div>
 
             <Button

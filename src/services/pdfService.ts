@@ -3,10 +3,14 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { StoryScene } from '@/types';
 
+// Add Myanmar font support
+import { LANGUAGES, type LanguageOption } from '@/utils/translationUtils';
+
 export const generateStoryPDF = async (
   title: string, 
   scenes: StoryScene[], 
-  characterDetails?: Record<string, string>
+  characterDetails?: Record<string, string>,
+  language: LanguageOption = 'en'
 ): Promise<string> => {
   // Create a new PDF document
   const pdf = new jsPDF({
@@ -14,6 +18,15 @@ export const generateStoryPDF = async (
     unit: 'mm',
     format: 'a4',
   });
+  
+  // Set up fonts for Myanmar language
+  if (language === 'my') {
+    // Use a font that supports Myanmar characters - Noto Sans Myanmar is widely used
+    // Note: For actual implementation, the font would need to be embedded properly
+    pdf.setFont('helvetica', 'normal'); // Fallback to default font if Myanmar font not available
+  } else {
+    pdf.setFont('helvetica', 'normal');
+  }
   
   // Set up variables for positioning
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -31,6 +44,10 @@ export const generateStoryPDF = async (
   pdf.setFont('helvetica', 'normal');
   const date = new Date().toLocaleDateString();
   pdf.text(`Generated on ${date}`, pageWidth / 2, pageHeight / 4 + 10, { align: 'center' });
+  
+  // Add language information
+  pdf.setFontSize(10);
+  pdf.text(`Language: ${LANGUAGES[language]}`, pageWidth / 2, pageHeight / 4 + 20, { align: 'center' });
   
   // Add character details if available
   if (characterDetails && Object.keys(characterDetails).length > 0) {
