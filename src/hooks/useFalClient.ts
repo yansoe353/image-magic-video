@@ -79,11 +79,13 @@ export function useTextToImage(): TextToImageResult {
         strength: input.strength
       });
       
-      if (result?.images?.[0]?.url || result?.data?.images?.[0]?.url) {
-        const imageUrl = result?.images?.[0]?.url || result?.data?.images?.[0]?.url;
-        setImageUrl(imageUrl);
+      // Handle either direct images array or nested in data
+      const imageData = result?.images?.[0]?.url || result?.data?.images?.[0]?.url;
+      if (imageData) {
+        setImageUrl(imageData);
         console.log("Image generated successfully");
         
+        // Handle seed if available
         const resultSeed = result?.seed || 0;
         if (resultSeed) {
           setSeed(resultSeed);
@@ -94,7 +96,7 @@ export function useTextToImage(): TextToImageResult {
         if (userId) {
           await falService.saveToHistory(
             'image',
-            imageUrl,
+            imageData,
             input.prompt,
             false, // isPublic
             {
@@ -157,15 +159,16 @@ export function useImageToVideo(): ImageToVideoResult {
         seed: input.seed
       });
       
-      if (result?.video_url || result?.data?.video?.url) {
-        const videoUrl = result?.video_url || result?.data?.video?.url;
-        setVideoUrl(videoUrl);
+      // Handle either direct video_url or nested in data.video.url
+      const videoData = result?.video_url || result?.data?.video?.url;
+      if (videoData) {
+        setVideoUrl(videoData);
         console.log("Video generated successfully");
         
-        // Store the generated video in user history if userId exists
+        // Store the generated video in user history
         await falService.saveToHistory(
           'video',
-          videoUrl,
+          videoData,
           "Generated from image",
           false,
           {

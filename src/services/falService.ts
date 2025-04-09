@@ -17,6 +17,7 @@ interface FalRunResult {
   images?: { url: string }[];
   seed?: number;
   video_url?: string;
+  requestId?: string;
   data?: {
     images?: { url: string }[];
     video?: { url: string };
@@ -78,8 +79,9 @@ class FalService {
         input: {
           prompt,
           ...options
-        },
-        connection_key: `text-to-image-${Date.now()}`
+        }
+      }, {
+        connectionKey: `text-to-image-${Date.now()}`
       });
 
       return result;
@@ -109,8 +111,9 @@ class FalService {
         input: {
           image_url,
           ...options
-        },
-        connection_key: `image-to-video-${Date.now()}`
+        }
+      }, {
+        connectionKey: `image-to-video-${Date.now()}`
       });
 
       return result;
@@ -138,8 +141,9 @@ class FalService {
     try {
       const result = await this.falClient.run({
         model_id: VIDEO_TO_VIDEO_MODEL,
-        input,
-        connection_key: `video-to-video-${Date.now()}`
+        input
+      }, {
+        connectionKey: `video-to-video-${Date.now()}`
       });
 
       return result;
@@ -163,8 +167,9 @@ class FalService {
           aspect_ratio: options.aspect_ratio || "1:1",
           negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
           ...options
-        },
-        connection_key: `imagen3-${Date.now()}`
+        }
+      }, {
+        connectionKey: `imagen3-${Date.now()}`
       });
 
       return result;
