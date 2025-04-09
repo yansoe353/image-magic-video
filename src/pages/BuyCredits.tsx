@@ -77,20 +77,22 @@ const BuyCredits = () => {
       }
       
       // Create payment request in database
-      const { error } = await supabase.from("payment_requests").insert({
-        user_id: userId,
-        package_id: selectedPackage,
-        amount: selectedPkg?.price || 0,
-        payment_method: paymentMethod,
-        reference_number: transactionId,
-        payment_details: {
-          name,
-          email,
-          phone,
-          additional_info: additionalInfo,
-          selected_package: selectedPkg
-        }
-      });
+      const { error } = await supabase
+        .from("payment_requests")
+        .insert({
+          user_id: userId,
+          package_id: selectedPackage,
+          amount: selectedPkg?.price || 0,
+          payment_method: paymentMethod,
+          reference_number: transactionId,
+          payment_details: {
+            name,
+            email,
+            phone,
+            additional_info: additionalInfo,
+            selected_package: selectedPkg
+          }
+        });
       
       if (error) {
         throw error;

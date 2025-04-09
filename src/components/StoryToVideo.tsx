@@ -12,7 +12,7 @@ import { incrementImageCount, incrementVideoCount, getRemainingCountsAsync } fro
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
-import { fal } from "@fal-ai/client";
+import * as fal from "@fal-ai/client";
 import {
   Select,
   SelectContent,
@@ -345,16 +345,17 @@ const StoryToVideo = () => {
           description: "You've used all your image generations",
           variant: "destructive",
         });
+        setCurrentGeneratingIndex(null);
         return;
       }
 
-      fal.config({ credentials: apiKey });
+      fal.client.config({ credentials: apiKey });
 
       const enhancedPrompt = characterDetails.mainCharacter 
         ? `${characterDetails.mainCharacter}. ${scene.imagePrompt} in ${imageStyle} style`
         : `${scene.imagePrompt} in ${imageStyle} style`;
 
-      const result = await fal.subscribe("fal-ai/imagen3/fast", {
+      const result = await fal.client.run("fal-ai/imagen3/fast", {
         input: {
           prompt: enhancedPrompt,
           aspect_ratio: "1:1",
@@ -362,12 +363,26 @@ const StoryToVideo = () => {
         },
       });
 
-      if (result.data?.images?.[0]?.url) {
+      if (result?.images?.[0]?.url) {
         const updatedStory = [...generatedStory];
-        updatedStory[sceneIndex] = { ...updatedStory[sceneIndex], imageUrl: result.data.images[0].url };
+        updatedStory[sceneIndex] = { ...updatedStory[sceneIndex], imageUrl: result.images[0].url };
         setGeneratedStory(updatedStory);
 
-        // Update counts after successful generation
+        const userId = await getUserId();
+        if (userId) {
+          await supabase.from('user_content_history').insert({
+            user_id: userId,
+            content_type: 'image',
+            content_url: result.images[0].url,
+            prompt: scene.imagePrompt,
+            is_public: isPublic,
+            metadata: {
+              story_title: storyTitle,
+              scene_text: scene.text
+            }
+          });
+        }
+
         setCounts(await getRemainingCountsAsync());
 
         toast({
@@ -430,9 +445,9 @@ const StoryToVideo = () => {
         return;
       }
 
-      fal.config({ credentials: apiKey });
+      fal.client.config({ credentials: apiKey });
 
-      const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
+      const result = await fal.client.run("fal-ai/kling-video/v1/standard/image-to-video", {
         input: {
           prompt: scene.imagePrompt,
           image_url: scene.imageUrl,
@@ -440,13 +455,12 @@ const StoryToVideo = () => {
           aspect_ratio: "1:1",
           negative_prompt: "blur, distort, low quality",
           cfg_scale: 0.5,
-        },
-        logs: true,
+        }
       });
 
-      if (result.data?.video?.url) {
+      if (result?.video?.url) {
         const newVideoUrls = [...videoUrls];
-        newVideoUrls[sceneIndex] = result.data.video.url;
+        newVideoUrls[sceneIndex] = result.video.url;
         setVideoUrls(newVideoUrls);
 
         const userId = await getUserId();
@@ -454,7 +468,7 @@ const StoryToVideo = () => {
           await supabase.from('user_content_history').insert({
             user_id: userId,
             content_type: 'video',
-            content_url: result.data.video.url,
+            content_url: result.video.url,
             prompt: scene.imagePrompt,
             is_public: isPublic,
             metadata: {
@@ -465,7 +479,6 @@ const StoryToVideo = () => {
           });
         }
 
-        // Update counts after successful generation
         setCounts(await getRemainingCountsAsync());
 
         toast({

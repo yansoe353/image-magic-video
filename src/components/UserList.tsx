@@ -6,14 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { useNavigate } from "react-router-dom";
 import { Plus, Shield, Pencil, Trash, BarChart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
 const UserList = () => {
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -136,7 +128,7 @@ const UserList = () => {
               )}
               <div className="mt-2">
                 <p className="text-xs font-medium">Image Limit: {user.imageLimit || 100}</p>
-                <p className="text-xs font-medium">Video Limit: {user.videoLimit || 50}</p>
+                <p className="text-xs font-medium">Video Limit: {user.videoLimit || 20}</p>
               </div>
             </CardContent>
             <CardFooter className="flex justify-end gap-2">

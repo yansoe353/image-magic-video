@@ -1,15 +1,14 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import * as fal from '@fal-ai/client';
 import { supabase } from "@/integrations/supabase/client";
-import { v4 as uuidv4 } from 'uuid';
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { getUserId } from "@/utils/storageUtils";
 import { incrementImageCount, incrementVideoCount } from "@/utils/usageTracker";
 
 // Initialize the FAL client with the environment variable
 const falApiKey = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA"; // Hardcoded API key
-fal.config({
+fal.client.config({
   credentials: falApiKey,
 });
 
@@ -29,11 +28,6 @@ type ImageGenerationInput = {
   seed?: number;
   strength?: number;
 };
-
-interface ImageGenerationOutput {
-  images: string[];
-  seed: number;
-}
 
 interface TextToImageResult {
   imageUrl: string | null;
@@ -80,10 +74,12 @@ export function useTextToImage(): TextToImageResult {
         throw new Error("You have reached your image generation limit");
       }
       
-      const result = await fal.subscribe(ltxTextToImageProxyUrl, input);
+      const result = await fal.client.run(ltxTextToImageProxyUrl, {
+        input: input
+      });
       
-      if (result?.images?.[0]) {
-        setImageUrl(result.images[0]);
+      if (result?.images?.[0]?.url) {
+        setImageUrl(result.images[0].url);
         console.log("Image generated successfully");
         
         if (result.seed) {
@@ -97,7 +93,7 @@ export function useTextToImage(): TextToImageResult {
             await supabase.from('user_content_history').insert({
               user_id: userId,
               content_type: 'image',
-              content_url: result.images[0],
+              content_url: result.images[0].url,
               prompt: input.prompt,
               metadata: {
                 seed: result.seed,
@@ -156,12 +152,14 @@ export function useImageToVideo(): ImageToVideoResult {
         throw new Error("You have reached your video generation limit");
       }
       
-      const result = await fal.subscribe(ltxImageToVideoUrl, {
-        image_url: input.image_url,
-        cameraMode: input.cameraMode || "Default",
-        framesPerSecond: input.framesPerSecond || 6,
-        modelType: input.modelType || "svd",
-        seed: input.seed || Math.floor(Math.random() * 1000000)
+      const result = await fal.client.run(ltxImageToVideoUrl, {
+        input: {
+          image_url: input.image_url,
+          cameraMode: input.cameraMode || "Default",
+          framesPerSecond: input.framesPerSecond || 6,
+          modelType: input.modelType || "svd",
+          seed: input.seed || Math.floor(Math.random() * 1000000)
+        }
       });
       
       if (result?.video_url) {
