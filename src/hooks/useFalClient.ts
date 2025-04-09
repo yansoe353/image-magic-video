@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { incrementImageCount, incrementVideoCount } from "@/utils/usageTracker";
 
-// Initialize the FAL client
 fal.config({
   credentials: process.env.FAL_KEY || "fal_key_not_configured"
 });

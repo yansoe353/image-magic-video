@@ -74,7 +74,7 @@ const VideoToVideo = () => {
   
   const checkRequestStatus = async (requestId: string) => {
     try {
-      const status = await fal.client.status("fal-ai/mmaudio-v2", requestId);
+      const status = await fal.status("fal-ai/mmaudio-v2", requestId);
       
       if (status.status === "IN_PROGRESS" && status.logs) {
         const newLogs = status.logs.map(log => log.message);
@@ -82,7 +82,7 @@ const VideoToVideo = () => {
       }
       
       if (status.status === "COMPLETED") {
-        const result = await fal.client.result("fal-ai/mmaudio-v2", requestId);
+        const result = await fal.result("fal-ai/mmaudio-v2", requestId);
         if (result.video?.url) {
           handleGenerationSuccess(result.video.url);
         } else {
@@ -176,7 +176,7 @@ const VideoToVideo = () => {
         setIsUploading(true);
         
         try {
-          uploadedVideoUrl = await fal.client.upload(videoFile);
+          uploadedVideoUrl = await fal.upload(videoFile);
           setGenerationLogs(prev => [...prev, "Video uploaded successfully."]);
         } catch (error) {
           console.error("Error uploading video:", error);
@@ -205,7 +205,7 @@ const VideoToVideo = () => {
       setProgress(20);
       
       // Submit request to fal.ai
-      const { requestId, result } = await fal.client.run("fal-ai/mmaudio-v2", {
+      const { requestId, result } = await fal.run("fal-ai/mmaudio-v2", {
         input: modelInput,
         wait_for_result: false,
       });

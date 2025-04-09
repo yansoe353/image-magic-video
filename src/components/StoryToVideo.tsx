@@ -349,13 +349,13 @@ const StoryToVideo = () => {
         return;
       }
 
-      fal.client.config({ credentials: apiKey });
+      fal.config({ credentials: apiKey });
 
       const enhancedPrompt = characterDetails.mainCharacter 
         ? `${characterDetails.mainCharacter}. ${scene.imagePrompt} in ${imageStyle} style`
         : `${scene.imagePrompt} in ${imageStyle} style`;
 
-      const result = await fal.client.run("fal-ai/imagen3/fast", {
+      const result = await fal.run("fal-ai/imagen3/fast", {
         input: {
           prompt: enhancedPrompt,
           aspect_ratio: "1:1",
@@ -445,9 +445,9 @@ const StoryToVideo = () => {
         return;
       }
 
-      fal.client.config({ credentials: apiKey });
+      fal.config({ credentials: apiKey });
 
-      const result = await fal.client.run("fal-ai/kling-video/v1/standard/image-to-video", {
+      const result = await fal.run("fal-ai/kling-video/v1/standard/image-to-video", {
         input: {
           prompt: scene.imagePrompt,
           image_url: scene.imageUrl,
