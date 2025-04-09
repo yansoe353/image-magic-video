@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -158,7 +159,8 @@ const StoryToVideo = () => {
     } catch (e) {}
 
     try {
-      const codeBlockMatch = response.match(/```(?\:json)?\s*([\s\S]*?)\s*```/);
+      // Fix the regex pattern for code block extraction
+      const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       if (codeBlockMatch) {
         const extracted = codeBlockMatch[1].trim();
         const parsed = JSON.parse(extracted);
