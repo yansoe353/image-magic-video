@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { fal } from "@fal-ai/client";
+import * as fal from "@fal-ai/client";
 import { Loader2, ImageIcon } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { incrementImageCount, getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT } from "@/utils/usageTracker";
@@ -20,6 +20,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import ProLabel from "./ProLabel";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
+
+const falClient = fal;
 
 type SupportedLanguage = "en" | "my" | "th";
 
@@ -189,11 +191,11 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         }
       }
 
-      fal.config({
+      falClient.config({
         credentials: apiKey
       });
 
-      const result = await fal.subscribe("fal-ai/imagen3/fast", {
+      const result = await falClient.subscribe("fal-ai/imagen3/fast", {
         input: {
           prompt: promptToUse,
           aspect_ratio: getAspectRatio(imageSize) as "16:9" | "9:16" | "1:1",

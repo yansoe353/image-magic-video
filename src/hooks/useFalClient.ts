@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { incrementImageCount, incrementVideoCount } from "@/utils/usageTracker";
 
-fal.config({
+// Initialize the FAL client
+const falClient = fal;
+falClient.config({
   credentials: process.env.FAL_KEY || "fal_key_not_configured"
 });
 
@@ -56,7 +58,7 @@ export const useFalClient = () => {
 
       const { prompt, negative_prompt = "", guidance_scale = 7, size = "768x768", model_name = "stable-diffusion-xl" } = params;
 
-      const result = await fal.run("fal-ai/fast-sd-image-generator", {
+      const result = await falClient.run("fal-ai/fast-sd-image-generator", {
         input: {
           prompt,
           negative_prompt,
@@ -114,7 +116,7 @@ export const useFalClient = () => {
 
       const { image_url, prompt = "", negative_prompt = "", strength = 0.6, motion_bucket_id = 127, model_name = "kling-video/v1/standard" } = params;
 
-      const result = await fal.run("fal-ai/kling-video", {
+      const result = await falClient.run("fal-ai/kling-video", {
         input: {
           image_url,
           prompt,

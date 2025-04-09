@@ -21,6 +21,8 @@ import {
   SelectValue
 } from "@/components/ui/select";
 
+const falClient = fal;
+
 interface StoryScene {
   text: string;
   imagePrompt: string;
@@ -349,13 +351,13 @@ const StoryToVideo = () => {
         return;
       }
 
-      fal.config({ credentials: apiKey });
+      falClient.config({ credentials: apiKey });
 
       const enhancedPrompt = characterDetails.mainCharacter 
         ? `${characterDetails.mainCharacter}. ${scene.imagePrompt} in ${imageStyle} style`
         : `${scene.imagePrompt} in ${imageStyle} style`;
 
-      const result = await fal.run("fal-ai/imagen3/fast", {
+      const result = await falClient.run("fal-ai/imagen3/fast", {
         input: {
           prompt: enhancedPrompt,
           aspect_ratio: "1:1",
@@ -445,9 +447,9 @@ const StoryToVideo = () => {
         return;
       }
 
-      fal.config({ credentials: apiKey });
+      falClient.config({ credentials: apiKey });
 
-      const result = await fal.run("fal-ai/kling-video/v1/standard/image-to-video", {
+      const result = await falClient.run("fal-ai/kling-video/v1/standard/image-to-video", {
         input: {
           prompt: scene.imagePrompt,
           image_url: scene.imageUrl,

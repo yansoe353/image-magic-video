@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +14,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { incrementVideoCount } from "@/utils/usageTracker";
 import { cn } from "@/lib/utils";
+
+// Use a single instance of the FAL client
+const falClient = fal;
 
 const VideoToVideo = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -74,7 +78,7 @@ const VideoToVideo = () => {
   
   const checkRequestStatus = async (requestId: string) => {
     try {
-      const status = await fal.status("fal-ai/mmaudio-v2", requestId);
+      const status = await falClient.status("fal-ai/mmaudio-v2", requestId);
       
       if (status.status === "IN_PROGRESS" && status.logs) {
         const newLogs = status.logs.map(log => log.message);
@@ -82,7 +86,7 @@ const VideoToVideo = () => {
       }
       
       if (status.status === "COMPLETED") {
-        const result = await fal.result("fal-ai/mmaudio-v2", requestId);
+        const result = await falClient.result("fal-ai/mmaudio-v2", requestId);
         if (result.video?.url) {
           handleGenerationSuccess(result.video.url);
         } else {
@@ -176,7 +180,7 @@ const VideoToVideo = () => {
         setIsUploading(true);
         
         try {
-          uploadedVideoUrl = await fal.upload(videoFile);
+          uploadedVideoUrl = await falClient.upload(videoFile);
           setGenerationLogs(prev => [...prev, "Video uploaded successfully."]);
         } catch (error) {
           console.error("Error uploading video:", error);
@@ -205,7 +209,7 @@ const VideoToVideo = () => {
       setProgress(20);
       
       // Submit request to fal.ai
-      const { requestId, result } = await fal.run("fal-ai/mmaudio-v2", {
+      const { requestId, result } = await falClient.run("fal-ai/mmaudio-v2", {
         input: modelInput,
         wait_for_result: false,
       });
