@@ -74,8 +74,7 @@ class FalService {
     }
 
     try {
-      const result = await this.falClient.run({
-        model_id: TEXT_TO_IMAGE_MODEL,
+      const result = await this.falClient.run(TEXT_TO_IMAGE_MODEL, {
         input: {
           prompt,
           ...options
@@ -106,8 +105,7 @@ class FalService {
     }
 
     try {
-      const result = await this.falClient.run({
-        model_id: IMAGE_TO_VIDEO_MODEL,
+      const result = await this.falClient.run(IMAGE_TO_VIDEO_MODEL, {
         input: {
           image_url,
           ...options
@@ -139,8 +137,7 @@ class FalService {
     }
 
     try {
-      const result = await this.falClient.run({
-        model_id: VIDEO_TO_VIDEO_MODEL,
+      const result = await this.falClient.run(VIDEO_TO_VIDEO_MODEL, {
         input
       }, {
         connectionKey: `video-to-video-${Date.now()}`
@@ -160,8 +157,7 @@ class FalService {
     }
 
     try {
-      const result = await this.falClient.run({
-        model_id: IMAGEN_3_MODEL,
+      const result = await this.falClient.run(IMAGEN_3_MODEL, {
         input: {
           prompt,
           aspect_ratio: options.aspect_ratio || "1:1",
