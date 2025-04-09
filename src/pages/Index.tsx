@@ -129,13 +129,13 @@ const Index = () => {
               value="image-playground" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
-              {isMobile ? "Free Image" : "Standard Image"}
+              {isMobile ? "Standard Image" : "Standard Image"}
             </TabsTrigger>
             <TabsTrigger 
               value="video-playground" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
-              {isMobile ? "Free Video" : "Standard Video"}
+              {isMobile ? "Standard Video" : "Standard Video"}
             </TabsTrigger>
             <TabsTrigger 
               value="ai-voice" 
@@ -185,7 +185,7 @@ const Index = () => {
                 <div className="w-full overflow-hidden rounded-lg">
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
                     <iframe
-                      src="https://brainfusion.vercel.app/"
+                      src="https://nymbo-serverless-imggen-hub.hf.space"
                       title="Standard Image"
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
