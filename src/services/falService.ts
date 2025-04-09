@@ -74,12 +74,15 @@ class FalService {
     }
 
     try {
+      // Remove connectionKey from options object and use as tracking ID in logs
+      const trackingId = `text-to-image-${Date.now()}`;
+      console.log(`Starting text-to-image generation with ID: ${trackingId}`);
+      
       const result = await this.falClient.run(TEXT_TO_IMAGE_MODEL, {
         input: {
           prompt,
           ...options
-        },
-        connectionKey: `text-to-image-${Date.now()}`
+        }
       });
 
       return result;
@@ -104,12 +107,15 @@ class FalService {
     }
 
     try {
+      // Remove connectionKey from options object and use as tracking ID in logs
+      const trackingId = `image-to-video-${Date.now()}`;
+      console.log(`Starting image-to-video generation with ID: ${trackingId}`);
+      
       const result = await this.falClient.run(IMAGE_TO_VIDEO_MODEL, {
         input: {
           image_url,
           ...options
-        },
-        connectionKey: `image-to-video-${Date.now()}`
+        }
       });
 
       return result;
@@ -135,9 +141,12 @@ class FalService {
     }
 
     try {
+      // Remove connectionKey from options object and use as tracking ID in logs
+      const trackingId = `video-to-video-${Date.now()}`;
+      console.log(`Starting video-to-video generation with ID: ${trackingId}`);
+      
       const result = await this.falClient.run(VIDEO_TO_VIDEO_MODEL, {
-        input,
-        connectionKey: `video-to-video-${Date.now()}`
+        input
       });
 
       return result;
@@ -154,14 +163,17 @@ class FalService {
     }
 
     try {
+      // Remove connectionKey from options object and use as tracking ID in logs
+      const trackingId = `imagen3-${Date.now()}`;
+      console.log(`Starting Imagen3 generation with ID: ${trackingId}`);
+      
       const result = await this.falClient.run(IMAGEN_3_MODEL, {
         input: {
           prompt,
           aspect_ratio: options.aspect_ratio || "1:1",
           negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
           ...options
-        },
-        connectionKey: `imagen3-${Date.now()}`
+        }
       });
 
       return result;
