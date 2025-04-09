@@ -6,13 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ImageIcon, BookText, Film, Sparkles, User } from "lucide-react";
+import { Loader2, ImageIcon, BookText, Film, Sparkles, User, Download } from "lucide-react";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
 import { incrementImageCount, incrementVideoCount, getRemainingCountsAsync } from "@/utils/usageTracker";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 import { falService } from "@/services/falService";
+import { generateStoryPDF } from "@/services/pdfService";
+import { StoryScene, CharacterDetails } from "@/types";
 import {
   Select,
   SelectContent,
@@ -20,19 +22,6 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-
-interface StoryScene {
-  text: string;
-  imagePrompt: string;
-  imageUrl?: string;
-}
-
-interface CharacterDetails {
-  mainCharacter?: string;
-  secondaryCharacters?: string;
-  environment?: string;
-  styleNotes?: string;
-}
 
 const StoryToVideo = () => {
   const [storyPrompt, setStoryPrompt] = useState("");
@@ -49,6 +38,7 @@ const StoryToVideo = () => {
   const [editedStory, setEditedStory] = useState<StoryScene[]>([]);
   const [characterDetails, setCharacterDetails] = useState<CharacterDetails>({});
   const [showCharacterForm, setShowCharacterForm] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   const { generateResponse, isLoading: isGeminiLoading } = useGeminiAPI();
   const { toast } = useToast();
@@ -482,6 +472,48 @@ const StoryToVideo = () => {
     }
   };
 
+  const downloadStoryPDF = async () => {
+    if (generatedStory.length === 0) {
+      toast({
+        title: "No story to download",
+        description: "Please generate a story first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingPDF(true);
+
+    try {
+      const pdfDataUri = await generateStoryPDF(
+        storyTitle || `Story: ${storyPrompt.slice(0, 30)}${storyPrompt.length > 30 ? '...' : ''}`, 
+        generatedStory,
+        characterDetails
+      );
+      
+      const link = document.createElement('a');
+      link.href = pdfDataUri;
+      link.download = `${storyTitle || 'story'}.pdf`.replace(/\s+/g, '_').toLowerCase();
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Success",
+        description: "Story downloaded as PDF",
+      });
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   const CharacterDetailsForm = () => (
     <Card className="mt-4">
       <CardContent className="p-6 space-y-4">
@@ -662,7 +694,21 @@ const StoryToVideo = () => {
       {generatedStory.length > 0 && (
         <Card>
           <CardContent className="p-6">
-            <h2 className="text-xl font-bold mb-4">{storyTitle}</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">{storyTitle}</h2>
+              <Button
+                onClick={downloadStoryPDF}
+                disabled={isGeneratingPDF || generatedStory.length === 0}
+                variant="secondary"
+              >
+                {isGeneratingPDF ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Download PDF
+              </Button>
+            </div>
 
             <Button
               onClick={() => setEditMode(!editMode)}
