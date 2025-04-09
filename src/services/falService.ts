@@ -25,8 +25,8 @@ class FalService {
       // Use provided key or try to get from localStorage
       this.apiKey = apiKey || localStorage.getItem("falApiKey") || DEFAULT_API_KEY;
       
-      // Initialize client
-      fal.config({
+      // Initialize client - directly use the credentials property
+      fal.default.config({
         credentials: this.apiKey,
       });
       
@@ -61,7 +61,7 @@ class FalService {
     }
 
     try {
-      const result = await fal.run({
+      const result = await fal.default.run({
         model: TEXT_TO_IMAGE_MODEL,
         input: {
           prompt,
@@ -92,7 +92,7 @@ class FalService {
     }
 
     try {
-      const result = await fal.run({
+      const result = await fal.default.run({
         model: IMAGE_TO_VIDEO_MODEL,
         input: {
           image_url,
@@ -124,7 +124,7 @@ class FalService {
     }
 
     try {
-      const result = await fal.run({
+      const result = await fal.default.run({
         model: VIDEO_TO_VIDEO_MODEL,
         input,
         connectionKey: `video-to-video-${Date.now()}`
@@ -144,7 +144,7 @@ class FalService {
     }
 
     try {
-      const result = await fal.run({
+      const result = await fal.default.run({
         model: IMAGEN_3_MODEL,
         input: {
           prompt,
