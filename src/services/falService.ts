@@ -78,8 +78,7 @@ class FalService {
         input: {
           prompt,
           ...options
-        }
-      }, {
+        },
         connectionKey: `text-to-image-${Date.now()}`
       });
 
@@ -109,8 +108,7 @@ class FalService {
         input: {
           image_url,
           ...options
-        }
-      }, {
+        },
         connectionKey: `image-to-video-${Date.now()}`
       });
 
@@ -138,8 +136,7 @@ class FalService {
 
     try {
       const result = await this.falClient.run(VIDEO_TO_VIDEO_MODEL, {
-        input
-      }, {
+        input,
         connectionKey: `video-to-video-${Date.now()}`
       });
 
@@ -163,8 +160,7 @@ class FalService {
           aspect_ratio: options.aspect_ratio || "1:1",
           negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
           ...options
-        }
-      }, {
+        },
         connectionKey: `imagen3-${Date.now()}`
       });
 
