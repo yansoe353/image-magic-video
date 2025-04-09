@@ -6,6 +6,10 @@ import { StoryScene } from '@/types';
 // Add Myanmar font support
 import { LANGUAGES, type LanguageOption } from '@/utils/translationUtils';
 
+// Import Myanmar font (NotoSansMyanmar)
+// This base64 encoded font will be used for Myanmar text rendering
+import { NotoSansMyanmar } from '@/fonts/NotoSansMyanmar'; 
+
 export const generateStoryPDF = async (
   title: string, 
   scenes: StoryScene[], 
@@ -19,11 +23,11 @@ export const generateStoryPDF = async (
     format: 'a4',
   });
   
-  // Set up fonts for Myanmar language
+  // Add Myanmar font to the PDF
   if (language === 'my') {
-    // Use a font that supports Myanmar characters - Noto Sans Myanmar is widely used
-    // Note: For actual implementation, the font would need to be embedded properly
-    pdf.setFont('helvetica', 'normal'); // Fallback to default font if Myanmar font not available
+    pdf.addFileToVFS('NotoSansMyanmar-Regular.ttf', NotoSansMyanmar);
+    pdf.addFont('NotoSansMyanmar-Regular.ttf', 'NotoSansMyanmar', 'normal');
+    pdf.setFont('NotoSansMyanmar', 'normal');
   } else {
     pdf.setFont('helvetica', 'normal');
   }
@@ -36,12 +40,12 @@ export const generateStoryPDF = async (
   
   // Add title page
   pdf.setFontSize(24);
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(language === 'my' ? 'NotoSansMyanmar' : 'helvetica', 'bold');
   pdf.text(title, pageWidth / 2, pageHeight / 4, { align: 'center' });
   
   // Add generated date
   pdf.setFontSize(12);
-  pdf.setFont('helvetica', 'normal');
+  pdf.setFont(language === 'my' ? 'NotoSansMyanmar' : 'helvetica', 'normal');
   const date = new Date().toLocaleDateString();
   pdf.text(`Generated on ${date}`, pageWidth / 2, pageHeight / 4 + 10, { align: 'center' });
   
@@ -53,7 +57,7 @@ export const generateStoryPDF = async (
   if (characterDetails && Object.keys(characterDetails).length > 0) {
     pdf.addPage();
     pdf.setFontSize(18);
-    pdf.setFont('helvetica', 'bold');
+    pdf.setFont(language === 'my' ? 'NotoSansMyanmar' : 'helvetica', 'bold');
     pdf.text('Character Details', pageWidth / 2, margin, { align: 'center' });
     
     let yPos = margin + 10;
@@ -65,10 +69,10 @@ export const generateStoryPDF = async (
         const formattedKey = key.replace(/([A-Z])/g, ' $1')
           .replace(/^./, str => str.toUpperCase());
         
-        pdf.setFont('helvetica', 'bold');
+        pdf.setFont(language === 'my' ? 'NotoSansMyanmar' : 'helvetica', 'bold');
         pdf.text(`${formattedKey}:`, margin, yPos);
         
-        pdf.setFont('helvetica', 'normal');
+        pdf.setFont(language === 'my' ? 'NotoSansMyanmar' : 'helvetica', 'normal');
         
         // Handle text wrapping for potentially long character descriptions
         const splitText = pdf.splitTextToSize(value, contentWidth);
@@ -93,12 +97,12 @@ export const generateStoryPDF = async (
     
     // Scene header
     pdf.setFontSize(16);
-    pdf.setFont('helvetica', 'bold');
+    pdf.setFont(language === 'my' ? 'NotoSansMyanmar' : 'helvetica', 'bold');
     pdf.text(`Scene ${i + 1}`, pageWidth / 2, margin, { align: 'center' });
     
     // Scene text
     pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'normal');
+    pdf.setFont(language === 'my' ? 'NotoSansMyanmar' : 'helvetica', 'normal');
     const splitText = pdf.splitTextToSize(scene.text, contentWidth);
     pdf.text(splitText, margin, margin + 10);
     
