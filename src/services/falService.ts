@@ -1,6 +1,5 @@
-
 // Import fal-ai client properly
-import { createClient } from '@fal-ai/client';
+import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -16,11 +15,11 @@ export const IMAGEN_3_MODEL = "fal-ai/imagen3/fast";
 class FalService {
   private apiKey: string = DEFAULT_API_KEY;
   private isInitialized: boolean = false;
-  private falClient: ReturnType<typeof createClient>;
+  private falClient: ReturnType<typeof createFalClient>;
 
   constructor() {
     // Create fal client with default API key
-    this.falClient = createClient({ credentials: this.apiKey });
+    this.falClient = createFalClient({ credentials: this.apiKey });
     this.initialize();
   }
 
@@ -30,7 +29,7 @@ class FalService {
       this.apiKey = apiKey || localStorage.getItem("falApiKey") || DEFAULT_API_KEY;
       
       // Initialize client with the right credentials
-      this.falClient = createClient({ credentials: this.apiKey });
+      this.falClient = createFalClient({ credentials: this.apiKey });
       
       this.isInitialized = true;
       console.log("FAL client initialized successfully");
@@ -228,6 +227,5 @@ class FalService {
 // Create and export a singleton instance
 export const falService = new FalService();
 
-// Re-export the createClient function for direct access when needed
-export { createClient };
-
+// Re-export the createFalClient function for direct access when needed
+export { createFalClient };
