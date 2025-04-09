@@ -22,6 +22,16 @@ import {
   SelectValue
 } from "@/components/ui/select";
 
+// Initialize FAL client
+try {
+  // This will be used in the component methods below
+  fal.config({
+    credentials: localStorage.getItem("falApiKey") || ""
+  });
+} catch (e) {
+  console.error("Failed to configure fal client:", e);
+}
+
 interface StoryScene {
   text: string;
   imagePrompt: string;
@@ -350,6 +360,7 @@ const StoryToVideo = () => {
         return;
       }
 
+      // Configure fal client with the user's API key
       fal.config({ credentials: apiKey });
 
       const enhancedPrompt = characterDetails.mainCharacter 
@@ -455,6 +466,7 @@ const StoryToVideo = () => {
         return;
       }
 
+      // Configure fal client with the user's API key
       fal.config({ credentials: apiKey });
 
       const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {

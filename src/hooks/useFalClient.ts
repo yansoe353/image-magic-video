@@ -1,17 +1,25 @@
 
 import { useState, useEffect } from "react";
-import * as fal from '@fal-ai/client';
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/components/ui/use-toast";
 import { getUserId } from "@/utils/storageUtils";
 import { incrementImageCount, incrementVideoCount } from "@/utils/usageTracker";
 
+// Import the fal client properly
+import * as fal from '@fal-ai/client';
+
 // Initialize the FAL client with the environment variable
 const falApiKey = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA"; // Hardcoded API key
-fal.config({
-  credentials: falApiKey,
-});
+
+// Configure the fal client
+try {
+  fal.config({
+    credentials: falApiKey,
+  });
+} catch (e) {
+  console.error("Failed to configure fal client:", e);
+}
 
 // LTX Text to Image model
 const ltxTextToImageProxyUrl = "110602490-lcm-sd15-i2i/fast"; // Lt. Create model

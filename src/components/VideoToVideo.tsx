@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, Video } from "lucide-react";
 import VideoPreview from "@/components/VideoPreview";
 import { useVideoControls } from "@/hooks/useVideoControls";
-import { fal } from "@fal-ai/client";
+import * as fal from "@fal-ai/client";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { incrementVideoCount } from "@/utils/usageTracker";
@@ -79,11 +80,12 @@ const VideoToVideo = () => {
         logs: true,
       });
       
-      if (status.logs) {
+      if (status && 'logs' in status && status.logs) {
         const newLogs = status.logs.map(log => log.message);
         setGenerationLogs(prev => [...prev, ...newLogs.filter(log => !prev.includes(log))]);
       }
       
+      // Let's properly check the status
       if (status.status === "COMPLETED") {
         const result = await fal.queue.result("fal-ai/mmaudio-v2", { requestId });
         if (result.data?.video?.url) {
@@ -210,13 +212,15 @@ const VideoToVideo = () => {
         logs: true,
         onQueueUpdate: (update) => {
           if (update.status === "IN_PROGRESS") {
-            const logs = update.logs?.map((log) => log.message) || [];
-            setGenerationLogs(prev => [...prev, ...logs.filter(log => !prev.includes(log))]);
+            if (update.logs) {
+              const logs = update.logs?.map((log) => log.message) || [];
+              setGenerationLogs(prev => [...prev, ...logs.filter(log => !prev.includes(log))]);
+            }
             
             // Update progress based on status
-            if (logs.some(log => log.includes("Generating"))) {
+            if (update.logs?.some(log => log.message.includes("Generating"))) {
               setProgress(40);
-            } else if (logs.some(log => log.includes("Processing"))) {
+            } else if (update.logs?.some(log => log.message.includes("Processing"))) {
               setProgress(60);
             }
           }
