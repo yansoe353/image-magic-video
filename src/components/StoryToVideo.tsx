@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +13,7 @@ import { incrementImageCount, incrementVideoCount, getRemainingCountsAsync } fro
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
-import { fal } from "@fal-ai/client";
+import * as fal from "@fal-ai/client";
 import {
   Select,
   SelectContent,
@@ -338,6 +339,7 @@ const StoryToVideo = () => {
         return;
       }
 
+      // Check if user can generate more images before starting generation
       const canGenerate = await incrementImageCount();
       if (!canGenerate) {
         toast({
@@ -368,7 +370,30 @@ const StoryToVideo = () => {
         setGeneratedStory(updatedStory);
 
         // Update counts after successful generation
-        setCounts(await getRemainingCountsAsync());
+        const freshCounts = await getRemainingCountsAsync();
+        setCounts(freshCounts);
+
+        // Store the generated image in user history if userId exists
+        const userId = await getUserId();
+        if (userId) {
+          try {
+            await supabase.from('user_content_history').insert({
+              user_id: userId,
+              content_type: 'image',
+              content_url: result.data.images[0].url,
+              prompt: enhancedPrompt,
+              is_public: isPublic,
+              metadata: {
+                story_title: storyTitle,
+                scene_text: scene.text,
+                story_prompt: storyPrompt
+              }
+            });
+            console.log("Image saved to history");
+          } catch (historyError) {
+            console.error("Failed to save image to history:", historyError);
+          }
+        }
 
         toast({
           title: "Success",
