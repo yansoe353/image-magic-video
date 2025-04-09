@@ -409,8 +409,8 @@ const StoryToVideo = () => {
       const apiKey = localStorage.getItem("falApiKey");
       if (!apiKey) {
         toast({
-          title: "API Key Required",
-          description: "Please set your API key first",
+          title: "Infinity API Key Required",
+          description: "Please set your Infinity API key first",
           variant: "destructive",
         });
         return;
@@ -593,7 +593,7 @@ const StoryToVideo = () => {
         <CardContent className="p-6">
           <h2 className="text-2xl font-bold mb-4 flex items-center">
             <BookText className="mr-2 h-6 w-6" />
-            Story to Video Generator
+            AI Story and Video Generator
           </h2>
 
           <div className="space-y-4">
@@ -601,7 +601,7 @@ const StoryToVideo = () => {
               <Label htmlFor="storyPrompt">Story Prompt</Label>
               <Textarea
                 id="storyPrompt"
-                placeholder="Enter a story idea like 'A detective in a cyberpunk city investigates a strange case'"
+                placeholder="Enter a story idea like ဥပမာ 'မြန်မာဆန်ဆန် သိပ္ပံစွန့်စားခန်း ပုံပြင်တစ်ပုဒ် မြန်မာလိုရေးပေးပါ'"
                 value={storyPrompt}
                 onChange={(e) => setStoryPrompt(e.target.value)}
                 className="min-h-[80px]"
