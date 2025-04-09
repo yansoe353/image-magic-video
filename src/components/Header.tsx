@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, X, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { signOut, getCurrentUser, isAdmin } from "@/utils/authUtils";
+import { getCurrentUser, isAdmin } from "@/utils/authUtils";
+import { supabase } from "@/integrations/supabase/client";
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -31,7 +33,7 @@ const Header = () => {
   }, []);
   
   const handleSignOut = async () => {
-    const { error } = await signOut();
+    const { error } = await supabase.auth.signOut();
     if (error) {
       toast({
         title: "Error signing out",

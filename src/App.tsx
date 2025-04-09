@@ -1,14 +1,14 @@
+
 import React, { useState, useEffect } from "react";
 import { Routes, Route, Link, useNavigate } from "react-router-dom";
 import { supabase } from "./integrations/supabase/client";
-import { Auth } from "@supabase/ui";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import FAQ from "./pages/FAQ";
 import Examples from "./pages/Examples";
 import TextToImage from "./components/TextToImage";
-import AIAssistant from "./components/AIAssistant";
+import { AIAssistant } from "./components/AIAssistant";
 import History from "./pages/History";
 import NotFound from "./pages/NotFound";
 import Header from "./components/Header";
@@ -100,7 +100,7 @@ function App() {
                   </TabsList>
                   
                   <TabsContent value="text-to-image" className="py-4">
-                    <TextToImage />
+                    <TextToImage onImageGenerated={() => {}} />
                   </TabsContent>
                   
                   <TabsContent value="text-to-video" className="py-4">

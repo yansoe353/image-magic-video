@@ -1,212 +1,170 @@
 
-import { useState } from "react";
-import * as fal from '@fal-ai/client';
+import * as fal from "@fal-ai/client";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { getUserId } from "@/utils/storageUtils";
 import { incrementImageCount, incrementVideoCount } from "@/utils/usageTracker";
 
-// Initialize the FAL client with the environment variable
-const falApiKey = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA"; // Hardcoded API key
-fal.client.config({
-  credentials: falApiKey,
+// Initialize the FAL client
+fal.config({
+  credentials: process.env.FAL_KEY || "fal_key_not_configured"
 });
 
-// LTX Text to Image model
-const ltxTextToImageProxyUrl = "110602490-lcm-sd15-i2i/fast"; // Lt. Create model
-
-// LTX Image to Video model
-const ltxImageToVideoUrl = "110602490-ltx-animation/run";
-
-type ImageGenerationInput = {
+export interface TextToImageParams {
   prompt: string;
   negative_prompt?: string;
-  height?: number;
-  width?: number;
   guidance_scale?: number;
-  num_inference_steps?: number;
-  seed?: number;
-  strength?: number;
-};
-
-interface TextToImageResult {
-  imageUrl: string | null;
-  seed: number | null;
-  isGenerating: boolean;
-  error: string | null;
-  generate: (input: ImageGenerationInput) => Promise<void>;
+  size?: string;
+  model_name?: string;
 }
 
-// Image to Video interfaces
-interface ImageToVideoResult {
-  videoUrl: string | null;
-  isGenerating: boolean;
-  error: string | null;
-  generate: (input: ImageToVideoInput) => Promise<void>;
-}
-
-interface ImageToVideoInput {
+export interface ImageToVideoParams {
   image_url: string;
-  cameraMode?: string;
-  framesPerSecond?: number;
-  modelType?: string; 
-  seed?: number;
+  prompt?: string;
+  negative_prompt?: string;
+  strength?: number;
+  motion_bucket_id?: number;
+  model_name?: string;
 }
 
-// Hook for text-to-image generation
-export function useTextToImage(): TextToImageResult {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [seed, setSeed] = useState<number | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
+export interface StoryToVideoParams {
+  story: string;
+  model_name?: string;
+}
+
+export interface VideoToVideoParams {
+  video_url: string;
+  prompt?: string;
+  negative_prompt?: string;
+  strength?: number;
+  model_name?: string;
+}
+
+export const useFalClient = () => {
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
-  
-  const generate = async (input: ImageGenerationInput) => {
-    setIsGenerating(true);
+  const [result, setResult] = useState<any>(null);
+
+  const generateImage = async (params: TextToImageParams): Promise<string> => {
+    setIsLoading(true);
     setError(null);
-    
+
     try {
-      console.log("Starting image generation with prompt:", input.prompt);
-      
-      // Check if user can generate more images before starting generation
+      // Check if user has enough credits
       const canGenerate = await incrementImageCount();
       if (!canGenerate) {
-        throw new Error("You have reached your image generation limit");
+        throw new Error("You have reached your image generation limit for this account");
       }
-      
-      const result = await fal.client.run(ltxTextToImageProxyUrl, {
-        input: input
-      });
-      
-      if (result?.images?.[0]?.url) {
-        setImageUrl(result.images[0].url);
-        console.log("Image generated successfully");
-        
-        if (result.seed) {
-          setSeed(result.seed);
+
+      const { prompt, negative_prompt = "", guidance_scale = 7, size = "768x768", model_name = "stable-diffusion-xl" } = params;
+
+      const result = await fal.run("fal-ai/fast-sd-image-generator", {
+        input: {
+          prompt,
+          negative_prompt,
+          guidance_scale,
+          width: parseInt(size.split("x")[0]),
+          height: parseInt(size.split("x")[1]),
+          model_name
         }
-        
-        // Store the generated image in user history if userId exists
-        const userId = await getUserId();
-        if (userId) {
-          try {
-            await supabase.from('user_content_history').insert({
-              user_id: userId,
-              content_type: 'image',
-              content_url: result.images[0].url,
-              prompt: input.prompt,
-              metadata: {
-                seed: result.seed,
-                negative_prompt: input.negative_prompt,
-                width: input.width,
-                height: input.height
-              }
-            });
-            console.log("Image saved to history");
-          } catch (historyError) {
-            console.error("Failed to save image to history:", historyError);
+      });
+
+      if (!result.images?.length) {
+        throw new Error("No images were generated");
+      }
+
+      const imageUrl = result.images[0].url;
+      setResult({ url: imageUrl });
+
+      // Store in history
+      const user = await supabase.auth.getUser();
+      if (user.data?.user) {
+        await supabase.from('user_content_history').insert({
+          user_id: user.data.user.id,
+          content_type: 'image',
+          content_url: imageUrl,
+          prompt,
+          metadata: {
+            model: model_name,
+            negative_prompt,
+            guidance_scale,
+            size
           }
-        }
-      } else {
-        throw new Error("No image was returned from the API");
+        });
       }
-    } catch (e) {
-      console.error("Error generating image:", e);
-      setError(e instanceof Error ? e.message : "Unknown error occurred");
-      toast({
-        title: "Image Generation Failed",
-        description: e instanceof Error ? e.message : "An unknown error occurred",
-        variant: "destructive",
-      });
+
+      return imageUrl;
+    } catch (err: any) {
+      console.error("Error generating image:", err);
+      setError(err.message || "Failed to generate image");
+      throw err;
     } finally {
-      setIsGenerating(false);
+      setIsLoading(false);
     }
   };
 
-  return {
-    imageUrl,
-    seed,
-    isGenerating,
-    error,
-    generate
-  };
-}
-
-// Hook for image-to-video generation
-export function useImageToVideo(): ImageToVideoResult {
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
-
-  const generate = async (input: ImageToVideoInput) => {
-    setIsGenerating(true);
+  const generateImageToVideo = async (params: ImageToVideoParams): Promise<string> => {
+    setIsLoading(true);
     setError(null);
-    
+
     try {
-      console.log("Starting video generation from image:", input.image_url);
-      
-      // Check if user can generate more videos before starting generation
+      // Check if user has enough credits
       const canGenerate = await incrementVideoCount();
       if (!canGenerate) {
-        throw new Error("You have reached your video generation limit");
+        throw new Error("You have reached your video generation limit for this account");
       }
-      
-      const result = await fal.client.run(ltxImageToVideoUrl, {
+
+      const { image_url, prompt = "", negative_prompt = "", strength = 0.6, motion_bucket_id = 127, model_name = "kling-video/v1/standard" } = params;
+
+      const result = await fal.run("fal-ai/kling-video", {
         input: {
-          image_url: input.image_url,
-          cameraMode: input.cameraMode || "Default",
-          framesPerSecond: input.framesPerSecond || 6,
-          modelType: input.modelType || "svd",
-          seed: input.seed || Math.floor(Math.random() * 1000000)
+          image_url,
+          prompt,
+          negative_prompt,
+          strength,
+          motion_bucket_id,
         }
       });
-      
-      if (result?.video_url) {
-        setVideoUrl(result.video_url);
-        console.log("Video generated successfully");
-        
-        // Store the generated video in user history if userId exists
-        const userId = await getUserId();
-        if (userId) {
-          try {
-            await supabase.from('user_content_history').insert({
-              user_id: userId,
-              content_type: 'video',
-              content_url: result.video_url,
-              prompt: "Generated from image",
-              metadata: {
-                source_image_url: input.image_url,
-                cameraMode: input.cameraMode,
-                framesPerSecond: input.framesPerSecond,
-                modelType: input.modelType
-              }
-            });
-            console.log("Video saved to history");
-          } catch (historyError) {
-            console.error("Failed to save video to history:", historyError);
-          }
-        }
-      } else {
-        throw new Error("No video was returned from the API");
+
+      if (!result.video) {
+        throw new Error("No video was generated");
       }
-    } catch (e) {
-      console.error("Error generating video:", e);
-      setError(e instanceof Error ? e.message : "Unknown error occurred");
-      toast({
-        title: "Video Generation Failed",
-        description: e instanceof Error ? e.message : "An unknown error occurred",
-        variant: "destructive",
-      });
+
+      const videoUrl = result.video;
+      setResult({ url: videoUrl });
+
+      // Store in history
+      const user = await supabase.auth.getUser();
+      if (user.data?.user) {
+        await supabase.from('user_content_history').insert({
+          user_id: user.data.user.id,
+          content_type: 'video',
+          content_url: videoUrl,
+          prompt: prompt || "Image to video conversion",
+          metadata: {
+            model: model_name,
+            negative_prompt,
+            strength,
+            source_image: image_url,
+            source: 'image'
+          }
+        });
+      }
+
+      return videoUrl;
+    } catch (err: any) {
+      console.error("Error generating video:", err);
+      setError(err.message || "Failed to generate video");
+      throw err;
     } finally {
-      setIsGenerating(false);
+      setIsLoading(false);
     }
   };
 
   return {
-    videoUrl,
-    isGenerating,
+    generateImage,
+    generateImageToVideo,
+    isLoading,
     error,
-    generate
+    result
   };
-}
+};
