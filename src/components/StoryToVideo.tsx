@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,7 +12,7 @@ import { incrementImageCount, incrementVideoCount, getRemainingCountsAsync } fro
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
-import * as fal from "@fal-ai/client";
+import { falService } from "@/services/falService";
 import {
   Select,
   SelectContent,
@@ -21,16 +20,6 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-
-// Initialize FAL client
-try {
-  // This will be used in the component methods below
-  fal.config({
-    credentials: localStorage.getItem("falApiKey") || ""
-  });
-} catch (e) {
-  console.error("Failed to configure fal client:", e);
-}
 
 interface StoryScene {
   text: string;
@@ -360,20 +349,14 @@ const StoryToVideo = () => {
         return;
       }
 
-      // Configure fal client with the user's API key
-      fal.config({ credentials: apiKey });
+      // Initialize the service with user's API key
+      falService.initialize(apiKey);
 
       const enhancedPrompt = characterDetails.mainCharacter 
         ? `${characterDetails.mainCharacter}. ${scene.imagePrompt} in ${imageStyle} style`
         : `${scene.imagePrompt} in ${imageStyle} style`;
 
-      const result = await fal.subscribe("fal-ai/imagen3/fast", {
-        input: {
-          prompt: enhancedPrompt,
-          aspect_ratio: "1:1",
-          negative_prompt: "low quality, bad anatomy, distorted"
-        },
-      });
+      const result = await falService.generateImageWithImagen3(enhancedPrompt);
 
       if (result.data?.images?.[0]?.url) {
         const updatedStory = [...generatedStory];
@@ -385,26 +368,17 @@ const StoryToVideo = () => {
         setCounts(freshCounts);
 
         // Store the generated image in user history if userId exists
-        const userId = await getUserId();
-        if (userId) {
-          try {
-            await supabase.from('user_content_history').insert({
-              user_id: userId,
-              content_type: 'image',
-              content_url: result.data.images[0].url,
-              prompt: enhancedPrompt,
-              is_public: isPublic,
-              metadata: {
-                story_title: storyTitle,
-                scene_text: scene.text,
-                story_prompt: storyPrompt
-              }
-            });
-            console.log("Image saved to history");
-          } catch (historyError) {
-            console.error("Failed to save image to history:", historyError);
+        await falService.saveToHistory(
+          'image',
+          result.data.images[0].url,
+          enhancedPrompt,
+          isPublic,
+          {
+            story_title: storyTitle,
+            scene_text: scene.text,
+            story_prompt: storyPrompt
           }
-        }
+        );
 
         toast({
           title: "Success",
@@ -466,41 +440,30 @@ const StoryToVideo = () => {
         return;
       }
 
-      // Configure fal client with the user's API key
-      fal.config({ credentials: apiKey });
+      // Initialize the service with user's API key
+      falService.initialize(apiKey);
 
-      const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
-        input: {
-          prompt: scene.imagePrompt,
-          image_url: scene.imageUrl,
-          duration: "5",
-          aspect_ratio: "1:1",
-          negative_prompt: "blur, distort, low quality",
-          cfg_scale: 0.5,
-        },
-        logs: true,
+      const result = await falService.generateVideoFromImage(scene.imageUrl, {
+        seed: Math.floor(Math.random() * 1000000)
       });
 
-      if (result.data?.video?.url) {
+      if (result.video_url) {
         const newVideoUrls = [...videoUrls];
-        newVideoUrls[sceneIndex] = result.data.video.url;
+        newVideoUrls[sceneIndex] = result.video_url;
         setVideoUrls(newVideoUrls);
 
-        const userId = await getUserId();
-        if (userId) {
-          await supabase.from('user_content_history').insert({
-            user_id: userId,
-            content_type: 'video',
-            content_url: result.data.video.url,
-            prompt: scene.imagePrompt,
-            is_public: isPublic,
-            metadata: {
-              story_title: storyTitle,
-              scene_text: scene.text,
-              story_prompt: storyPrompt
-            }
-          });
-        }
+        // Save to history
+        await falService.saveToHistory(
+          'video',
+          result.video_url,
+          scene.imagePrompt,
+          isPublic,
+          {
+            story_title: storyTitle,
+            scene_text: scene.text,
+            story_prompt: storyPrompt
+          }
+        );
 
         // Update counts after successful generation
         setCounts(await getRemainingCountsAsync());

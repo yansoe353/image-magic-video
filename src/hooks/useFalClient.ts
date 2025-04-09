@@ -5,28 +5,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/components/ui/use-toast";
 import { getUserId } from "@/utils/storageUtils";
 import { incrementImageCount, incrementVideoCount } from "@/utils/usageTracker";
+import { falService } from "@/services/falService";
 
-// Import the fal client properly
-import * as fal from '@fal-ai/client';
-
-// Initialize the FAL client with the environment variable
-const falApiKey = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA"; // Hardcoded API key
-
-// Configure the fal client
-try {
-  fal.config({
-    credentials: falApiKey,
-  });
-} catch (e) {
-  console.error("Failed to configure fal client:", e);
-}
-
-// LTX Text to Image model
-const ltxTextToImageProxyUrl = "110602490-lcm-sd15-i2i/fast"; // Lt. Create model
-
-// LTX Image to Video model
-const ltxImageToVideoUrl = "110602490-ltx-animation/run";
-
+// Image generation interfaces
 type ImageGenerationInput = {
   prompt: string;
   negative_prompt?: string;
@@ -88,7 +69,15 @@ export function useTextToImage(): TextToImageResult {
         throw new Error("You have reached your image generation limit");
       }
       
-      const result = await fal.subscribe(ltxTextToImageProxyUrl, input);
+      const result = await falService.generateImage(input.prompt, {
+        negative_prompt: input.negative_prompt,
+        height: input.height,
+        width: input.width,
+        guidance_scale: input.guidance_scale,
+        num_inference_steps: input.num_inference_steps,
+        seed: input.seed,
+        strength: input.strength
+      });
       
       if (result?.images?.[0]) {
         setImageUrl(result.images[0]);
@@ -101,23 +90,18 @@ export function useTextToImage(): TextToImageResult {
         // Store the generated image in user history if userId exists
         const userId = await getUserId();
         if (userId) {
-          try {
-            await supabase.from('user_content_history').insert({
-              user_id: userId,
-              content_type: 'image',
-              content_url: result.images[0],
-              prompt: input.prompt,
-              metadata: {
-                seed: result.seed,
-                negative_prompt: input.negative_prompt,
-                width: input.width,
-                height: input.height
-              }
-            });
-            console.log("Image saved to history");
-          } catch (historyError) {
-            console.error("Failed to save image to history:", historyError);
-          }
+          await falService.saveToHistory(
+            'image',
+            result.images[0],
+            input.prompt,
+            false, // isPublic
+            {
+              seed: result.seed,
+              negative_prompt: input.negative_prompt,
+              width: input.width,
+              height: input.height
+            }
+          );
         }
       } else {
         throw new Error("No image was returned from the API");
@@ -164,12 +148,11 @@ export function useImageToVideo(): ImageToVideoResult {
         throw new Error("You have reached your video generation limit");
       }
       
-      const result = await fal.subscribe(ltxImageToVideoUrl, {
-        image_url: input.image_url,
-        cameraMode: input.cameraMode || "Default",
-        framesPerSecond: input.framesPerSecond || 6,
-        modelType: input.modelType || "svd",
-        seed: input.seed || Math.floor(Math.random() * 1000000)
+      const result = await falService.generateVideoFromImage(input.image_url, {
+        cameraMode: input.cameraMode,
+        framesPerSecond: input.framesPerSecond,
+        modelType: input.modelType,
+        seed: input.seed
       });
       
       if (result?.video_url) {
@@ -177,26 +160,18 @@ export function useImageToVideo(): ImageToVideoResult {
         console.log("Video generated successfully");
         
         // Store the generated video in user history if userId exists
-        const userId = await getUserId();
-        if (userId) {
-          try {
-            await supabase.from('user_content_history').insert({
-              user_id: userId,
-              content_type: 'video',
-              content_url: result.video_url,
-              prompt: "Generated from image",
-              metadata: {
-                source_image_url: input.image_url,
-                cameraMode: input.cameraMode,
-                framesPerSecond: input.framesPerSecond,
-                modelType: input.modelType
-              }
-            });
-            console.log("Video saved to history");
-          } catch (historyError) {
-            console.error("Failed to save video to history:", historyError);
+        await falService.saveToHistory(
+          'video',
+          result.video_url,
+          "Generated from image",
+          false,
+          {
+            source_image_url: input.image_url,
+            cameraMode: input.cameraMode,
+            framesPerSecond: input.framesPerSecond,
+            modelType: input.modelType
           }
-        }
+        );
       } else {
         throw new Error("No video was returned from the API");
       }

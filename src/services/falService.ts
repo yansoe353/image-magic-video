@@ -1,0 +1,226 @@
+
+import * as falModule from '@fal-ai/client';
+import { getUserId } from "@/utils/storageUtils";
+import { supabase } from "@/integrations/supabase/client";
+
+// Default API key
+const DEFAULT_API_KEY = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA";
+
+// Model URLs/IDs
+export const TEXT_TO_IMAGE_MODEL = "110602490-lcm-sd15-i2i/fast"; // Lt. Create model
+export const IMAGE_TO_VIDEO_MODEL = "110602490-ltx-animation/run"; 
+export const VIDEO_TO_VIDEO_MODEL = "fal-ai/mmaudio-v2";
+export const IMAGEN_3_MODEL = "fal-ai/imagen3/fast";
+
+class FalService {
+  private apiKey: string = DEFAULT_API_KEY;
+  private isInitialized: boolean = false;
+
+  constructor() {
+    this.initialize();
+  }
+
+  initialize(apiKey?: string) {
+    try {
+      // Use provided key or try to get from localStorage
+      this.apiKey = apiKey || localStorage.getItem("falApiKey") || DEFAULT_API_KEY;
+      
+      // Initialize client
+      falModule.realtime.config({
+        credentials: this.apiKey,
+      });
+      
+      this.isInitialized = true;
+      console.log("FAL client initialized successfully");
+    } catch (error) {
+      console.error("Failed to initialize FAL client:", error);
+      this.isInitialized = false;
+    }
+  }
+
+  setApiKey(apiKey: string) {
+    this.apiKey = apiKey;
+    this.initialize(apiKey);
+  }
+
+  // Text to Image generation
+  async generateImage(
+    prompt: string, 
+    options: {
+      negative_prompt?: string;
+      height?: number;
+      width?: number;
+      guidance_scale?: number;
+      num_inference_steps?: number;
+      seed?: number;
+      strength?: number;
+    } = {}
+  ) {
+    if (!this.isInitialized) {
+      this.initialize();
+    }
+
+    try {
+      const result = await falModule.realtime.connect(TEXT_TO_IMAGE_MODEL, {
+        connectionKey: `text-to-image-${Date.now()}`,
+        onResult: (result) => console.log("Image generation progress:", result),
+        ...options,
+        prompt,
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Error generating image:", error);
+      throw error;
+    }
+  }
+
+  // Image to Video generation
+  async generateVideoFromImage(
+    image_url: string,
+    options: {
+      cameraMode?: string;
+      framesPerSecond?: number;
+      modelType?: string;
+      seed?: number;
+    } = {}
+  ) {
+    if (!this.isInitialized) {
+      this.initialize();
+    }
+
+    try {
+      const result = await falModule.realtime.connect(IMAGE_TO_VIDEO_MODEL, {
+        connectionKey: `image-to-video-${Date.now()}`,
+        onResult: (result) => console.log("Video generation progress:", result),
+        ...options,
+        image_url,
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Error generating video from image:", error);
+      throw error;
+    }
+  }
+
+  // Video to Video generation
+  async generateVideoFromVideo(input: {
+    video_url: string;
+    prompt: string;
+    negative_prompt?: string;
+    num_steps?: number;
+    duration?: number;
+    cfg_strength?: number;
+    seed?: number;
+    mask_away_clip?: boolean;
+  }) {
+    if (!this.isInitialized) {
+      this.initialize();
+    }
+
+    try {
+      const result = await falModule.realtime.connect(VIDEO_TO_VIDEO_MODEL, {
+        connectionKey: `video-to-video-${Date.now()}`,
+        onResult: (result) => console.log("Video processing progress:", result),
+        input,
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Error processing video:", error);
+      throw error;
+    }
+  }
+
+  // Image generation with Imagen 3
+  async generateImageWithImagen3(prompt: string, options: any = {}) {
+    if (!this.isInitialized) {
+      this.initialize();
+    }
+
+    try {
+      const result = await falModule.realtime.connect(IMAGEN_3_MODEL, {
+        connectionKey: `imagen3-${Date.now()}`,
+        onResult: (result) => console.log("Image generation progress:", result),
+        input: {
+          prompt,
+          aspect_ratio: options.aspect_ratio || "1:1",
+          negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
+          ...options,
+        },
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Error generating image with Imagen3:", error);
+      throw error;
+    }
+  }
+
+  // Upload file to FAL.ai
+  async uploadFile(file: File) {
+    if (!this.isInitialized) {
+      this.initialize();
+    }
+
+    try {
+      // Use the file-upload specific endpoint
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('https://gateway.fal.ai/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Key ${this.apiKey}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to upload file: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.url; // Return the URL of the uploaded file
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      throw error;
+    }
+  }
+
+  // Save content to history
+  async saveToHistory(
+    contentType: 'image' | 'video', 
+    contentUrl: string, 
+    prompt: string,
+    isPublic: boolean = false,
+    metadata: any = {}
+  ) {
+    try {
+      const userId = await getUserId();
+      if (!userId) return;
+
+      await supabase.from('user_content_history').insert({
+        user_id: userId,
+        content_type: contentType,
+        content_url: contentUrl,
+        prompt: prompt,
+        is_public: isPublic,
+        metadata: metadata
+      });
+      
+      console.log(`${contentType} saved to history`);
+      return true;
+    } catch (error) {
+      console.error(`Failed to save ${contentType} to history:`, error);
+      return false;
+    }
+  }
+}
+
+// Create and export a singleton instance
+export const falService = new FalService();
+
+// Re-export the original fal module for direct access when needed
+export { falModule };
