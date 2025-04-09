@@ -66,44 +66,10 @@ export const getUserLimits = async (): Promise<{ imageLimit: number; videoLimit:
     return { imageLimit: IMAGE_LIMIT, videoLimit: VIDEO_LIMIT }; // Use constants
   }
   
-  // Check if user has custom limits set by admin
-  const { data: userData, error } = await supabase
-    .from('profiles')
-    .select('image_credits, video_credits')
-    .eq('id', user.id)
-    .single();
-
-  if (error || !userData) {
-    console.log("No custom limits found, using defaults");
-    return {
-      imageLimit: user.imageLimit || IMAGE_LIMIT,
-      videoLimit: user.videoLimit || VIDEO_LIMIT
-    };
-  }
-  
   return {
-    imageLimit: userData.image_credits || IMAGE_LIMIT,
-    videoLimit: userData.video_credits || VIDEO_LIMIT
+    imageLimit: user.imageLimit || IMAGE_LIMIT,
+    videoLimit: user.videoLimit || VIDEO_LIMIT
   };
-};
-
-export const setUserLimits = async (userId: string, imageLimit: number, videoLimit: number): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from('profiles')
-      .upsert({
-        id: userId,
-        image_credits: imageLimit,
-        video_credits: videoLimit,
-        updated_at: new Date().toISOString()
-      });
-    
-    if (error) throw error;
-    return true;
-  } catch (error) {
-    console.error("Error setting user limits:", error);
-    return false;
-  }
 };
 
 export const incrementImageCount = async (): Promise<boolean> => {

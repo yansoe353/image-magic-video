@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,14 +8,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, Video } from "lucide-react";
 import VideoPreview from "@/components/VideoPreview";
 import { useVideoControls } from "@/hooks/useVideoControls";
-import * as fal from "@fal-ai/client";
+import { fal } from "@fal-ai/client";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { incrementVideoCount } from "@/utils/usageTracker";
 import { cn } from "@/lib/utils";
-
-// Use a single instance of the FAL client
-const falClient = fal;
 
 const VideoToVideo = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -78,17 +74,20 @@ const VideoToVideo = () => {
   
   const checkRequestStatus = async (requestId: string) => {
     try {
-      const status = await falClient.status("fal-ai/mmaudio-v2", requestId);
+      const status = await fal.queue.status("fal-ai/mmaudio-v2", {
+        requestId,
+        logs: true,
+      });
       
-      if (status.status === "IN_PROGRESS" && status.logs) {
+      if (status.logs) {
         const newLogs = status.logs.map(log => log.message);
         setGenerationLogs(prev => [...prev, ...newLogs.filter(log => !prev.includes(log))]);
       }
       
       if (status.status === "COMPLETED") {
-        const result = await falClient.result("fal-ai/mmaudio-v2", requestId);
-        if (result.video?.url) {
-          handleGenerationSuccess(result.video.url);
+        const result = await fal.queue.result("fal-ai/mmaudio-v2", { requestId });
+        if (result.data?.video?.url) {
+          handleGenerationSuccess(result.data.video.url);
         } else {
           throw new Error("No video URL in response");
         }
@@ -124,6 +123,9 @@ const VideoToVideo = () => {
         }
       });
     }
+    
+    // Update usage count
+    await incrementVideoCount();
     
     toast({
       title: "Success",
@@ -166,12 +168,6 @@ const VideoToVideo = () => {
     setRequestId(null);
     
     try {
-      // Check if user can generate more videos
-      const canGenerate = await incrementVideoCount();
-      if (!canGenerate) {
-        throw new Error("You have reached your video generation limit");
-      }
-      
       // Upload video file if we have a local file
       let uploadedVideoUrl = videoUrl;
       
@@ -180,7 +176,7 @@ const VideoToVideo = () => {
         setIsUploading(true);
         
         try {
-          uploadedVideoUrl = await falClient.upload(videoFile);
+          uploadedVideoUrl = await fal.storage.upload(videoFile);
           setGenerationLogs(prev => [...prev, "Video uploaded successfully."]);
         } catch (error) {
           console.error("Error uploading video:", error);
@@ -209,17 +205,31 @@ const VideoToVideo = () => {
       setProgress(20);
       
       // Submit request to fal.ai
-      const { requestId, result } = await falClient.run("fal-ai/mmaudio-v2", {
+      const result = await fal.subscribe("fal-ai/mmaudio-v2", {
         input: modelInput,
-        wait_for_result: false,
+        logs: true,
+        onQueueUpdate: (update) => {
+          if (update.status === "IN_PROGRESS") {
+            const logs = update.logs?.map((log) => log.message) || [];
+            setGenerationLogs(prev => [...prev, ...logs.filter(log => !prev.includes(log))]);
+            
+            // Update progress based on status
+            if (logs.some(log => log.includes("Generating"))) {
+              setProgress(40);
+            } else if (logs.some(log => log.includes("Processing"))) {
+              setProgress(60);
+            }
+          }
+        },
       });
       
-      setRequestId(requestId);
-      setProgress(30);
+      setRequestId(result.requestId);
       
-      // Poll for result
-      checkRequestStatus(requestId);
-      
+      if (result.data?.video?.url) {
+        await handleGenerationSuccess(result.data.video.url);
+      } else {
+        throw new Error("No video URL in response");
+      }
     } catch (error: any) {
       handleGenerationError(error);
     }

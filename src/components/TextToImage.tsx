@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import * as fal from "@fal-ai/client";
+import { fal } from "@fal-ai/client";
 import { Loader2, ImageIcon } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { incrementImageCount, getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT } from "@/utils/usageTracker";
@@ -20,8 +21,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import ProLabel from "./ProLabel";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
-
-const falClient = fal;
 
 type SupportedLanguage = "en" | "my" | "th";
 
@@ -191,11 +190,12 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         }
       }
 
-      falClient.config({
+      fal.config({
         credentials: apiKey
       });
 
-      const result = await falClient.subscribe("fal-ai/imagen3/fast", {
+      // Remove guidance_scale which is not supported by the model
+      const result = await fal.subscribe("fal-ai/imagen3/fast", {
         input: {
           prompt: promptToUse,
           aspect_ratio: getAspectRatio(imageSize) as "16:9" | "9:16" | "1:1",
@@ -215,6 +215,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           setSupabaseImageUrl(supabaseUrl);
           setGeneratedImage(supabaseUrl);
 
+          // Save to history with the is_public flag
           await saveToHistory(supabaseUrl, falImageUrl);
 
           toast({
@@ -225,11 +226,13 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
           console.error("Failed to upload to Supabase:", uploadError);
           setGeneratedImage(falImageUrl);
           
+          // Even if upload fails, try to save to history
           await saveToHistory(falImageUrl, falImageUrl);
         } finally {
           setIsUploading(false);
         }
 
+        // Increment the count after successful generation
         if (await incrementImageCount()) {
           toast({
             title: "Success",
