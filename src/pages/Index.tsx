@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,6 +5,7 @@ import TextToImage from "@/components/TextToImage";
 import ImageToVideo from "@/components/ImageToVideo";
 import StoryToVideo from "@/components/StoryToVideo";
 import VideoToVideo from "@/components/VideoToVideo";
+import ScriptToVideo from "@/components/ScriptToVideo";
 import Header from "@/components/Header";
 import { getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
 import { Card, CardContent } from "@/components/ui/card";
@@ -100,7 +100,7 @@ const Index = () => {
           className="w-full"
           onValueChange={(value) => setActiveTab(value)}
         >
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md rounded-xl overflow-x-auto">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-8 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md rounded-xl overflow-x-auto">
             <TabsTrigger 
               value="text-to-image" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
@@ -118,6 +118,12 @@ const Index = () => {
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
               {isMobile ? "Story Generator" : "Story Generator"}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="script-to-video" 
+              className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
+            >
+              {isMobile ? "Script→Video" : "Script to Video"}
             </TabsTrigger>
             <TabsTrigger 
               value="video-editor" 
@@ -159,6 +165,10 @@ const Index = () => {
           
           <TabsContent value="story-to-video" className="mt-0">
             <StoryToVideo />
+          </TabsContent>
+          
+          <TabsContent value="script-to-video" className="mt-0">
+            <ScriptToVideo />
           </TabsContent>
           
           <TabsContent value="video-editor" className="mt-0">
