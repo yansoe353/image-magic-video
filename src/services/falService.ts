@@ -1,4 +1,3 @@
-
 // Import fal-ai client properly
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
@@ -22,6 +21,8 @@ interface FalRunResult {
     images?: { url: string }[];
     video?: { url: string };
   };
+  image_url?: string;
+  url?: string;
 }
 
 class FalService {
@@ -174,14 +175,27 @@ class FalService {
       }
       
       // Access data first to ensure we're working with the correct structure
-      if (result.data) {
-        // If we have a direct data property, use it
+      if (result.data && result.data.images && result.data.images.length > 0) {
+        // If we have a direct data.images structure, use it
+        return result;
+      } else if (result.images && result.images.length > 0) {
+        // If images are at the top level
         return result;
       } else {
-        // If there's no data.images structure, wrap the result in our expected format
+        // If there's no standard images structure, wrap any available URL in our expected format
+        const imageUrl = result.image_url || result.url || 
+                        // Access potential nested properties safely
+                        (result as any).data?.image_url || 
+                        (result as any).data?.url;
+                        
+        if (!imageUrl) {
+          console.error("Unable to find image URL in response:", result);
+          throw new Error("Could not extract image URL from API response");
+        }
+        
         return {
           data: {
-            images: [{ url: result.image_url || result.url }]
+            images: [{ url: imageUrl }]
           }
         };
       }
