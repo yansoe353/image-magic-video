@@ -1,3 +1,4 @@
+
 // Import fal-ai client properly
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
@@ -24,6 +25,18 @@ interface FalRunResult {
   image_url?: string;
   url?: string;
 }
+
+// Generic type for handling different API response formats
+type GenericApiResponse = {
+  [key: string]: any;
+  data?: {
+    [key: string]: any;
+    images?: { url: string }[];
+  };
+  images?: { url: string }[];
+  image_url?: string;
+  url?: string;
+};
 
 class FalService {
   private apiKey: string = DEFAULT_API_KEY;
@@ -165,7 +178,7 @@ class FalService {
           negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
           ...options
         }
-      });
+      }) as GenericApiResponse; // Cast to our generic type to handle response variations
       
       console.log("Imagen3 response received:", result);
       
@@ -177,16 +190,16 @@ class FalService {
       // Access data first to ensure we're working with the correct structure
       if (result.data && result.data.images && result.data.images.length > 0) {
         // If we have a direct data.images structure, use it
-        return result;
+        return result as FalRunResult;
       } else if (result.images && result.images.length > 0) {
         // If images are at the top level
-        return result;
+        return result as FalRunResult;
       } else {
         // If there's no standard images structure, wrap any available URL in our expected format
         const imageUrl = result.image_url || result.url || 
                         // Access potential nested properties safely
-                        (result as any).data?.image_url || 
-                        (result as any).data?.url;
+                        result.data?.image_url || 
+                        result.data?.url;
                         
         if (!imageUrl) {
           console.error("Unable to find image URL in response:", result);
