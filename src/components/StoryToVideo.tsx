@@ -12,7 +12,8 @@ import { incrementImageCount, incrementVideoCount, getRemainingCountsAsync } fro
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
-import { falService } from "@/services/falService";
+import { fal } from "@fal-ai/client";
+import { uploadUrlToStorage } from "@/utils/storageUtils";
 import { generateStoryPDF } from "@/services/pdfService";
 import { generateStoryTextFile, downloadTextFile } from "@/services/textFileService";
 import { StoryScene, CharacterDetails } from "@/types";
@@ -43,6 +44,8 @@ const StoryToVideo = () => {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [pdfLanguage, setPdfLanguage] = useState<LanguageOption>("en");
   const [isDownloadingText, setIsDownloadingText] = useState(false);
+  const [apiKey, setApiKey] = useState<string>(localStorage.getItem("falApiKey") || "");
+  const [isApiKeySet, setIsApiKeySet] = useState<boolean>(!!localStorage.getItem("falApiKey"));
 
   const { generateResponse, isLoading: isGeminiLoading } = useGeminiAPI();
   const { toast } = useToast();
@@ -68,7 +71,7 @@ const StoryToVideo = () => {
     setIsGeneratingStory(true);
     try {
       const response = await generateResponse(
-        `Create detailed character descriptions for a story about: "${storyPrompt}". 
+        `Create detailed character descriptions for a story about: "${storyPrompt}".
         Provide this information in valid JSON format only:
         {
           "mainCharacter": "Detailed description including age, gender, appearance, clothing and distinctive features",
@@ -76,7 +79,7 @@ const StoryToVideo = () => {
           "environment": "Description of the main setting/environment",
           "styleNotes": "Specific visual style requirements"
         }
-        
+
         Important: Only return valid JSON without any additional text or explanations.`
       );
 
@@ -84,7 +87,7 @@ const StoryToVideo = () => {
       try {
         parsedResponse = JSON.parse(response.trim());
       } catch (e) {
-        const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        const codeBlockMatch = response.match(/```(?\:json)?\s*([\s\S]*?)\s*```/);
         if (codeBlockMatch) {
           parsedResponse = JSON.parse(codeBlockMatch[1].trim());
         } else {
@@ -99,9 +102,9 @@ const StoryToVideo = () => {
       }
 
       if (
-        typeof parsedResponse === 'object' && 
+        typeof parsedResponse === 'object' &&
         parsedResponse !== null &&
-        (parsedResponse.mainCharacter || 
+        (parsedResponse.mainCharacter ||
          parsedResponse.secondaryCharacters ||
          parsedResponse.environment ||
          parsedResponse.styleNotes)
@@ -135,11 +138,11 @@ const StoryToVideo = () => {
     let cleaned = response.replace(/```json|```/g, '').trim();
     const firstBrace = cleaned.indexOf('{');
     const lastBrace = cleaned.lastIndexOf('}');
-    
+
     if (firstBrace >= 0 && lastBrace > firstBrace) {
       cleaned = cleaned.slice(firstBrace, lastBrace + 1);
     }
-    
+
     return cleaned;
   };
 
@@ -150,7 +153,7 @@ const StoryToVideo = () => {
     } catch (e) {}
 
     try {
-      const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      const codeBlockMatch = response.match(/```(?\:json)?\s*([\s\S]*?)\s*```/);
       if (codeBlockMatch) {
         const extracted = codeBlockMatch[1].trim();
         const parsed = JSON.parse(extracted);
@@ -187,7 +190,7 @@ const StoryToVideo = () => {
 
     try {
       const numScenes = parseInt(sceneCount);
-      const characterContext = characterDetails.mainCharacter 
+      const characterContext = characterDetails.mainCharacter
         ? `Main Character: ${characterDetails.mainCharacter}\n` +
           `Secondary Characters: ${characterDetails.secondaryCharacters || 'none'}\n` +
           `Environment: ${characterDetails.environment || 'unspecified'}\n` +
@@ -202,13 +205,13 @@ const StoryToVideo = () => {
       3. For each scene provide:
          - Narrative text (include character actions/dialogue)
          - Detailed image prompt that maintains visual consistency
-      
+
       Image Prompt Guidelines:
       - Always reference the established character details
       - Maintain consistent clothing/hairstyles/features
       - Keep environment/style coherent
       - Use same character names if provided
-      
+
       Format response as a JSON array following this exact structure:
       [
         {
@@ -216,7 +219,7 @@ const StoryToVideo = () => {
           "imagePrompt": "Detailed prompt with consistent characters..."
         }
       ]
-      
+
       Important: Only return valid JSON without any other text or markdown.`;
 
       const response = await generateResponse(geminiPrompt);
@@ -224,13 +227,13 @@ const StoryToVideo = () => {
 
       try {
         const parsedStory = parseStoryResponse(response);
-        
+
         if (!Array.isArray(parsedStory)) {
           throw new Error("Response was not an array");
         }
 
-        const isValidStory = parsedStory.every(scene => 
-          typeof scene.text === 'string' && 
+        const isValidStory = parsedStory.every(scene =>
+          typeof scene.text === 'string' &&
           typeof scene.imagePrompt === 'string'
         );
 
@@ -240,7 +243,7 @@ const StoryToVideo = () => {
 
         const enhancedStory = parsedStory.map(scene => ({
           text: scene.text,
-          imagePrompt: characterDetails.mainCharacter 
+          imagePrompt: characterDetails.mainCharacter
             ? `${characterDetails.mainCharacter}. ${scene.imagePrompt}`
             : scene.imagePrompt
         }));
@@ -274,11 +277,11 @@ const StoryToVideo = () => {
       });
 
       const numScenes = parseInt(sceneCount);
-      const fallbackPrompt = `Create a simple ${numScenes}-scene story about "${storyPrompt}". 
+      const fallbackPrompt = `Create a simple ${numScenes}-scene story about "${storyPrompt}".
         Each scene should have:
         1. A paragraph of story text
         2. An image description
-        
+
         Return as JSON array like: [{"text":"...","imagePrompt":"..."}]`;
 
       const fallbackResponse = await generateResponse(fallbackPrompt);
@@ -306,6 +309,45 @@ const StoryToVideo = () => {
     }
   };
 
+  const getAspectRatio = (sizeOption: string): string => {
+    if (sizeOption.includes('landscape')) return '16:9';
+    if (sizeOption.includes('portrait')) return '9:16';
+    return '1:1';
+  };
+
+  const saveToHistory = async (imageUrl: string, originalUrl: string) => {
+    if (!isLoggedIn()) return;
+
+    try {
+      const userId = await getUserId();
+      if (!userId) {
+        console.error("No user ID found");
+        return;
+      }
+
+      const { error } = await supabase
+        .from('user_content_history')
+        .insert({
+          user_id: userId,
+          content_type: 'image',
+          content_url: imageUrl,
+          prompt: storyPrompt,
+          is_public: isPublic,
+          metadata: {
+            size: imageStyle,
+            original_url: originalUrl,
+            model: "imagen3-fast",
+          }
+        });
+
+      if (error) {
+        console.error("Error saving to history:", error);
+      }
+    } catch (err) {
+      console.error("Failed to save to history:", err);
+    }
+  };
+
   const generateImageForScene = async (sceneIndex: number) => {
     if (counts.remainingImages <= 0) {
       toast({
@@ -322,11 +364,10 @@ const StoryToVideo = () => {
     setCurrentGeneratingIndex(sceneIndex);
 
     try {
-      const apiKey = localStorage.getItem("falApiKey");
-      if (!apiKey) {
+      if (!isApiKeySet) {
         toast({
           title: "API Key Required",
-          description: "Please set your FAL.ai API key in the settings",
+          description: "Please set your Infinity API key first",
           variant: "destructive",
         });
         setCurrentGeneratingIndex(null);
@@ -344,50 +385,62 @@ const StoryToVideo = () => {
         return;
       }
 
-      falService.initialize(apiKey);
-
-      const enhancedPrompt = characterDetails.mainCharacter 
-        ? `${characterDetails.mainCharacter}. ${scene.imagePrompt} in ${imageStyle} style`
-        : `${scene.imagePrompt} in ${imageStyle} style`;
-
-      console.log("Generating image with prompt:", enhancedPrompt);
-      
-      const result = await falService.generateImageWithImagen3(enhancedPrompt, {
-        aspect_ratio: "1:1",
-        negative_prompt: "low quality, bad anatomy, distorted, ugly"
+      fal.config({
+        credentials: apiKey
       });
 
-      if (!result || !result.data || !result.data.images || result.data.images.length === 0) {
-        throw new Error("No image was returned from the API");
-      }
+      const result = await fal.subscribe("fal-ai/imagen3/fast", {
+        input: {
+          prompt: scene.imagePrompt,
+          aspect_ratio: getAspectRatio(imageStyle) as "16:9" | "9:16" | "1:1",
+          negative_prompt: "low quality, bad anatomy"
+        },
+      });
 
       if (result.data?.images?.[0]?.url) {
-        const imageUrl = result.data.images[0].url;
-        console.log("Successfully received image URL:", imageUrl);
-        
+        const falImageUrl = result.data.images[0].url;
+        setOriginalImageUrl(falImageUrl);
+        setGeneratedImage("");
+
+        setIsUploading(true);
+        try {
+          const userId = await getUserId();
+          const supabaseUrl = await uploadUrlToStorage(falImageUrl, 'image', userId, isPublic);
+          setSupabaseImageUrl(supabaseUrl);
+          setGeneratedImage(supabaseUrl);
+
+          // Save to history with the is_public flag
+          await saveToHistory(supabaseUrl, falImageUrl);
+
+          toast({
+            title: "Image Stored",
+            description: "Image uploaded to your storage",
+          });
+        } catch (uploadError) {
+          console.error("Failed to upload to Supabase:", uploadError);
+          setGeneratedImage(falImageUrl);
+
+          // Even if upload fails, try to save to history
+          await saveToHistory(falImageUrl, falImageUrl);
+        } finally {
+          setIsUploading(false);
+        }
+
+        // Increment the count after successful generation
+        if (await incrementImageCount()) {
+          toast({
+            title: "Success",
+            description: "Image generated successfully!",
+          });
+          const freshCounts = await getRemainingCountsAsync();
+          setCounts(freshCounts);
+        }
+
         const updatedStory = [...generatedStory];
-        updatedStory[sceneIndex] = { ...updatedStory[sceneIndex], imageUrl };
+        updatedStory[sceneIndex] = { ...updatedStory[sceneIndex], imageUrl: supabaseUrl || falImageUrl };
         setGeneratedStory(updatedStory);
-
-        const freshCounts = await getRemainingCountsAsync();
-        setCounts(freshCounts);
-
-        await falService.saveToHistory(
-          'image',
-          imageUrl,
-          enhancedPrompt,
-          isPublic,
-          {
-            story_title: storyTitle,
-            scene_text: scene.text,
-            story_prompt: storyPrompt
-          }
-        );
-
-        toast({
-          title: "Success",
-          description: "Image generated successfully!",
-        });
+      } else {
+        throw new Error("No image URL in response");
       }
     } catch (error) {
       console.error("Image generation failed:", error);
@@ -444,24 +497,27 @@ const StoryToVideo = () => {
         return;
       }
 
-      falService.initialize(apiKey);
-
-      const result = await falService.generateVideoFromImage(scene.imageUrl, {
-        seed: Math.floor(Math.random() * 1000000)
+      fal.config({
+        credentials: apiKey
       });
 
-      const videoUrl = result.video_url || result.data?.video?.url;
-      
+      const result = await fal.subscribe("fal-ai/video/generate", {
+        input: {
+          image_url: scene.imageUrl,
+          seed: Math.floor(Math.random() * 1000000)
+        },
+      });
+
+      const videoUrl = result.data?.video?.url;
+
       if (videoUrl) {
         const newVideoUrls = [...videoUrls];
         newVideoUrls[sceneIndex] = videoUrl;
         setVideoUrls(newVideoUrls);
 
-        await falService.saveToHistory(
-          'video',
+        await saveToHistory(
           videoUrl,
-          scene.imagePrompt,
-          isPublic,
+          scene.imageUrl,
           {
             story_title: storyTitle,
             scene_text: scene.text,
@@ -504,27 +560,27 @@ const StoryToVideo = () => {
 
     try {
       console.log("Generating PDF with language:", pdfLanguage);
-      
+
       const pdfDataUri = await generateStoryPDF(
-        storyTitle || `Story: ${storyPrompt.slice(0, 30)}${storyPrompt.length > 30 ? '...' : ''}`, 
+        storyTitle || `Story: ${storyPrompt.slice(0, 30)}${storyPrompt.length > 30 ? '...' : ''}`,
         generatedStory,
-        characterDetails, 
+        characterDetails,
         pdfLanguage
       );
-      
+
       if (!pdfDataUri || typeof pdfDataUri !== 'string') {
         throw new Error("Failed to generate PDF data");
       }
-      
+
       console.log("PDF generated successfully, creating download link");
-      
+
       const link = document.createElement('a');
       link.href = pdfDataUri;
       link.download = `${storyTitle || 'story'}_${pdfLanguage}.pdf`.replace(/\s+/g, '_').toLowerCase();
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       toast({
         title: "Success",
         description: `Story downloaded as PDF in ${LANGUAGES[pdfLanguage]}`,
@@ -559,11 +615,11 @@ const StoryToVideo = () => {
         generatedStory,
         characterDetails
       );
-      
+
       const filename = `${storyTitle || 'story'}_${pdfLanguage}.txt`.replace(/\s+/g, '_').toLowerCase();
-      
+
       downloadTextFile(textContent, filename);
-      
+
       toast({
         title: "Success",
         description: "Story downloaded as text file",
@@ -587,7 +643,7 @@ const StoryToVideo = () => {
           <User className="mr-2 h-5 w-5" />
           Character Details
         </h3>
-        
+
         <div>
           <Label>Main Character</Label>
           <Textarea
@@ -629,13 +685,13 @@ const StoryToVideo = () => {
         </div>
 
         <div className="flex gap-2">
-          <Button 
+          <Button
             onClick={() => setShowCharacterForm(false)}
             variant="outline"
           >
             Done
           </Button>
-          <Button 
+          <Button
             onClick={generateCharacterTemplate}
             disabled={!storyPrompt || isGeneratingStory}
           >
