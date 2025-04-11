@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,17 +9,18 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
 import { useToast } from "@/hooks/use-toast";
-import { Wand2, FileText, Video, Download, Save, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
+import { Wand2, FileText, Video, Download, Save, Loader2, RefreshCw, AlertTriangle, FileDown } from "lucide-react";
 import { generateStoryTextFile, downloadTextFile } from "@/services/textFileService";
 import { falService } from "@/services/falService";
 import { StoryScene } from "@/types";
-import { useFalClient } from "@/hooks/useFalClient";
 import { getRemainingCountsAsync } from "@/utils/usageTracker";
 import BuyApiKeyPopover from "./api-key/BuyApiKeyPopover";
+import { generateStoryPDF } from "@/services/pdfService";
+import { LANGUAGES, LanguageOption } from "@/utils/translationUtils";
 
 interface ScriptItem {
   text: string;
-  imagePrompt: string; // Changed from optional to required to match StoryScene
+  imagePrompt: string;
   imageUrl?: string;
   videoUrl?: string;
 }
@@ -36,6 +36,8 @@ const ScriptToVideo = () => {
   const [scriptStyle, setScriptStyle] = useState<string>("cinematic");
   const [remainingImages, setRemainingImages] = useState<number>(0);
   const [hasApiKey, setHasApiKey] = useState<boolean>(true);
+  const [generatingPDF, setGeneratingPDF] = useState<boolean>(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageOption>("en");
   
   const { generateResponse, isLoading } = useGeminiAPI({
     temperature: 0.7,
@@ -44,13 +46,11 @@ const ScriptToVideo = () => {
   
   const { toast } = useToast();
   
-  // Check image generation limits on component mount
   useEffect(() => {
     const checkLimits = async () => {
       const limits = await getRemainingCountsAsync();
       setRemainingImages(limits.remainingImages);
       
-      // Check if the FAL API key is available by testing localStorage
       const apiKey = localStorage.getItem("falApiKey");
       setHasApiKey(!!apiKey);
     };
@@ -58,7 +58,6 @@ const ScriptToVideo = () => {
     checkLimits();
   }, []);
   
-  // Generate script based on idea
   const handleGenerateScript = async () => {
     if (!scriptIdea.trim()) {
       toast({
@@ -94,17 +93,15 @@ const ScriptToVideo = () => {
       
       const response = await generateResponse(prompt);
       
-      // Extract JSON from the response
       try {
         const jsonStart = response.indexOf('[');
         const jsonEnd = response.lastIndexOf(']') + 1;
         const jsonStr = response.substring(jsonStart, jsonEnd);
         const parsedScript = JSON.parse(jsonStr) as ScriptItem[];
         
-        // Ensure each script item has an imagePrompt to satisfy the type constraint
         const validatedScript = parsedScript.map(scene => ({
           ...scene,
-          imagePrompt: scene.imagePrompt || scene.text // Use text as fallback if imagePrompt is missing
+          imagePrompt: scene.imagePrompt || scene.text
         }));
         
         setGeneratedScript(validatedScript);
@@ -134,11 +131,9 @@ const ScriptToVideo = () => {
     }
   };
   
-  // Generate images for scenes
   const generateImages = async () => {
     if (generatedScript.length === 0) return;
     
-    // Check for API key and remaining image credits
     if (!hasApiKey) {
       toast({
         title: "API Key Required",
@@ -148,7 +143,6 @@ const ScriptToVideo = () => {
       return;
     }
     
-    // Check remaining image count
     const limits = await getRemainingCountsAsync();
     setRemainingImages(limits.remainingImages);
     
@@ -173,9 +167,8 @@ const ScriptToVideo = () => {
             description: `Creating image for scene ${i + 1}...`,
           });
           
-          // Use falService to generate image
           const result = await falService.generateImageWithImagen3(
-            scene.imagePrompt, // Now always available
+            scene.imagePrompt,
             { aspect_ratio: "1:1" }
           );
           
@@ -188,12 +181,10 @@ const ScriptToVideo = () => {
             updatedScript[i] = { ...scene, imageUrl };
           }
           
-          // Save to history
           await falService.saveToHistory('image', imageUrl, scene.imagePrompt, false, {
             scriptTitle: title,
             sceneIndex: i
           });
-          
         } catch (error) {
           console.error(`Error generating image for scene ${i + 1}:`, error);
           toast({
@@ -207,12 +198,10 @@ const ScriptToVideo = () => {
     
     setGeneratedScript(updatedScript);
     
-    // Update remaining image count after generation
     const updatedLimits = await getRemainingCountsAsync();
     setRemainingImages(updatedLimits.remainingImages);
   };
   
-  // Convert scenes to video
   const generateVideo = async () => {
     if (!hasApiKey) {
       toast({
@@ -230,20 +219,17 @@ const ScriptToVideo = () => {
     });
     
     try {
-      // We'll use the image-to-video generation functionality from falService
       const sceneWithImage = generatedScript.find(scene => scene.imageUrl);
       
       if (!sceneWithImage || !sceneWithImage.imageUrl) {
         throw new Error("No images available to create video");
       }
       
-      // Get video limits
       const limits = await getRemainingCountsAsync();
       if (limits.remainingVideos <= 0) {
         throw new Error("You have reached your video generation limit");
       }
       
-      // Use the first image with a URL to create a sample video
       const result = await falService.generateVideoFromImage(
         sceneWithImage.imageUrl, 
         { cameraMode: "zoom-out" }
@@ -252,7 +238,6 @@ const ScriptToVideo = () => {
       const videoUrl = result?.video_url || result?.data?.video?.url;
       
       if (videoUrl) {
-        // Update the scene with the video URL
         const updatedScript = generatedScript.map(scene => {
           if (scene === sceneWithImage) {
             return { ...scene, videoUrl };
@@ -281,7 +266,6 @@ const ScriptToVideo = () => {
     }
   };
   
-  // Handle script text file download
   const handleDownloadTextFile = () => {
     if (generatedScript.length === 0) {
       toast({
@@ -294,7 +278,6 @@ const ScriptToVideo = () => {
     
     const fileName = title.trim() ? `${title.trim().replace(/\s+/g, '_')}.txt` : 'script.txt';
     
-    // Convert ScriptItem[] to StoryScene[] for the text file generator
     const storyScenes: StoryScene[] = generatedScript.map(item => ({
       text: item.text,
       imagePrompt: item.imagePrompt,
@@ -308,6 +291,61 @@ const ScriptToVideo = () => {
       title: "Script downloaded",
       description: `Your script has been saved as ${fileName}.`,
     });
+  };
+  
+  const handleDownloadPDF = async () => {
+    if (generatedScript.length === 0) {
+      toast({
+        title: "No script to download",
+        description: "Please generate a script first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setGeneratingPDF(true);
+    
+    try {
+      const storyScenes: StoryScene[] = generatedScript.map(item => ({
+        text: item.text,
+        imagePrompt: item.imagePrompt,
+        imageUrl: item.imageUrl
+      }));
+      
+      const characterDetails = {
+        title: title || "Untitled Script",
+        scriptStyle: scriptStyle,
+        scenesCount: scenesCount.toString(),
+      };
+      
+      const pdfDataUri = await generateStoryPDF(
+        title || "Untitled Script", 
+        storyScenes,
+        characterDetails,
+        selectedLanguage
+      );
+      
+      const link = document.createElement('a');
+      link.href = pdfDataUri;
+      link.download = `${title.trim() ? title.trim().replace(/\s+/g, '_') : 'script'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "PDF downloaded",
+        description: `Your script has been saved as a PDF.`,
+      });
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+      toast({
+        title: "PDF generation failed",
+        description: error instanceof Error ? error.message : "An error occurred while generating the PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingPDF(false);
+    }
   };
   
   return (
@@ -380,6 +418,23 @@ const ScriptToVideo = () => {
                   </div>
                 </div>
                 
+                <div>
+                  <Label htmlFor="language">PDF Language</Label>
+                  <Select 
+                    value={selectedLanguage} 
+                    onValueChange={(value) => setSelectedLanguage(value as LanguageOption)}
+                  >
+                    <SelectTrigger id="language" className="mt-1">
+                      <SelectValue placeholder="Select language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(LANGUAGES).map(([code, name]) => (
+                        <SelectItem key={code} value={code}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
                 <Button 
                   onClick={handleGenerateScript} 
                   className="w-full"
@@ -438,6 +493,25 @@ const ScriptToVideo = () => {
                       >
                         <FileText className="mr-2 h-4 w-4" />
                         Download Text
+                      </Button>
+                      
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleDownloadPDF}
+                        disabled={generatingPDF}
+                      >
+                        {generatingPDF ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Creating PDF...
+                          </>
+                        ) : (
+                          <>
+                            <FileDown className="mr-2 h-4 w-4" />
+                            Download PDF
+                          </>
+                        )}
                       </Button>
                       
                       <Button 
