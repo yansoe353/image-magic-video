@@ -13,10 +13,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Wand2, FileText, Video, Download, Save, Loader2, RefreshCw } from "lucide-react";
 import { generateStoryTextFile, downloadTextFile } from "@/services/textFileService";
 import { falService } from "@/services/falService";
+import { StoryScene } from "@/types";
 
 interface ScriptItem {
   text: string;
-  imagePrompt?: string;
+  imagePrompt: string; // Changed from optional to required to match StoryScene
   imageUrl?: string;
   videoUrl?: string;
 }
@@ -81,12 +82,18 @@ const ScriptToVideo = () => {
         const jsonStr = response.substring(jsonStart, jsonEnd);
         const parsedScript = JSON.parse(jsonStr) as ScriptItem[];
         
-        setGeneratedScript(parsedScript);
+        // Ensure each script item has an imagePrompt to satisfy the type constraint
+        const validatedScript = parsedScript.map(scene => ({
+          ...scene,
+          imagePrompt: scene.imagePrompt || scene.text // Use text as fallback if imagePrompt is missing
+        }));
+        
+        setGeneratedScript(validatedScript);
         setActiveTab("preview");
         
         toast({
           title: "Script generated!",
-          description: `Created ${parsedScript.length} scenes for your script.`,
+          description: `Created ${validatedScript.length} scenes for your script.`,
         });
       } catch (jsonError) {
         console.error("Failed to parse script JSON:", jsonError, response);
@@ -126,7 +133,7 @@ const ScriptToVideo = () => {
           
           // Use falService to generate image
           const result = await falService.generateImageWithImagen3(
-            scene.imagePrompt || scene.text,
+            scene.imagePrompt, // Now always available
             { aspect_ratio: "1:1" }
           );
           
@@ -140,7 +147,7 @@ const ScriptToVideo = () => {
           }
           
           // Save to history
-          await falService.saveToHistory('image', imageUrl, scene.imagePrompt || scene.text, false, {
+          await falService.saveToHistory('image', imageUrl, scene.imagePrompt, false, {
             scriptTitle: title,
             sceneIndex: i
           });
@@ -179,7 +186,15 @@ const ScriptToVideo = () => {
     }
     
     const fileName = title.trim() ? `${title.trim().replace(/\s+/g, '_')}.txt` : 'script.txt';
-    const content = generateStoryTextFile(title || "Untitled Script", generatedScript);
+    
+    // Convert ScriptItem[] to StoryScene[] for the text file generator
+    const storyScenes: StoryScene[] = generatedScript.map(item => ({
+      text: item.text,
+      imagePrompt: item.imagePrompt,
+      imageUrl: item.imageUrl
+    }));
+    
+    const content = generateStoryTextFile(title || "Untitled Script", storyScenes);
     downloadTextFile(content, fileName);
     
     toast({

@@ -1,3 +1,4 @@
+
 export interface StoryScene {
   text: string;
   imagePrompt: string;
