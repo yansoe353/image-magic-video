@@ -324,9 +324,10 @@ const StoryToVideo = () => {
       if (!apiKey) {
         toast({
           title: "API Key Required",
-          description: "Please set your API key first",
+          description: "Please set your FAL.ai API key in the settings",
           variant: "destructive",
         });
+        setCurrentGeneratingIndex(null);
         return;
       }
 
@@ -337,6 +338,7 @@ const StoryToVideo = () => {
           description: "You've used all your image generations",
           variant: "destructive",
         });
+        setCurrentGeneratingIndex(null);
         return;
       }
 
@@ -346,11 +348,23 @@ const StoryToVideo = () => {
         ? `${characterDetails.mainCharacter}. ${scene.imagePrompt} in ${imageStyle} style`
         : `${scene.imagePrompt} in ${imageStyle} style`;
 
-      const result = await falService.generateImageWithImagen3(enhancedPrompt);
+      console.log("Generating image with prompt:", enhancedPrompt);
+      
+      const result = await falService.generateImageWithImagen3(enhancedPrompt, {
+        aspect_ratio: "1:1",
+        negative_prompt: "low quality, bad anatomy, distorted, ugly"
+      });
+
+      if (!result || !result.data || !result.data.images || result.data.images.length === 0) {
+        throw new Error("No image was returned from the API");
+      }
 
       if (result.data?.images?.[0]?.url) {
+        const imageUrl = result.data.images[0].url;
+        console.log("Successfully received image URL:", imageUrl);
+        
         const updatedStory = [...generatedStory];
-        updatedStory[sceneIndex] = { ...updatedStory[sceneIndex], imageUrl: result.data.images[0].url };
+        updatedStory[sceneIndex] = { ...updatedStory[sceneIndex], imageUrl };
         setGeneratedStory(updatedStory);
 
         const freshCounts = await getRemainingCountsAsync();
@@ -358,7 +372,7 @@ const StoryToVideo = () => {
 
         await falService.saveToHistory(
           'image',
-          result.data.images[0].url,
+          imageUrl,
           enhancedPrompt,
           isPublic,
           {
@@ -370,14 +384,14 @@ const StoryToVideo = () => {
 
         toast({
           title: "Success",
-          description: "Image generated with consistent characters!",
+          description: "Image generated successfully!",
         });
       }
     } catch (error) {
       console.error("Image generation failed:", error);
       toast({
         title: "Error",
-        description: "Failed to generate image",
+        description: error instanceof Error ? error.message : "Failed to generate image. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -487,12 +501,20 @@ const StoryToVideo = () => {
     setIsGeneratingPDF(true);
 
     try {
+      console.log("Generating PDF with language:", pdfLanguage);
+      
       const pdfDataUri = await generateStoryPDF(
         storyTitle || `Story: ${storyPrompt.slice(0, 30)}${storyPrompt.length > 30 ? '...' : ''}`, 
         generatedStory,
         characterDetails, 
         pdfLanguage
       );
+      
+      if (!pdfDataUri || typeof pdfDataUri !== 'string') {
+        throw new Error("Failed to generate PDF data");
+      }
+      
+      console.log("PDF generated successfully, creating download link");
       
       const link = document.createElement('a');
       link.href = pdfDataUri;
@@ -509,7 +531,7 @@ const StoryToVideo = () => {
       console.error("PDF generation failed:", error);
       toast({
         title: "Error",
-        description: "Failed to generate PDF",
+        description: error instanceof Error ? error.message : "Failed to generate PDF. Please try again.",
         variant: "destructive"
       });
     } finally {

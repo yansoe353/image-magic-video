@@ -151,6 +151,12 @@ class FalService {
     }
 
     try {
+      console.log("Generating image with Imagen3, prompt:", prompt);
+      
+      if (!prompt || prompt.trim() === '') {
+        throw new Error("Prompt cannot be empty");
+      }
+      
       const result = await this.falClient.run(IMAGEN_3_MODEL, {
         input: {
           prompt,
@@ -159,7 +165,13 @@ class FalService {
           ...options
         }
       });
-
+      
+      console.log("Imagen3 response received:", result);
+      
+      if (!result || (!result.images && !result.data?.images)) {
+        throw new Error("Invalid response from Imagen3 API");
+      }
+      
       return result;
     } catch (error) {
       console.error("Error generating image with Imagen3:", error);
