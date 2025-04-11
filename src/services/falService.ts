@@ -168,11 +168,23 @@ class FalService {
       
       console.log("Imagen3 response received:", result);
       
-      if (!result || (!result.images && !result.data?.images)) {
-        throw new Error("Invalid response from Imagen3 API");
+      // Fix the type issue - handle the result properly based on actual structure
+      if (!result) {
+        throw new Error("Empty response from Imagen3 API");
       }
       
-      return result;
+      // Access data first to ensure we're working with the correct structure
+      if (result.data) {
+        // If we have a direct data property, use it
+        return result;
+      } else {
+        // If there's no data.images structure, wrap the result in our expected format
+        return {
+          data: {
+            images: [{ url: result.image_url || result.url }]
+          }
+        };
+      }
     } catch (error) {
       console.error("Error generating image with Imagen3:", error);
       throw error;
