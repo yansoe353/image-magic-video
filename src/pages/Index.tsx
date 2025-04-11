@@ -17,6 +17,44 @@ interface SelectedContent {
   type: 'image' | 'video';
 }
 
+const ComingSoonCard = () => {
+  const isMobile = useIsMobile();
+  
+  return (
+    <Card className="border-0 shadow-lg glass-morphism">
+      <CardContent className="p-8 text-center">
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="64"
+            height="64"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-blue-400"
+          >
+            <path d="M12 2v4"></path>
+            <path d="m16 4-2 2"></path>
+            <path d="m8 4 2 2"></path>
+            <path d="M3 10a9 9 0 1 0 18 0 9 9 0 0 0-18 0Z"></path>
+            <path d="M12 12v3l2 2"></path>
+          </svg>
+          <h3 className="text-2xl font-bold text-white">Coming Soon</h3>
+          <p className="text-slate-300 max-w-md">
+            We're working hard to bring you this feature. Stay tuned for updates!
+          </p>
+          <div className="mt-4 px-4 py-2 bg-blue-900/20 border border-blue-700/30 rounded-md text-blue-200 text-sm">
+            Estimated launch: Q3 2024
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 const Index = () => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<string>("text-to-image");
@@ -164,11 +202,11 @@ const Index = () => {
           </TabsContent>
           
           <TabsContent value="story-to-video" className="mt-0">
-            <StoryToVideo />
+            <ComingSoonCard />
           </TabsContent>
           
           <TabsContent value="script-to-video" className="mt-0">
-            <ScriptToVideo />
+            <ComingSoonCard />
           </TabsContent>
           
           <TabsContent value="video-editor" className="mt-0">
