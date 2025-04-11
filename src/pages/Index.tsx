@@ -47,7 +47,7 @@ const ComingSoonCard = () => {
             We're working hard to bring you this feature. Stay tuned for updates!
           </p>
           <div className="mt-4 px-4 py-2 bg-blue-900/20 border border-blue-700/30 rounded-md text-blue-200 text-sm">
-            Estimated launch: Q3 2024
+            Estimated launch: 4/16/2025
           </div>
         </div>
       </CardContent>
