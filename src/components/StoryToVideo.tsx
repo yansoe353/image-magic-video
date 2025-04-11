@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ImageIcon, BookText, Film, Sparkles, User, Download, Globe } from "lucide-react";
+import { Loader2, ImageIcon, BookText, Film, Sparkles, User, Download, Globe, FileText } from "lucide-react";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
 import { incrementImageCount, incrementVideoCount, getRemainingCountsAsync } from "@/utils/usageTracker";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,7 @@ import { getUserId } from "@/utils/storageUtils";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 import { falService } from "@/services/falService";
 import { generateStoryPDF } from "@/services/pdfService";
+import { generateStoryTextFile, downloadTextFile } from "@/services/textFileService";
 import { StoryScene, CharacterDetails } from "@/types";
 import { LANGUAGES, type LanguageOption } from "@/utils/translationUtils";
 import {
@@ -41,6 +42,7 @@ const StoryToVideo = () => {
   const [showCharacterForm, setShowCharacterForm] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [pdfLanguage, setPdfLanguage] = useState<LanguageOption>("en");
+  const [isDownloadingText, setIsDownloadingText] = useState(false);
 
   const { generateResponse, isLoading: isGeminiLoading } = useGeminiAPI();
   const { toast } = useToast();
@@ -539,6 +541,45 @@ const StoryToVideo = () => {
     }
   };
 
+  const downloadStoryText = () => {
+    if (generatedStory.length === 0) {
+      toast({
+        title: "No story to download",
+        description: "Please generate a story first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDownloadingText(true);
+
+    try {
+      const textContent = generateStoryTextFile(
+        storyTitle || `Story: ${storyPrompt.slice(0, 30)}${storyPrompt.length > 30 ? '...' : ''}`,
+        generatedStory,
+        characterDetails
+      );
+      
+      const filename = `${storyTitle || 'story'}_${pdfLanguage}.txt`.replace(/\s+/g, '_').toLowerCase();
+      
+      downloadTextFile(textContent, filename);
+      
+      toast({
+        title: "Success",
+        description: "Story downloaded as text file",
+      });
+    } catch (error) {
+      console.error("Text file generation failed:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate text file. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDownloadingText(false);
+    }
+  };
+
   const CharacterDetailsForm = () => (
     <Card className="mt-4">
       <CardContent className="p-6 space-y-4">
@@ -736,18 +777,36 @@ const StoryToVideo = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button
-                  onClick={downloadStoryPDF}
-                  disabled={isGeneratingPDF || generatedStory.length === 0}
-                  variant="secondary"
-                >
-                  {isGeneratingPDF ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="mr-2 h-4 w-4" />
-                  )}
-                  Download PDF
-                </Button>
+
+                <div className="flex space-x-2">
+                  <Button
+                    onClick={downloadStoryPDF}
+                    disabled={isGeneratingPDF || generatedStory.length === 0}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    {isGeneratingPDF ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    PDF
+                  </Button>
+
+                  <Button
+                    onClick={downloadStoryText}
+                    disabled={isDownloadingText || generatedStory.length === 0}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    {isDownloadingText ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <FileText className="mr-2 h-4 w-4" />
+                    )}
+                    Text
+                  </Button>
+                </div>
               </div>
             </div>
 
