@@ -75,6 +75,35 @@ const plans = [
   }
 ];
 
+const additionalPacks = [
+  {
+    name: "Extra Image Pack",
+    price: "20,000 Ks",
+    description: "Extend your creative capabilities",
+    features: [
+      "100 additional image generations",
+      "No expiration date",
+      "Pro quality output",
+      "Same-day activation"
+    ],
+    buttonText: "Buy Images Pack",
+    buttonLink: "/buy-credits"
+  },
+  {
+    name: "Extra Video Pack",
+    price: "25,000 Ks",
+    description: "Bring more stories to life",
+    features: [
+      "20 additional video generations",
+      "No expiration date", 
+      "HD video quality",
+      "Priority processing"
+    ],
+    buttonText: "Buy Videos Pack",
+    buttonLink: "/buy-credits"
+  }
+];
+
 const Pricing = () => {
   return (
     <section className="py-16 md:py-24 bg-black">
@@ -138,6 +167,54 @@ const Pricing = () => {
               </CardFooter>
             </Card>
           ))}
+        </div>
+
+        {/* Additional Generation Packs */}
+        <div className="mt-20">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white mb-4">
+              Need Extra Generation Credits?
+            </h2>
+            <p className="text-slate-300 max-w-3xl mx-auto">
+              Extend your creative possibilities with these additional generation packs
+            </p>
+          </div>
+
+          <div className="grid gap-8 md:grid-cols-2 max-w-4xl mx-auto">
+            {additionalPacks.map((pack) => (
+              <Card 
+                key={pack.name} 
+                className="border border-emerald-600/30 bg-gradient-to-b from-slate-900 to-slate-950"
+              >
+                <CardHeader>
+                  <CardTitle className="text-white text-2xl">{pack.name}</CardTitle>
+                  <div className="flex items-baseline mt-2">
+                    <span className="text-3xl font-bold text-emerald-400">{pack.price}</span>
+                  </div>
+                  <CardDescription className="mt-3">{pack.description}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-3">
+                    {pack.features.map((feature) => (
+                      <li key={feature} className="flex items-center text-slate-300">
+                        <Check className="h-4 w-4 mr-3 text-emerald-500" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+                <CardFooter>
+                  <Link to={pack.buttonLink} className="w-full">
+                    <Button 
+                      className="w-full bg-emerald-700 hover:bg-emerald-600"
+                    >
+                      {pack.buttonText}
+                    </Button>
+                  </Link>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
     </section>

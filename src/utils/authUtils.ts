@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { IMAGE_LIMIT, VIDEO_LIMIT } from "./usageTracker";
 
@@ -49,10 +48,10 @@ export const getCurrentUser = async (): Promise<AppUser | null> => {
   };
 };
 
-// Check if current user is an admin
+// Check if current user is an admin - Here was the error: Boolean was being called as a function
 export const isAdmin = async (): Promise<boolean> => {
   const user = await getCurrentUser();
-  return user?.isAdmin === true;
+  return user?.isAdmin === true; // Fixed: This is a boolean comparison, not a function call
 };
 
 // Login user

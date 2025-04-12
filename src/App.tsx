@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -24,7 +23,7 @@ import FAQ from "./pages/FAQ";
 
 const queryClient = new QueryClient();
 
-// Protected route component with proper loading state
+// Protected route component with improved loading and redirect behavior
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   
@@ -34,18 +33,37 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       setIsAuthenticated(!!data.session);
     };
     
+    // Check auth status immediately
     checkAuth();
+    
+    // Also listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setIsAuthenticated(!!session);
+      }
+    );
+    
+    // Cleanup subscription
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
   
   if (isAuthenticated === null) {
-    // Still checking authentication
-    return null;
+    // Still checking authentication, show a loading state
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <p className="text-lg">Loading authentication status...</p>
+      </div>
+    );
   }
   
   if (!isAuthenticated) {
+    // Redirect to login if not authenticated
     return <Navigate to="/login" replace />;
   }
   
+  // User is authenticated, render the protected content
   return <>{children}</>;
 };
 
