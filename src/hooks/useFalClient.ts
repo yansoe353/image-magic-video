@@ -69,6 +69,9 @@ export function useTextToImage(): TextToImageResult {
         throw new Error("You have reached your image generation limit");
       }
       
+      // Make sure falService is initialized with latest key
+      falService.initialize();
+      
       const result = await falService.generateImage(input.prompt, {
         negative_prompt: input.negative_prompt,
         height: input.height,
@@ -151,6 +154,9 @@ export function useImageToVideo(): ImageToVideoResult {
       if (!canGenerate) {
         throw new Error("You have reached your video generation limit");
       }
+      
+      // Make sure falService is initialized with latest key
+      falService.initialize();
       
       const result = await falService.generateVideoFromImage(input.image_url, {
         cameraMode: input.cameraMode,

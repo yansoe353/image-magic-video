@@ -11,6 +11,13 @@ import { getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT }
 import { Card, CardContent } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AIAssistant } from "@/components/AIAssistant";
+import { falService } from "@/services/falService";
+
+declare global {
+  interface Window {
+    ENV_FAL_API_KEY?: string;
+  }
+}
 
 interface SelectedContent {
   url: string;
@@ -28,7 +35,17 @@ const Index = () => {
 
   useEffect(() => {
     const initialize = async () => {
-      setHasApiKey(true);
+      if (import.meta.env.VITE_FAL_API_KEY) {
+        window.ENV_FAL_API_KEY = import.meta.env.VITE_FAL_API_KEY;
+        console.log("FAL API key loaded from environment variables");
+      }
+      
+      const apiKeyExists = localStorage.getItem("falApiKey") || window.ENV_FAL_API_KEY;
+      setHasApiKey(!!apiKeyExists);
+      
+      if (window.ENV_FAL_API_KEY) {
+        falService.initialize();
+      }
       
       const counts = await getRemainingCountsAsync();
       setUsageCounts(counts);

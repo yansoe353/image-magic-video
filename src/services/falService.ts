@@ -1,3 +1,4 @@
+
 // Import fal-ai client properly
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
@@ -43,15 +44,26 @@ class FalService {
   private falClient: ReturnType<typeof createFalClient>;
 
   constructor() {
-    // Create fal client with default API key
+    // Try to get API key from environment first, then localStorage, then default
+    const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_API_KEY : undefined;
+    this.apiKey = envApiKey || localStorage.getItem("falApiKey") || DEFAULT_API_KEY;
+    
+    // Create fal client with API key
     this.falClient = createFalClient({ credentials: this.apiKey });
     this.initialize();
   }
 
   initialize(apiKey?: string) {
     try {
-      // Use provided key or try to get from localStorage
-      this.apiKey = apiKey || localStorage.getItem("falApiKey") || DEFAULT_API_KEY;
+      // Use provided key or try to get from environment or localStorage
+      if (apiKey) {
+        this.apiKey = apiKey;
+      } else {
+        const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_API_KEY : undefined;
+        this.apiKey = envApiKey || localStorage.getItem("falApiKey") || this.apiKey || DEFAULT_API_KEY;
+      }
+      
+      console.log("Initializing FAL client with key:", this.apiKey ? "API key present" : "No API key");
       
       // Initialize client with the right credentials
       this.falClient = createFalClient({ credentials: this.apiKey });
@@ -66,6 +78,7 @@ class FalService {
 
   setApiKey(apiKey: string) {
     this.apiKey = apiKey;
+    localStorage.setItem("falApiKey", apiKey);
     this.initialize(apiKey);
   }
 
@@ -87,6 +100,8 @@ class FalService {
     }
 
     try {
+      console.log("Generating image with prompt:", prompt);
+      
       const result = await this.falClient.run(TEXT_TO_IMAGE_MODEL, {
         input: {
           prompt,
@@ -94,6 +109,7 @@ class FalService {
         }
       });
 
+      console.log("Image generation result:", result);
       return result;
     } catch (error) {
       console.error("Error generating image:", error);
@@ -116,6 +132,8 @@ class FalService {
     }
 
     try {
+      console.log("Generating video from image:", image_url);
+      
       const result = await this.falClient.run(IMAGE_TO_VIDEO_MODEL, {
         input: {
           image_url,
@@ -123,6 +141,7 @@ class FalService {
         }
       });
 
+      console.log("Video generation result:", result);
       return result;
     } catch (error) {
       console.error("Error generating video from image:", error);
