@@ -109,7 +109,7 @@ const Header = () => {
                   <Link to="/history" className="hover:text-primary transition">History</Link>
                   {isUserAdmin && (
                     <Link to="/admin" className="hover:text-primary transition">Admin</Link>
-                  )}
+                  )
                   <Button variant="outline" onClick={handleSignOut} className="justify-start mt-4">
                     <LogOut className="mr-2 h-4 w-4" />
                     Sign Out
