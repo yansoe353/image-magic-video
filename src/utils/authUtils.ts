@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { IMAGE_LIMIT, VIDEO_LIMIT } from "./usageTracker";
 
