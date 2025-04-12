@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -32,10 +31,10 @@ const Header = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Add a state for tracking admin status
   const [isUserAdmin, setIsUserAdmin] = useState(false);
-  
+
   const checkAdminStatus = async () => {
     try {
       const adminStatus = await isAdmin();
@@ -109,7 +108,7 @@ const Header = () => {
                   <Link to="/history" className="hover:text-primary transition">History</Link>
                   {isUserAdmin && (
                     <Link to="/admin" className="hover:text-primary transition">Admin</Link>
-                  )
+                  )}
                   <Button variant="outline" onClick={handleSignOut} className="justify-start mt-4">
                     <LogOut className="mr-2 h-4 w-4" />
                     Sign Out
@@ -224,7 +223,7 @@ const Header = () => {
     <div className="border-b">
       <div className="container flex h-16 items-center justify-between py-4">
         <Link to="/" className="text-2xl font-bold">
-          KlingAI
+          YoteshinAI
         </Link>
         <div className="flex items-center space-x-4">
           {renderMobileMenu()}
