@@ -48,10 +48,10 @@ export const getCurrentUser = async (): Promise<AppUser | null> => {
   };
 };
 
-// Check if current user is an admin - Here was the error: Boolean was being called as a function
+// Check if current user is an admin
 export const isAdmin = async (): Promise<boolean> => {
   const user = await getCurrentUser();
-  return user?.isAdmin === true; // Fixed: Use strict boolean comparison
+  return !!user?.isAdmin; // Use double negation to ensure strict boolean conversion
 };
 
 // Login user
