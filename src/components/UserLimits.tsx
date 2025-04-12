@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { setUserLimits, isAdmin, getAllUsers, AppUser } from "@/utils/authUtils";
+import { useToast } from "@/components/ui/use-toast";
+import { setUserLimits, isAdmin, getCurrentUser, AppUser } from "@/utils/authUtils";
+import { supabase } from "@/integrations/supabase/client";
 import { BarChart } from "lucide-react";
+import UserLimitsHistory from "./UserLimitsHistory";
 
 const UserLimits = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -38,20 +40,40 @@ const UserLimits = () => {
       
       // Load user data
       if (userId) {
-        const users = await getAllUsers();
-        const foundUser = users.find(u => u.id === userId);
-        
-        if (foundUser) {
+        try {
+          const { data, error } = await supabase.auth.admin.getUserById(userId);
+          
+          if (error || !data.user) {
+            toast({
+              title: "Error",
+              description: "User not found",
+              variant: "destructive",
+            });
+            navigate("/admin");
+            return;
+          }
+          
+          const userData = data.user;
+          const foundUser: AppUser = {
+            id: userData.id,
+            email: userData.email || '',
+            name: userData.user_metadata?.name || '',
+            isAdmin: userData.user_metadata?.isAdmin === true,
+            imageLimit: userData.user_metadata?.imageLimit || 100,
+            videoLimit: userData.user_metadata?.videoLimit || 20,
+          };
+          
           setUser(foundUser);
           setImageLimit(foundUser.imageLimit || 100);
           setVideoLimit(foundUser.videoLimit || 20);
-        } else {
+        } catch (error) {
+          console.error("Error fetching user:", error);
           toast({
             title: "Error",
-            description: "User not found",
+            description: "Failed to load user data",
             variant: "destructive",
           });
-          navigate("/users");
+          navigate("/admin");
         }
       }
     };
@@ -81,7 +103,14 @@ const UserLimits = () => {
           title: "Success",
           description: "User limits updated successfully",
         });
-        navigate("/users");
+        // Update the user state with new limits
+        if (user) {
+          setUser({
+            ...user,
+            imageLimit,
+            videoLimit
+          });
+        }
       } else {
         toast({
           title: "Error",
@@ -106,63 +135,76 @@ const UserLimits = () => {
   }
 
   return (
-    <div className="flex justify-center items-center py-12">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-2xl font-bold">User Generation Limits</CardTitle>
-              <CardDescription>
-                Set content generation limits for {user.name || user.email}
-              </CardDescription>
-            </div>
-            <BarChart className="h-10 w-10 text-muted-foreground" />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit}>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="imageLimit">Image Generation Limit</Label>
-                <Input
-                  id="imageLimit"
-                  type="number"
-                  min="0"
-                  value={imageLimit}
-                  onChange={(e) => setImageLimit(parseInt(e.target.value) || 0)}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">Maximum number of images this user can generate</p>
+    <div className="flex justify-center items-start py-12">
+      <div className="w-full max-w-md">
+        <Card>
+          <CardHeader className="space-y-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-2xl font-bold">User Generation Limits</CardTitle>
+                <CardDescription>
+                  Set content generation limits for {user.name || user.email}
+                </CardDescription>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="videoLimit">Video Generation Limit</Label>
-                <Input
-                  id="videoLimit"
-                  type="number"
-                  min="0"
-                  value={videoLimit}
-                  onChange={(e) => setVideoLimit(parseInt(e.target.value) || 0)}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">Maximum number of videos this user can generate</p>
-              </div>
+              <BarChart className="h-10 w-10 text-muted-foreground" />
             </div>
-            <CardFooter className="flex justify-end pt-6 pb-0 px-0">
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="mr-2"
-                onClick={() => navigate("/users")}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save Limits"}
-              </Button>
-            </CardFooter>
-          </form>
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit}>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="imageLimit">Image Generation Limit</Label>
+                  <Input
+                    id="imageLimit"
+                    type="number"
+                    min="0"
+                    value={imageLimit}
+                    onChange={(e) => setImageLimit(parseInt(e.target.value) || 0)}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">Maximum number of images this user can generate</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="videoLimit">Video Generation Limit</Label>
+                  <Input
+                    id="videoLimit"
+                    type="number"
+                    min="0"
+                    value={videoLimit}
+                    onChange={(e) => setVideoLimit(parseInt(e.target.value) || 0)}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">Maximum number of videos this user can generate</p>
+                </div>
+              </div>
+              <CardFooter className="flex justify-end pt-6 pb-0 px-0">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="mr-2"
+                  onClick={() => navigate("/admin")}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? "Saving..." : "Save Limits"}
+                </Button>
+              </CardFooter>
+            </form>
+          </CardContent>
+        </Card>
+        
+        <div className="mt-4">
+          <h3 className="text-lg font-medium mb-2">Current Usage</h3>
+          <UserLimitsHistory userId={userId} />
+        </div>
+        
+        <div className="mt-6 flex justify-end">
+          <Button variant="outline" onClick={() => navigate("/admin")}>
+            Back to Admin Dashboard
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };

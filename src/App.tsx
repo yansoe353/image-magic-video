@@ -16,6 +16,7 @@ import AddUser from "./components/AddUser";
 import UserList from "./components/UserList";
 import EditUser from "./components/EditUser";
 import UserLimits from "./components/UserLimits";
+import AdminDashboard from "./pages/AdminDashboard";
 import { supabase } from "./integrations/supabase/client";
 import BuyAccount from "./pages/BuyAccount";
 import BuyCredits from "./pages/BuyCredits";
@@ -81,6 +82,14 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <History />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin" 
+              element={
+                <ProtectedRoute>
+                  <AdminDashboard />
                 </ProtectedRoute>
               } 
             />

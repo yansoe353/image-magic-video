@@ -1,279 +1,225 @@
-
 import { useState, useEffect } from "react";
-import { Menu, X, LogOut, LogIn, Users, History, Key, HelpCircle } from "lucide-react";
+import { Link } from "react-router-dom";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetClose,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import ApiKeyInput from "@/components/ApiKeyInput";
-import ApiKeyDialog from "@/components/api-key/ApiKeyDialog";
-import { fal } from "@fal-ai/client";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { isLoggedIn, logoutUser, getCurrentUser, AppUser } from "@/utils/authUtils";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Menu,
+  X,
+  LogIn,
+  LogOut,
+  History,
+  User,
+  Shield,
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUser, isAdmin, AppUser } from "@/utils/authUtils";
 
 const Header = () => {
-  const [isApiKeySet, setIsApiKeySet] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
-  const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false);
-  const location = useLocation();
-  const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Add a state for tracking admin status
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
+  
+  const checkAdminStatus = async () => {
+    try {
+      const adminStatus = await isAdmin();
+      setIsUserAdmin(adminStatus);
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+    }
+  };
+
+  const fetchUserData = async () => {
+    setIsLoading(true);
+    try {
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const initialize = async () => {
-      const isUserLoggedIn = await isLoggedIn();
-      setLoggedIn(isUserLoggedIn);
-      
-      if (isUserLoggedIn) {
-        const user = await getCurrentUser();
-        setCurrentUser(user);
-      }
-      
-      const storedApiKey = localStorage.getItem("falApiKey");
-      if (storedApiKey) {
-        try {
-          fal.config({
-            credentials: storedApiKey
-          });
-          setIsApiKeySet(true);
-        } catch (error) {
-          console.error("Error configuring fal.ai client:", error);
-        }
-      }
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getSession();
+      setIsAuthenticated(!!data.session);
     };
-    
-    initialize();
-  }, [location.pathname]);
 
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
+    checkAuth();
+
+    if (isAuthenticated) {
+      fetchUserData();
+      checkAdminStatus(); // Check if user is admin
+    }
+  }, [isAuthenticated]);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setIsAuthenticated(false);
+    setUser(null);
   };
 
-  const handleLogout = async () => {
-    await logoutUser();
-    setLoggedIn(false);
-    setCurrentUser(null);
-    navigate("/");
+  const renderMobileMenu = () => {
+    return (
+      <Sheet>
+        <SheetTrigger asChild>
+          <Button variant="outline" size="icon" className="md:hidden">
+            <Menu className="h-6 w-6" />
+            <span className="sr-only">Toggle menu</span>
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left">
+          <div className="px-2">
+            <div className="flex items-center justify-between mb-8">
+              <Link to="/" className="text-2xl font-bold">
+                KlingAI
+              </Link>
+              <SheetClose asChild>
+                <Button variant="ghost" size="icon">
+                  <X className="h-6 w-6" />
+                </Button>
+              </SheetClose>
+            </div>
+            <nav className="flex flex-col gap-4">
+              <Link to="/" className="hover:text-primary transition">Home</Link>
+              <Link to="/examples" className="hover:text-primary transition">Examples</Link>
+              <Link to="/gallery" className="hover:text-primary transition">Gallery</Link>
+              {isAuthenticated && (
+                <>
+                  <Link to="/create" className="hover:text-primary transition">Create</Link>
+                  <Link to="/history" className="hover:text-primary transition">History</Link>
+                  {isUserAdmin && (
+                    <Link to="/admin" className="hover:text-primary transition">Admin</Link>
+                  )}
+                  <Button variant="outline" onClick={handleSignOut} className="justify-start mt-4">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
+                  </Button>
+                </>
+              )}
+              {!isAuthenticated && (
+                <Link to="/login">
+                  <Button variant="outline" className="w-full">
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Sign In
+                  </Button>
+                </Link>
+              )}
+            </nav>
+          </div>
+        </SheetContent>
+      </Sheet>
+    );
   };
 
-  const handleApiKeyClick = () => {
-    setApiKeyDialogOpen(true);
-  };
-
-  const isHomePage = location.pathname === "/";
-
-  return (
-    <header className={`w-full border-b ${isHomePage ? 'bg-transparent absolute top-0 left-0 z-50 border-transparent' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700'}`}>
-      <div className="container flex h-16 items-center justify-between px-4 md:px-6 max-w-6xl mx-auto">
-        <div className="flex items-center gap-2">
-          <Link to="/" className={`text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-purple to-brand-blue ${isHomePage ? 'hover:opacity-80' : ''}`}>
-            YoteShin AI
-          </Link>
-        </div>
-        
-        <nav className="hidden md:flex items-center gap-6">
-          <Link 
-            to="/" 
-            className={`font-medium ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
-          >
+  const renderDesktopMenu = () => {
+    return (
+      <div className="hidden md:flex items-center space-x-6">
+        <nav className="flex items-center space-x-6">
+          <Link to="/" className="hover:text-primary transition">
             Home
           </Link>
-          <Link 
-            to="/create" 
-            className={`font-medium ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
-          >
-            Create
-          </Link>
-          <Link 
-            to="/examples" 
-            className={`font-medium ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
-          >
+          <Link to="/examples" className="hover:text-primary transition">
             Examples
           </Link>
-          <Link 
-            to="/faq" 
-            className={`font-medium ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
-          >
-            FAQ
+          <Link to="/gallery" className="hover:text-primary transition">
+            Gallery
           </Link>
-          
-          {loggedIn && (
-            <Link 
-              to="/history" 
-              className={`font-medium flex items-center gap-1 ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
-            >
-              <History className="h-4 w-4" />
-              History
-            </Link>
-          )}
-          
-          {loggedIn ? (
+          {isAuthenticated && (
             <>
-              <span className={`text-sm ${isHomePage ? 'text-white' : 'text-slate-600'}`}>
-                {currentUser?.name || currentUser?.email}
-              </span>
-
-              <ApiKeyInput onApiKeySet={setIsApiKeySet} />
-              {isApiKeySet && (
-                <span className={`text-xs ${isHomePage ? 'text-green-300' : 'text-green-600'} mr-2`}>
-                  API Key Set
-                </span>
-              )}
-
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-2"
-                onClick={handleApiKeyClick}
-              >
-                <Key className="h-4 w-4" />
-                API Info
-              </Button>
-
-              <Link 
-                to="/users"
-                className={`font-medium flex items-center gap-1 ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
-              >
-                <Users className="h-4 w-4" />
-                Users
+              <Link to="/create" className="hover:text-primary transition">
+                Create
               </Link>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-2" 
-                onClick={handleLogout}
-              >
-                <LogOut className="h-4 w-4" />
-                Logout
-              </Button>
-            </>
-          ) : (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="gap-2" 
-              onClick={() => navigate("/login")}
-            >
-              <LogIn className="h-4 w-4" />
-              Login
-            </Button>
-          )}
-        </nav>
-        
-        <div className="md:hidden">
-          <Button variant="ghost" size="icon" onClick={toggleMobileMenu} className={isHomePage ? 'text-white hover:bg-white/10' : 'text-slate-800 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800'}>
-            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </Button>
-        </div>
-      </div>
-      
-      {mobileMenuOpen && (
-        <div className="md:hidden bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 py-4 px-6 shadow-md">
-          <nav className="flex flex-col space-y-4">
-            <Link 
-              to="/" 
-              className="font-medium text-slate-700 dark:text-slate-200 hover:text-brand-purple dark:hover:text-brand-purple"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Home
-            </Link>
-            <Link 
-              to="/create" 
-              className="font-medium text-slate-700 dark:text-slate-200 hover:text-brand-purple dark:hover:text-brand-purple"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Create
-            </Link>
-            <Link 
-              to="/examples" 
-              className="font-medium text-slate-700 dark:text-slate-200 hover:text-brand-purple dark:hover:text-brand-purple"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Examples
-            </Link>
-            <Link 
-              to="/faq" 
-              className="font-medium text-slate-700 dark:text-slate-200 hover:text-brand-purple dark:hover:text-brand-purple"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              FAQ
-            </Link>
-            
-            {loggedIn && (
-              <Link 
-                to="/history" 
-                className="font-medium flex items-center gap-1 text-slate-700 dark:text-slate-200 hover:text-brand-purple dark:hover:text-brand-purple"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <History className="h-4 w-4" />
+              <Link to="/history" className="hover:text-primary transition">
                 History
               </Link>
-            )}
-            
-            {loggedIn ? (
-              <>
-                <div className="py-2 border-t border-slate-200 dark:border-slate-700 mt-2">
-                  <span className="text-sm text-slate-700 dark:text-slate-300 block mb-2">
-                    {currentUser?.name || currentUser?.email}
-                  </span>
-                  <ApiKeyInput onApiKeySet={setIsApiKeySet} />
-                  {isApiKeySet && (
-                    <span className="text-xs text-green-600 dark:text-green-400 ml-2">
-                      API Key Set
-                    </span>
-                  )}
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="gap-2 w-full flex items-center border-slate-300 dark:border-slate-600" 
-                  onClick={handleApiKeyClick}
-                >
-                  <Key className="h-4 w-4" />
-                  API Info
-                </Button>
-                <Link 
-                  to="/users"
-                  className="font-medium flex items-center gap-1 text-slate-700 dark:text-slate-200 hover:text-brand-purple dark:hover:text-brand-purple"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <Users className="h-4 w-4" />
-                  Users
+              {isUserAdmin && (
+                <Link to="/admin" className="hover:text-primary transition">
+                  Admin
                 </Link>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="gap-2 w-full border-slate-300 dark:border-slate-600" 
-                  onClick={() => {
-                    handleLogout();
-                    setMobileMenuOpen(false);
-                  }}
-                >
-                  <LogOut className="h-4 w-4" />
-                  Logout
+              )}
+            </>
+          )}
+        </nav>
+        <div>
+          {isAuthenticated ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  {user ? (
+                    <Avatar>
+                      <AvatarFallback>
+                        {user.name ? user.name[0] : user.email[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <User className="h-6 w-6" />
+                  )}
                 </Button>
-              </>
-            ) : (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-2 w-full border-slate-300 dark:border-slate-600" 
-                onClick={() => {
-                  navigate("/login");
-                  setMobileMenuOpen(false);
-                }}
-              >
-                <LogIn className="h-4 w-4" />
-                Login
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem disabled>{user?.email}</DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link to="/history" className="flex w-full items-center">
+                    <History className="mr-2 h-4 w-4" />
+                    <span>My History</span>
+                  </Link>
+                </DropdownMenuItem>
+                {isUserAdmin && (
+                  <DropdownMenuItem>
+                    <Link to="/admin" className="flex w-full items-center">
+                      <Shield className="mr-2 h-4 w-4" />
+                      <span>Admin Dashboard</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={handleSignOut} className="text-red-500">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Sign Out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link to="/login">
+              <Button variant="default">
+                <LogIn className="mr-2 h-4 w-4" />
+                Sign In
               </Button>
-            )}
-          </nav>
+            </Link>
+          )}
         </div>
-      )}
-      
-      <ApiKeyDialog 
-        open={apiKeyDialogOpen}
-        setOpen={setApiKeyDialogOpen}
-      />
-    </header>
+      </div>
+    );
+  };
+
+  return (
+    <div className="border-b">
+      <div className="container flex h-16 items-center justify-between py-4">
+        <Link to="/" className="text-2xl font-bold">
+          KlingAI
+        </Link>
+        <div className="flex items-center space-x-4">
+          {renderMobileMenu()}
+          {renderDesktopMenu()}
+        </div>
+      </div>
+    </div>
   );
 };
 

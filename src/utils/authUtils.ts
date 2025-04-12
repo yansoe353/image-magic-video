@@ -79,21 +79,32 @@ export const addNewUser = async (
   imageLimit: number = IMAGE_LIMIT, 
   videoLimit: number = VIDEO_LIMIT
 ): Promise<boolean> => {
-  // Use regular signup method instead of admin method
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { name, isAdmin, imageLimit, videoLimit }
+  try {
+    // Check if current user is admin
+    const userIsAdmin = await isAdmin();
+    if (!userIsAdmin) {
+      console.error("Only admins can add new users");
+      return false;
     }
-  });
-  
-  if (error || !data.user) {
-    console.error("Error creating user:", error);
+    
+    // Use admin createUser method
+    const { data, error } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true, // Auto-confirm email
+      user_metadata: { name, isAdmin, imageLimit, videoLimit }
+    });
+    
+    if (error || !data.user) {
+      console.error("Error creating user:", error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error adding new user:", error);
     return false;
   }
-  
-  return true;
 };
 
 // Update user
@@ -108,71 +119,101 @@ export const updateUser = async (
     videoLimit?: number;
   }
 ): Promise<boolean> => {
-  // For non-admin users, only allow self-updates
-  const currentUser = await getCurrentUser();
-  const isAdminUser = await isAdmin();
-  
-  if (!isAdminUser && currentUser?.id !== userId) {
-    console.error("Only admins can update other users");
+  try {
+    // For non-admin users, only allow self-updates
+    const currentUser = await getCurrentUser();
+    const isAdminUser = await isAdmin();
+    
+    if (!isAdminUser && currentUser?.id !== userId) {
+      console.error("Only admins can update other users");
+      return false;
+    }
+    
+    // Update user metadata and auth data
+    const userMetadata: any = {};
+    if (data.name !== undefined) userMetadata.name = data.name;
+    if (data.isAdmin !== undefined) userMetadata.isAdmin = data.isAdmin;
+    if (data.imageLimit !== undefined) userMetadata.imageLimit = data.imageLimit;
+    if (data.videoLimit !== undefined) userMetadata.videoLimit = data.videoLimit;
+    
+    if (Object.keys(userMetadata).length > 0 || data.email || data.password) {
+      const updatePayload: any = {};
+      
+      if (Object.keys(userMetadata).length > 0) {
+        updatePayload.user_metadata = userMetadata;
+      }
+      
+      if (data.email) updatePayload.email = data.email;
+      if (data.password) updatePayload.password = data.password;
+      
+      const { error } = await supabase.auth.admin.updateUserById(userId, updatePayload);
+      
+      if (error) {
+        console.error("Error updating user:", error);
+        return false;
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error updating user:", error);
     return false;
   }
-
-  // Update user metadata
-  const userMetadata: any = {};
-  if (data.name !== undefined) userMetadata.name = data.name;
-  if (data.isAdmin !== undefined) userMetadata.isAdmin = data.isAdmin;
-  if (data.imageLimit !== undefined) userMetadata.imageLimit = data.imageLimit;
-  if (data.videoLimit !== undefined) userMetadata.videoLimit = data.videoLimit;
-  
-  if (Object.keys(userMetadata).length > 0) {
-    const { error: metadataError } = await supabase.auth.updateUser({
-      data: userMetadata
-    });
-    
-    if (metadataError) {
-      console.error("Error updating user metadata:", metadataError);
-      return false;
-    }
-  }
-  
-  // Update email or password if provided
-  if (data.email || data.password) {
-    const authUpdates: any = {};
-    if (data.email) authUpdates.email = data.email;
-    if (data.password) authUpdates.password = data.password;
-    
-    const { error: authError } = await supabase.auth.updateUser(authUpdates);
-    
-    if (authError) {
-      console.error("Error updating auth user:", authError);
-      return false;
-    }
-  }
-  
-  return true;
 };
 
-// Delete user - Note: regular users cannot delete users, only admins can
+// Delete user
 export const deleteUser = async (userId: string): Promise<boolean> => {
-  const isAdminUser = await isAdmin();
-  
-  if (!isAdminUser) {
-    console.error("Only admins can delete users");
+  try {
+    const isAdminUser = await isAdmin();
+    
+    if (!isAdminUser) {
+      console.error("Only admins can delete users");
+      return false;
+    }
+    
+    const { error } = await supabase.auth.admin.deleteUser(userId);
+    
+    if (error) {
+      console.error("Error deleting user:", error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error deleting user:", error);
     return false;
   }
-  
-  // This will need to be done by an admin through the Supabase dashboard
-  // or with a custom server-side function with admin privileges
-  console.error("User deletion requires admin privileges in Supabase dashboard");
-  return false;
 };
 
 // Get all users (admin function)
 export const getAllUsers = async (): Promise<AppUser[]> => {
-  // Regular users cannot list all users, this requires admin privileges
-  // Return empty array for now with a console warning
-  console.warn("Listing users requires admin privileges in Supabase dashboard");
-  return [];
+  try {
+    const isAdminUser = await isAdmin();
+    
+    if (!isAdminUser) {
+      console.error("Only admins can list all users");
+      return [];
+    }
+    
+    const { data, error } = await supabase.auth.admin.listUsers();
+    
+    if (error) {
+      console.error("Error listing users:", error);
+      return [];
+    }
+    
+    return data.users.map(user => ({
+      id: user.id,
+      email: user.email || '',
+      name: user.user_metadata?.name || '',
+      isAdmin: user.user_metadata?.isAdmin === true,
+      imageLimit: user.user_metadata?.imageLimit || IMAGE_LIMIT,
+      videoLimit: user.user_metadata?.videoLimit || VIDEO_LIMIT
+    }));
+  } catch (error) {
+    console.error("Error getting all users:", error);
+    return [];
+  }
 };
 
 // Set user limits
@@ -181,5 +222,26 @@ export const setUserLimits = async (
   imageLimit: number, 
   videoLimit: number
 ): Promise<boolean> => {
-  return updateUser(userId, { imageLimit, videoLimit });
+  try {
+    const isAdminUser = await isAdmin();
+    
+    if (!isAdminUser) {
+      console.error("Only admins can set user limits");
+      return false;
+    }
+    
+    const { error } = await supabase.auth.admin.updateUserById(userId, {
+      user_metadata: { imageLimit, videoLimit }
+    });
+    
+    if (error) {
+      console.error("Error setting user limits:", error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error setting user limits:", error);
+    return false;
+  }
 };
