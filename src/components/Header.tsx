@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -31,10 +32,10 @@ const Header = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
+  
   // Add a state for tracking admin status
   const [isUserAdmin, setIsUserAdmin] = useState(false);
-
+  
   const checkAdminStatus = async () => {
     try {
       const adminStatus = await isAdmin();
@@ -89,7 +90,7 @@ const Header = () => {
           <div className="px-2">
             <div className="flex items-center justify-between mb-8">
               <Link to="/" className="text-2xl font-bold">
-                Yoteshin AI
+                KlingAI
               </Link>
               <SheetClose asChild>
                 <Button variant="ghost" size="icon">
