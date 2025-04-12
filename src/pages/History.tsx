@@ -5,7 +5,7 @@ import Header from "@/components/Header";
 import HistoryPanel from "@/components/HistoryPanel";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
+import { Loader2, History as HistoryIcon } from "lucide-react";
 import { toast } from "sonner";
 
 const History = () => {
@@ -58,23 +58,26 @@ const History = () => {
 
   if (isAuthChecking) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-        <Loader2 className="h-12 w-12 animate-spin text-slate-400" />
-        <p className="mt-4 text-slate-600">Checking authentication...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950 text-white">
+        <Loader2 className="h-12 w-12 animate-spin text-brand-500" />
+        <p className="mt-4 text-slate-300">Checking authentication...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-900 to-slate-950 text-white">
       <Header />
       
       <main className="flex-1 container max-w-6xl py-8 px-4 md:px-6 mt-16">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-900 mb-8">
-          Content History
-        </h1>
+        <div className="flex items-center gap-3 mb-8">
+          <HistoryIcon className="h-8 w-8 text-brand-500" />
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+            Content History
+          </h1>
+        </div>
         
-        <Card className="p-6">
+        <Card className="p-6 bg-slate-800/50 border-slate-700 backdrop-blur-sm text-white shadow-xl">
           {isAuthenticated ? (
             <HistoryPanel userId={userId} onSelectContent={handleSelectContent} />
           ) : (
@@ -85,8 +88,8 @@ const History = () => {
         </Card>
       </main>
       
-      <footer className="py-6 border-t border-slate-200 bg-white">
-        <div className="container text-center text-slate-500 max-w-6xl mx-auto">
+      <footer className="py-6 border-t border-slate-800 bg-slate-900/80">
+        <div className="container text-center text-slate-400 max-w-6xl mx-auto">
           <p>© {new Date().getFullYear()} YoteShin AI. All rights reserved.</p>
         </div>
       </footer>

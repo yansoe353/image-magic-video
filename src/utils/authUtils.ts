@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { IMAGE_LIMIT, VIDEO_LIMIT } from "./usageTracker";
 
@@ -51,7 +52,8 @@ export const getCurrentUser = async (): Promise<AppUser | null> => {
 // Check if current user is an admin
 export const isAdmin = async (): Promise<boolean> => {
   const user = await getCurrentUser();
-  return !!user?.isAdmin; // Use double negation to ensure strict boolean conversion
+  // Fixed: Use boolean check, not calling a Boolean object
+  return user?.isAdmin === true;
 };
 
 // Login user

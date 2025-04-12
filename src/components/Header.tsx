@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -22,6 +23,7 @@ import {
   History,
   User,
   Shield,
+  CreditCard,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentUser, isAdmin, AppUser } from "@/utils/authUtils";
@@ -100,6 +102,7 @@ const Header = () => {
               <Link to="/" className="hover:text-primary transition">Home</Link>
               <Link to="/examples" className="hover:text-primary transition">Examples</Link>
               <Link to="/gallery" className="hover:text-primary transition">Gallery</Link>
+              <Link to="/buy-credits" className="hover:text-primary transition">Pricing</Link>
               {isAuthenticated && (
                 <>
                   <Link to="/create" className="hover:text-primary transition">Create</Link>
@@ -141,6 +144,9 @@ const Header = () => {
           <Link to="/gallery" className="hover:text-primary transition">
             Gallery
           </Link>
+          <Link to="/buy-credits" className="hover:text-primary transition">
+            Pricing
+          </Link>
           {isAuthenticated && (
             <>
               <Link to="/create" className="hover:text-primary transition">
@@ -179,6 +185,12 @@ const Header = () => {
                   <Link to="/history" className="flex w-full items-center">
                     <History className="mr-2 h-4 w-4" />
                     <span>My History</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link to="/buy-credits" className="flex w-full items-center">
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    <span>Pricing Plans</span>
                   </Link>
                 </DropdownMenuItem>
                 {isUserAdmin && (
