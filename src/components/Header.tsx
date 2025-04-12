@@ -90,7 +90,7 @@ const Header = () => {
           <div className="px-2">
             <div className="flex items-center justify-between mb-8">
               <Link to="/" className="text-2xl font-bold">
-                KlingAI
+                Yoteshin AI
               </Link>
               <SheetClose asChild>
                 <Button variant="ghost" size="icon">
