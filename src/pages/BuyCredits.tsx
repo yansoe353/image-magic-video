@@ -9,7 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2, Check, MessageCircle, Phone, Send, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { getUserId, getUserProfile } from "@/utils/storageUtils";
+import { getUserId } from "@/utils/storageUtils";
 import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -32,8 +32,7 @@ const packages = [
   }
 ];
 
-// Thai Baht exchange rate (approximate)
-const BAHT_EXCHANGE_RATE = 0.045; // 1 MMK = 0.045 THB
+const BAHT_EXCHANGE_RATE = 0.045;
 
 const BuyCredits = () => {
   const [selectedPackage, setSelectedPackage] = useState(packages[0].id);
@@ -46,7 +45,6 @@ const BuyCredits = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [priceInBaht, setPriceInBaht] = useState(0);
-  const [hasAnnualAccount, setHasAnnualAccount] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   const { toast } = useToast();
@@ -60,9 +58,8 @@ const BuyCredits = () => {
     }
   }, [selectedPackage]);
   
-  // Check if user has an annual account
   useEffect(() => {
-    const checkAccountStatus = async () => {
+    const checkUserStatus = async () => {
       try {
         setIsLoading(true);
         const userId = await getUserId();
@@ -76,20 +73,8 @@ const BuyCredits = () => {
           navigate("/login");
           return;
         }
-        
-        const userProfile = await getUserProfile();
-        
-        // Check if user has an annual subscription
-        // For now, we're determining this based on their credit amounts
-        // A user with an annual subscription might have higher base credits
-        // Adjust this logic based on your business rules
-        setHasAnnualAccount(
-          userProfile && 
-          (userProfile.image_credits > 100 || userProfile.video_credits > 100)
-        );
-
       } catch (error) {
-        console.error("Error checking account status:", error);
+        console.error("Error checking user status:", error);
         toast({
           title: "Error",
           description: "Unable to verify your account status",
@@ -100,7 +85,7 @@ const BuyCredits = () => {
       }
     };
     
-    checkAccountStatus();
+    checkUserStatus();
   }, [navigate, toast]);
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -130,7 +115,6 @@ const BuyCredits = () => {
         return;
       }
       
-      // Create payment request in database
       const { error } = await supabase.from("payment_requests").insert({
         user_id: userId,
         package_id: selectedPackage,
@@ -183,47 +167,6 @@ const BuyCredits = () => {
     );
   }
   
-  // If user doesn't have an annual account, show message and link to buy account
-  if (hasAnnualAccount === false) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
-        <Header />
-        <main className="container max-w-4xl py-8 px-4 md:px-6 mt-16">
-          <h1 className="text-3xl font-bold text-white mb-8 text-center">Buy Additional Credits</h1>
-          
-          <div className="max-w-2xl mx-auto">
-            <Card className="border border-amber-600/30 bg-amber-950/20">
-              <CardHeader>
-                <CardTitle className="text-amber-400 flex items-center">
-                  <AlertTriangle className="h-6 w-6 mr-2" />
-                  Annual Account Required
-                </CardTitle>
-                <CardDescription className="text-slate-300">
-                  You need an active annual account before purchasing additional credits
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Alert>
-                  <AlertTitle>Purchase Annual Account First</AlertTitle>
-                  <AlertDescription>
-                    Additional credits can only be purchased by users with an active annual subscription. 
-                    Please purchase an annual account first to unlock the ability to buy additional credits.
-                  </AlertDescription>
-                </Alert>
-                
-                <div className="text-center space-y-4 pt-4">
-                  <Button onClick={() => navigate("/buy-account")} className="bg-brand-purple hover:bg-brand-purple/90">
-                    Buy Annual Account (60,000 Ks / Year)
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </main>
-      </div>
-    );
-  }
-  
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
       <Header />
@@ -233,10 +176,9 @@ const BuyCredits = () => {
         
         <div className="mb-8">
           <Alert className="bg-blue-950/30 border-blue-500/50">
-            <AlertTitle className="text-blue-400">Additional Credits Only</AlertTitle>
+            <AlertTitle className="text-blue-400">Additional Infinity API Credits</AlertTitle>
             <AlertDescription className="text-slate-300">
-              These credits are additional to your annual account and do not include the annual subscription fee.
-              Your annual account provides basic access to YoteShin AI, while these credits allow you to create more pro-quality content.
+              These credits are additional to your account and allow you to create more pro-quality content using Infinity API.
             </AlertDescription>
           </Alert>
         </div>
