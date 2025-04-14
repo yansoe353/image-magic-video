@@ -89,6 +89,12 @@ const Header = () => {
             Examples
           </Link>
           <Link 
+            to="/pricing" 
+            className={`font-medium ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
+          >
+            Pricing
+          </Link>
+          <Link 
             to="/faq" 
             className={`font-medium ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
           >
@@ -188,6 +194,13 @@ const Header = () => {
               onClick={() => setMobileMenuOpen(false)}
             >
               Examples
+            </Link>
+            <Link 
+              to="/pricing" 
+              className="font-medium text-slate-700 dark:text-slate-200 hover:text-brand-purple dark:hover:text-brand-purple"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Pricing
             </Link>
             <Link 
               to="/faq" 
