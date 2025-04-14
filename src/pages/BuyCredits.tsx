@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -79,8 +78,15 @@ const BuyCredits = () => {
         }
         
         const userProfile = await getUserProfile();
-        // Check if user has an annual subscription (this is a placeholder - adjust based on your actual data structure)
-        setHasAnnualAccount(!!userProfile?.has_subscription);
+        
+        // Check if user has an annual subscription
+        // For now, we're determining this based on their credit amounts
+        // A user with an annual subscription might have higher base credits
+        // Adjust this logic based on your business rules
+        setHasAnnualAccount(
+          userProfile && 
+          (userProfile.image_credits > 100 || userProfile.video_credits > 100)
+        );
 
       } catch (error) {
         console.error("Error checking account status:", error);
