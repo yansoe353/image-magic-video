@@ -19,6 +19,7 @@ import { generateStoryPDF } from "@/services/pdfService";
 import { LANGUAGES, LanguageOption } from "@/utils/translationUtils";
 import { useNavigate } from "react-router-dom";
 import { Alert } from "./ui/alert";
+import MyanmarVpnWarning from "./MyanmarVpnWarning";
 
 interface ScriptItem {
   text: string;
@@ -379,6 +380,8 @@ const ScriptToVideo = () => {
   
   return (
     <div className="w-full">
+      <MyanmarVpnWarning className="mb-4" />
+      
       <Card className="mb-6 shadow-lg glass-morphism">
         <CardHeader>
           <CardTitle className="text-gradient">Script to Video Generator</CardTitle>

@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import MyanmarVpnWarning from "./MyanmarVpnWarning";
 
 const StoryToVideo = () => {
   const [storyPrompt, setStoryPrompt] = useState("");
@@ -655,6 +656,8 @@ const StoryToVideo = () => {
 
   return (
     <div className="space-y-8">
+      <MyanmarVpnWarning className="mb-4" />
+      
       <Card className="overflow-hidden">
         <CardContent className="p-6">
           <h2 className="text-2xl font-bold mb-4 flex items-center">

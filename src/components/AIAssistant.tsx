@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,9 +11,11 @@ import {
   DrawerFooter,
   DrawerTrigger,
 } from "@/components/ui/drawer";
-import { Bot, User, Loader2, SendHorizontal } from "lucide-react";
+import { Bot, User, Loader2, SendHorizontal, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
+import { useIsFromMyanmar } from "@/utils/locationUtils";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 interface Message {
   id: string;
@@ -33,15 +34,22 @@ export function AIAssistant() {
   ]);
   const [input, setInput] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [showVpnWarning, setShowVpnWarning] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const isFromMyanmar = useIsFromMyanmar();
   
   const { generateResponse, isLoading } = useGeminiAPI();
 
-  // Scroll to bottom of messages when new ones are added
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (isOpen && isFromMyanmar) {
+      setShowVpnWarning(true);
+    }
+  }, [isOpen, isFromMyanmar]);
 
   const handleSendMessage = async () => {
     if (!input.trim()) return;
@@ -56,7 +64,6 @@ export function AIAssistant() {
     setInput("");
 
     try {
-      // Call the Gemini API
       const response = await generateResponse(`
 As an AI assistant specializing in helping users create images and videos, please respond to the following user query:
 ${input}
@@ -115,6 +122,16 @@ Keep responses concise, practical, and helpful for creative work.
           </DrawerHeader>
           
           <ScrollArea className="flex-1 p-4 h-[calc(85vh-160px)] sm:h-[calc(70vh-160px)]">
+            {showVpnWarning && (
+              <Alert variant="warning" className="mb-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>For Myanmar Users</AlertTitle>
+                <AlertDescription>
+                  Due to connection restrictions in Myanmar, we recommend using a VPN for the best experience with our AI-powered features.
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <div className="space-y-4">
               {messages.map((message) => (
                 <div
