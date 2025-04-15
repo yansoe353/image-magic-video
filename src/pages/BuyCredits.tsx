@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { convertCurrency } from "@/utils/currencyUtils";
 
 const packages = [
   {
@@ -31,8 +33,6 @@ const packages = [
     amount: 20
   }
 ];
-
-const BAHT_EXCHANGE_RATE = 0.045;
 
 const BuyCredits = () => {
   const [selectedPackage, setSelectedPackage] = useState(packages[0].id);
@@ -54,7 +54,8 @@ const BuyCredits = () => {
   
   useEffect(() => {
     if (selectedPkg) {
-      setPriceInBaht(Math.round(selectedPkg.price * BAHT_EXCHANGE_RATE));
+      // Use the exact conversion from the currencyUtils
+      setPriceInBaht(convertCurrency(selectedPkg.price, "KS", "THB"));
     }
   }, [selectedPackage]);
   
@@ -91,7 +92,7 @@ const BuyCredits = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!name || !phone || !paymentMethod) {
+    if (!name || !email || !phone || !paymentMethod) {
       toast({
         title: "Missing information",
         description: "Please fill in all required fields",
@@ -246,13 +247,14 @@ const BuyCredits = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
                       <Input
                         id="email"
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Your email address (optional)"
+                        placeholder="Your email address"
+                        required
                         className="bg-slate-900"
                       />
                     </div>
