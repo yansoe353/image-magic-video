@@ -1,4 +1,3 @@
-
 // Import fal-ai client properly
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
@@ -63,15 +62,15 @@ class FalService {
         this.apiKey = envApiKey || localStorage.getItem("falApiKey") || this.apiKey || DEFAULT_API_KEY;
       }
       
-      console.log("Initializing FAL client with key:", this.apiKey ? "API key present" : "No API key");
+      console.log("Initializing Infinity API client with key:", this.apiKey ? "API key present" : "No API key");
       
       // Initialize client with the right credentials
       this.falClient = createFalClient({ credentials: this.apiKey });
       
       this.isInitialized = true;
-      console.log("FAL client initialized successfully");
+      console.log("Infinity API client initialized successfully");
     } catch (error) {
-      console.error("Failed to initialize FAL client:", error);
+      console.error("Failed to initialize Infinity API client:", error);
       this.isInitialized = false;
     }
   }
