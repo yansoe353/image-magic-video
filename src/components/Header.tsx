@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Menu, X, LogOut, LogIn, Users, History, Key, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -99,6 +98,12 @@ const Header = () => {
             className={`font-medium ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
           >
             FAQ
+          </Link>
+          <Link 
+            to="/documentation" 
+            className={`font-medium ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
+          >
+            Documentation
           </Link>
           
           {loggedIn && (

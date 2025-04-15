@@ -6,12 +6,13 @@ import { useIsFromMyanmar } from "@/utils/locationUtils";
 
 interface MyanmarVpnWarningProps {
   className?: string;
+  showAlways?: boolean;
 }
 
-const MyanmarVpnWarning: React.FC<MyanmarVpnWarningProps> = ({ className }) => {
+const MyanmarVpnWarning: React.FC<MyanmarVpnWarningProps> = ({ className, showAlways = false }) => {
   const isFromMyanmar = useIsFromMyanmar();
   
-  if (!isFromMyanmar) return null;
+  if (!isFromMyanmar && !showAlways) return null;
   
   return (
     <Alert variant="warning" className={className}>
