@@ -1,4 +1,6 @@
 
+import React from 'react';
+
 // Simple utility to check if the user is likely from Myanmar
 // In a production app, you might use a more sophisticated geolocation service
 
@@ -50,3 +52,4 @@ export const useIsFromMyanmar = (): boolean => {
   
   return isFromMyanmar;
 };
+
