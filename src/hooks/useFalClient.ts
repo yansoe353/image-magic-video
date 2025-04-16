@@ -56,15 +56,6 @@ export function useTextToImage(): TextToImageResult {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   
-  useEffect(() => {
-    // Initialize falService on component mount
-    const initService = async () => {
-      await falService.initialize();
-    };
-    
-    initService();
-  }, []);
-  
   const generate = async (input: ImageGenerationInput) => {
     setIsGenerating(true);
     setError(null);
@@ -78,8 +69,8 @@ export function useTextToImage(): TextToImageResult {
         throw new Error("You have reached your image generation limit");
       }
       
-      // Make sure falService is initialized with latest key from Supabase
-      await falService.initialize();
+      // Make sure falService is initialized with latest key
+      falService.initialize();
       
       const result = await falService.generateImage(input.prompt, {
         negative_prompt: input.negative_prompt,
@@ -151,15 +142,6 @@ export function useImageToVideo(): ImageToVideoResult {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    // Initialize falService on component mount
-    const initService = async () => {
-      await falService.initialize();
-    };
-    
-    initService();
-  }, []);
-
   const generate = async (input: ImageToVideoInput) => {
     setIsGenerating(true);
     setError(null);
@@ -173,8 +155,8 @@ export function useImageToVideo(): ImageToVideoResult {
         throw new Error("You have reached your video generation limit");
       }
       
-      // Make sure falService is initialized with latest key from Supabase
-      await falService.initialize();
+      // Make sure falService is initialized with latest key
+      falService.initialize();
       
       const result = await falService.generateVideoFromImage(input.image_url, {
         cameraMode: input.cameraMode,

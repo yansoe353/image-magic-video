@@ -1,10 +1,9 @@
-
 // Import fal-ai client properly
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
 
-// Default API key - will be used as fallback only
+// Default API key
 const DEFAULT_API_KEY = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA";
 
 // Model URLs/IDs
@@ -44,35 +43,26 @@ class FalService {
   private falClient: ReturnType<typeof createFalClient>;
 
   constructor() {
-    // Initialize with default key until we can fetch from Supabase
-    this.apiKey = DEFAULT_API_KEY;
+    // Try to get API key from environment first, then localStorage, then default
+    const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_API_KEY : undefined;
+    this.apiKey = envApiKey || localStorage.getItem("falApiKey") || DEFAULT_API_KEY;
+    
+    // Create fal client with API key
     this.falClient = createFalClient({ credentials: this.apiKey });
     this.initialize();
   }
 
-  async initialize(userProvidedKey?: string) {
+  initialize(apiKey?: string) {
     try {
-      if (userProvidedKey) {
-        // If a key is explicitly provided, use it
-        this.apiKey = userProvidedKey;
+      // Use provided key or try to get from environment or localStorage
+      if (apiKey) {
+        this.apiKey = apiKey;
       } else {
-        // Try to get API key from Supabase first
-        const { data } = await supabase
-          .from('api_keys')
-          .select('key_value')
-          .eq('key_name', 'fal_api_key')
-          .single();
-        
-        if (data?.key_value) {
-          this.apiKey = data.key_value;
-          console.log("Using Infinity API key from Supabase");
-        } else {
-          // Fallback to environment variable or default
-          const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_API_KEY : undefined;
-          this.apiKey = envApiKey || DEFAULT_API_KEY;
-          console.log("Using fallback API key");
-        }
+        const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_API_KEY : undefined;
+        this.apiKey = envApiKey || localStorage.getItem("falApiKey") || this.apiKey || DEFAULT_API_KEY;
       }
+      
+      console.log("Initializing Infinity API client with key:", this.apiKey ? "API key present" : "No API key");
       
       // Initialize client with the right credentials
       this.falClient = createFalClient({ credentials: this.apiKey });
@@ -85,31 +75,10 @@ class FalService {
     }
   }
 
-  // Method to set API key (for admin use only)
-  async setApiKey(apiKey: string) {
-    // Update in Supabase if possible
-    try {
-      const { error } = await supabase
-        .from('api_keys')
-        .upsert({ 
-          key_name: 'fal_api_key', 
-          key_value: apiKey 
-        }, { 
-          onConflict: 'key_name' 
-        });
-      
-      if (error) {
-        console.error("Error saving API key to Supabase:", error);
-      } else {
-        console.log("API key saved to Supabase successfully");
-      }
-    } catch (e) {
-      console.error("Error saving API key:", e);
-    }
-    
-    // Update local instance
+  setApiKey(apiKey: string) {
     this.apiKey = apiKey;
-    await this.initialize(apiKey);
+    localStorage.setItem("falApiKey", apiKey);
+    this.initialize(apiKey);
   }
 
   // Text to Image generation
@@ -126,7 +95,7 @@ class FalService {
     } = {}
   ): Promise<FalRunResult> {
     if (!this.isInitialized) {
-      await this.initialize();
+      this.initialize();
     }
 
     try {
@@ -158,7 +127,7 @@ class FalService {
     } = {}
   ): Promise<FalRunResult> {
     if (!this.isInitialized) {
-      await this.initialize();
+      this.initialize();
     }
 
     try {
@@ -191,7 +160,7 @@ class FalService {
     mask_away_clip?: boolean;
   }): Promise<FalRunResult> {
     if (!this.isInitialized) {
-      await this.initialize();
+      this.initialize();
     }
 
     try {
@@ -209,7 +178,7 @@ class FalService {
   // Image generation with Imagen 3
   async generateImageWithImagen3(prompt: string, options: any = {}): Promise<FalRunResult> {
     if (!this.isInitialized) {
-      await this.initialize();
+      this.initialize();
     }
 
     try {
@@ -269,7 +238,7 @@ class FalService {
   // Upload file to FAL.ai
   async uploadFile(file: File) {
     if (!this.isInitialized) {
-      await this.initialize();
+      this.initialize();
     }
 
     try {
