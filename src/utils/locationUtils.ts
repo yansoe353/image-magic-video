@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 // Simple utility to check if the user is likely from Myanmar
 // In a production app, you might use a more sophisticated geolocation service
@@ -39,9 +39,9 @@ export const checkIfUserIsFromMyanmar = async (): Promise<boolean> => {
 
 // React hook for components
 export const useIsFromMyanmar = (): boolean => {
-  const [isFromMyanmar, setIsFromMyanmar] = React.useState<boolean>(false);
+  const [isFromMyanmar, setIsFromMyanmar] = useState<boolean>(false);
   
-  React.useEffect(() => {
+  useEffect(() => {
     const checkLocation = async () => {
       const result = await checkIfUserIsFromMyanmar();
       setIsFromMyanmar(result);

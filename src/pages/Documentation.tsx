@@ -1,11 +1,9 @@
 
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Languages } from "lucide-react";
 import { LANGUAGES, type LanguageOption } from "@/utils/translationUtils";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
 import { useIsFromMyanmar } from "@/utils/locationUtils";
@@ -27,7 +25,7 @@ const Documentation = () => {
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageOption>("en");
   const [isTranslating, setIsTranslating] = useState(false);
   const [translatedContent, setTranslatedContent] = useState<DocSection[]>([]);
-  const { generateResponse } = useGeminiAPI();
+  const { generateResponse, isLoading, error } = useGeminiAPI({ maxOutputTokens: 2048 });
   const { toast } = useToast();
   const isFromMyanmar = useIsFromMyanmar();
 
@@ -173,54 +171,87 @@ const Documentation = () => {
 
     setIsTranslating(true);
     const translatedSections: DocSection[] = [];
+    let hasError = false;
 
     try {
       for (const section of originalContent) {
-        // Translate section title
-        const translatedTitle = await generateResponse(
-          `Translate the following text from English to ${LANGUAGES[lang]}. Keep any technical terms as they are, but translate everything else accurately:\n\n${section.title}`
-        );
+        try {
+          // Translate section title
+          const translatedTitle = await generateResponse(
+            `Translate the following text from English to ${LANGUAGES[lang]}. Keep any technical terms as they are, but translate everything else accurately and preserve formatting:\n\n${section.title}`
+          );
 
-        // Translate section content
-        const translatedSectionContent = await generateResponse(
-          `Translate the following text from English to ${LANGUAGES[lang]}. Keep any technical terms as they are, but translate everything else accurately:\n\n${section.content}`
-        );
+          // Translate section content
+          const translatedSectionContent = await generateResponse(
+            `Translate the following text from English to ${LANGUAGES[lang]}. Keep any technical terms as they are, but translate everything else accurately and preserve formatting:\n\n${section.content}`
+          );
 
-        const translatedSubsections = [];
-        
-        if (section.subsections) {
-          for (const subsection of section.subsections) {
-            // Translate subsection title
-            const translatedSubTitle = await generateResponse(
-              `Translate the following text from English to ${LANGUAGES[lang]}. Keep any technical terms as they are, but translate everything else accurately:\n\n${subsection.title}`
-            );
+          const translatedSubsections = [];
+          
+          if (section.subsections) {
+            for (const subsection of section.subsections) {
+              try {
+                // Translate subsection title
+                const translatedSubTitle = await generateResponse(
+                  `Translate the following text from English to ${LANGUAGES[lang]}. Keep any technical terms as they are, but translate everything else accurately and preserve formatting:\n\n${subsection.title}`
+                );
 
-            // Translate subsection content
-            const translatedSubContent = await generateResponse(
-              `Translate the following text from English to ${LANGUAGES[lang]}. Keep any technical terms as they are, but translate everything else accurately:\n\n${subsection.content}`
-            );
+                // Translate subsection content
+                const translatedSubContent = await generateResponse(
+                  `Translate the following text from English to ${LANGUAGES[lang]}. Keep any technical terms as they are, but translate everything else accurately and preserve formatting:\n\n${subsection.content}`
+                );
 
-            translatedSubsections.push({
-              id: subsection.id,
-              title: translatedSubTitle,
-              content: translatedSubContent
-            });
+                translatedSubsections.push({
+                  id: subsection.id,
+                  title: translatedSubTitle,
+                  content: translatedSubContent
+                });
+              } catch (subsectionError) {
+                console.error("Error translating subsection:", subsectionError);
+                // Fall back to English for this subsection
+                translatedSubsections.push({
+                  id: subsection.id,
+                  title: subsection.title,
+                  content: subsection.content
+                });
+                hasError = true;
+              }
+            }
           }
-        }
 
-        translatedSections.push({
-          id: section.id,
-          title: translatedTitle,
-          content: translatedSectionContent,
-          subsections: translatedSubsections
-        });
+          translatedSections.push({
+            id: section.id,
+            title: translatedTitle,
+            content: translatedSectionContent,
+            subsections: translatedSubsections
+          });
+        } catch (sectionError) {
+          console.error("Error translating section:", sectionError);
+          // Fall back to English for this section
+          translatedSections.push({
+            id: section.id,
+            title: section.title,
+            content: section.content,
+            subsections: section.subsections
+          });
+          hasError = true;
+        }
       }
 
       setTranslatedContent(translatedSections);
-      toast({
-        title: "Translation Complete",
-        description: `Content translated to ${LANGUAGES[lang]}`,
-      });
+      
+      if (hasError) {
+        toast({
+          title: "Partial Translation",
+          description: `Some parts could not be translated to ${LANGUAGES[lang]} and remain in English`,
+          variant: "warning",
+        });
+      } else {
+        toast({
+          title: "Translation Complete",
+          description: `Content translated to ${LANGUAGES[lang]}`,
+        });
+      }
     } catch (error) {
       console.error("Translation error:", error);
       toast({
