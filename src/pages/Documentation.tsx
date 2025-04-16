@@ -8,6 +8,12 @@ import { LANGUAGES, type LanguageOption } from "@/utils/translationUtils";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
 import { useIsFromMyanmar } from "@/utils/locationUtils";
 import MyanmarVpnWarning from "@/components/MyanmarVpnWarning";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, ChevronDown } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Define the structure for documentation content
 interface DocSection {
@@ -25,9 +31,12 @@ const Documentation = () => {
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageOption>("en");
   const [isTranslating, setIsTranslating] = useState(false);
   const [translatedContent, setTranslatedContent] = useState<DocSection[]>([]);
+  const [selectedSectionId, setSelectedSectionId] = useState<string>("getting-started");
   const { generateResponse, isLoading, error } = useGeminiAPI({ maxOutputTokens: 2048 });
   const { toast } = useToast();
   const isFromMyanmar = useIsFromMyanmar();
+  const isMobile = useIsMobile();
+  const navigate = useNavigate();
 
   // Original English documentation content
   const originalContent: DocSection[] = [
@@ -274,6 +283,11 @@ const Documentation = () => {
     translateContent(language);
   };
 
+  // Handle section change
+  const handleSectionChange = (sectionId: string) => {
+    setSelectedSectionId(sectionId);
+  };
+
   // Initialize with English content
   useEffect(() => {
     setTranslatedContent(originalContent);
@@ -284,15 +298,66 @@ const Documentation = () => {
     }
   }, [isFromMyanmar]);
 
+  const goBack = () => {
+    navigate(-1);
+  };
+
+  // Mobile section menu component
+  const MobileSectionMenu = () => (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button variant="outline" className="flex items-center gap-2 mb-4 md:hidden">
+          <span>Sections</span>
+          <ChevronDown className="h-4 w-4" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="bottom" className="h-[70vh]">
+        <div className="pt-6 pb-2">
+          <h3 className="text-lg font-medium mb-4">Documentation Sections</h3>
+          <ul className="space-y-2">
+            {translatedContent.map((section) => (
+              <li key={section.id}>
+                <Button
+                  variant={selectedSectionId === section.id ? "default" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => {
+                    handleSectionChange(section.id);
+                    const closeBtnElem = document.querySelector('[data-radix-collection-item]');
+                    if (closeBtnElem && 'click' in closeBtnElem) {
+                      (closeBtnElem as HTMLElement).click();
+                    }
+                  }}
+                >
+                  {section.title}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+
   return (
     <div className="container py-8 max-w-6xl">
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight">Documentation</h1>
-            <p className="text-muted-foreground mt-2">
-              Learn how to use our platform effectively
-            </p>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goBack}
+              className="h-8 w-8"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight">Documentation</h1>
+              <p className="text-muted-foreground mt-2">
+                Learn how to use our platform effectively
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -314,14 +379,17 @@ const Documentation = () => {
 
         {isFromMyanmar && <MyanmarVpnWarning className="mb-8" />}
 
+        {/* Mobile section selector */}
+        {isMobile && <MobileSectionMenu />}
+
         {isTranslating ? (
           <div className="flex flex-col items-center justify-center py-16">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             <p className="mt-4 text-muted-foreground">Translating content to {LANGUAGES[selectedLanguage]}...</p>
           </div>
         ) : (
-          <Tabs defaultValue="getting-started" className="space-y-8">
-            <div className="overflow-x-auto pb-2">
+          <Tabs value={selectedSectionId} onValueChange={handleSectionChange} className="space-y-8">
+            <div className="overflow-x-auto pb-2 hidden md:block">
               <TabsList className="h-auto flex-wrap justify-start">
                 {translatedContent.map((section) => (
                   <TabsTrigger key={section.id} value={section.id}>
@@ -365,8 +433,9 @@ const Documentation = () => {
                       <CardTitle>Tutorial Media</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="aspect-video bg-slate-200 rounded-lg flex items-center justify-center">
-                        <p className="text-slate-500">Tutorial screenshot or video will appear here</p>
+                      <div className="aspect-video bg-slate-200 rounded-lg flex flex-col items-center justify-center p-6 text-center">
+                        <p className="text-slate-500">Tutorial videos are coming soon!</p>
+                        <p className="text-slate-400 text-sm mt-2">We're currently working on creating detailed video tutorials for all features</p>
                       </div>
                     </CardContent>
                   </Card>
