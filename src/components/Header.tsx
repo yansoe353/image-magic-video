@@ -1,18 +1,19 @@
 
 import { useState, useEffect } from "react";
-import { Menu, X, LogOut, LogIn, Users, History, Key, HelpCircle } from "lucide-react";
+import { Menu, X, LogOut, LogIn, Users, History, Key, HelpCircle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ApiKeyInput from "@/components/ApiKeyInput";
 import ApiKeyDialog from "@/components/api-key/ApiKeyDialog";
 import { fal } from "@fal-ai/client";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { isLoggedIn, logoutUser, getCurrentUser, AppUser } from "@/utils/authUtils";
+import { isLoggedIn, logoutUser, getCurrentUser, AppUser, isAdmin } from "@/utils/authUtils";
 
 const Header = () => {
   const [isApiKeySet, setIsApiKeySet] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [userIsAdmin, setUserIsAdmin] = useState(false);
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -25,6 +26,8 @@ const Header = () => {
       if (isUserLoggedIn) {
         const user = await getCurrentUser();
         setCurrentUser(user);
+        const adminStatus = await isAdmin();
+        setUserIsAdmin(adminStatus);
       }
       
       const storedApiKey = localStorage.getItem("falApiKey");
@@ -139,6 +142,16 @@ const Header = () => {
                 <Key className="h-4 w-4" />
                 API Info
               </Button>
+
+              {userIsAdmin && (
+                <Link 
+                  to="/api-keys"
+                  className={`font-medium flex items-center gap-1 ${isHomePage ? 'text-white hover:text-brand-purple' : 'text-slate-600 hover:text-brand-purple'}`}
+                >
+                  <Settings className="h-4 w-4" />
+                  Manage API Keys
+                </Link>
+              )}
 
               <Link 
                 to="/users"
@@ -256,6 +269,18 @@ const Header = () => {
                   <Key className="h-4 w-4" />
                   API Info
                 </Button>
+
+                {userIsAdmin && (
+                  <Link 
+                    to="/api-keys"
+                    className="font-medium flex items-center gap-1 text-slate-700 dark:text-slate-200 hover:text-brand-purple dark:hover:text-brand-purple"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Settings className="h-4 w-4" />
+                    Manage API Keys
+                  </Link>
+                )}
+
                 <Link 
                   to="/users"
                   className="font-medium flex items-center gap-1 text-slate-700 dark:text-slate-200 hover:text-brand-purple dark:hover:text-brand-purple"

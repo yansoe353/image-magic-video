@@ -21,6 +21,7 @@ import BuyCredits from "./pages/BuyCredits";
 import FAQ from "./pages/FAQ";
 import PricingPage from "./pages/PricingPage";
 import Documentation from "./pages/Documentation";
+import ApiKeyManagement from "./pages/ApiKeyManagement";
 
 const queryClient = new QueryClient();
 
@@ -119,6 +120,7 @@ const App = () => {
               } 
             />
             <Route path="/documentation" element={<Documentation />} />
+            <Route path="/api-keys" element={<ApiKeyManagement />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

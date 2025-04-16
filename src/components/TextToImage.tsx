@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { fal } from "@fal-ai/client";
 import { Loader2, ImageIcon } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { incrementImageCount, getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT } from "@/utils/usageTracker";
@@ -17,8 +16,7 @@ import { GuidanceScaleSlider } from "./image-generation/GuidanceScaleSlider";
 import { GeneratedImageDisplay } from "./image-generation/GeneratedImageDisplay";
 import { UsageLimits } from "./image-generation/UsageLimits";
 import { translateText } from "@/utils/translationUtils";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { falService } from "@/services/falService";
 import ProLabel from "./ProLabel";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 
@@ -48,8 +46,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedLoras, setSelectedLoras] = useState<LoraOption[]>([]);
   const [guidanceScale, setGuidanceScale] = useState(9);
-  const [apiKey, setApiKey] = useState<string>(localStorage.getItem("falApiKey") || "");
-  const [isApiKeySet, setIsApiKeySet] = useState<boolean>(!!localStorage.getItem("falApiKey"));
+  const [isApiKeyAvailable, setIsApiKeyAvailable] = useState<boolean>(false);
   const [isPublic, setIsPublic] = useState(false);
 
   useEffect(() => {
@@ -58,6 +55,18 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       setCounts(freshCounts);
     };
     updateCounts();
+    
+    // Check if FAL API key is available
+    const checkApiKey = async () => {
+      try {
+        await falService.initialize();
+        setIsApiKeyAvailable(true);
+      } catch (error) {
+        console.error("Error initializing FAL service:", error);
+        setIsApiKeyAvailable(false);
+      }
+    };
+    checkApiKey();
   }, []);
 
   const handlePromptChange = (newPrompt: string) => {
@@ -70,40 +79,6 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         ? current.filter(id => id !== loraId)
         : [...current, loraId]
     );
-  };
-
-  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setApiKey(e.target.value);
-  };
-
-  const saveApiKey = () => {
-    if (!apiKey.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a valid API key",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      localStorage.setItem("falApiKey", apiKey);
-      fal.config({
-        credentials: apiKey
-      });
-      setIsApiKeySet(true);
-      toast({
-        title: "Success",
-        description: "API key saved successfully",
-      });
-    } catch (error) {
-      console.error("Failed to save API key:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save API key",
-        variant: "destructive",
-      });
-    }
   };
 
   const getAspectRatio = (sizeOption: ImageSizeOption): string => {
@@ -157,10 +132,10 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       return;
     }
 
-    if (!isApiKeySet) {
+    if (!isApiKeyAvailable) {
       toast({
         title: "API Key Required",
-        description: "Please set your FAL.AI API key first",
+        description: "No FAL.AI API key is available. Please contact an administrator.",
         variant: "destructive",
       });
       return;
@@ -190,17 +165,13 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         }
       }
 
-      fal.config({
-        credentials: apiKey
-      });
+      // Initialize falService with the latest API key from Supabase
+      await falService.initialize();
 
       // Remove guidance_scale which is not supported by the model
-      const result = await fal.subscribe("fal-ai/imagen3/fast", {
-        input: {
-          prompt: promptToUse,
-          aspect_ratio: getAspectRatio(imageSize) as "16:9" | "9:16" | "1:1",
-          negative_prompt: selectedLoras.length > 0 ? "low quality, bad anatomy" : ""
-        },
+      const result = await falService.generateImageWithImagen3(promptToUse, {
+        aspect_ratio: getAspectRatio(imageSize) as "16:9" | "9:16" | "1:1",
+        negative_prompt: selectedLoras.length > 0 ? "low quality, bad anatomy" : ""
       });
 
       if (result.data?.images?.[0]?.url) {
@@ -297,37 +268,11 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             <ProLabel />
           </div>
 
-          {!isApiKeySet && (
+          {!isApiKeyAvailable && (
             <Alert className="mb-4">
               <AlertTitle>API Key Required</AlertTitle>
               <AlertDescription>
-                <div className="space-y-4 mt-2">
-                  <p>ပုံတွေ ဗွီဒီယိုတွေ ထုတ်ဖို့ Infinity Tech မှဝယ်ယူထားသည့် Infinity API Key ထည့်ရပါမယ်</p>
-                  <div>
-                    <Label htmlFor="apiKey">Infinity API Key</Label>
-                    <div className="flex gap-2 mt-1">
-                      <Input
-                        id="apiKey"
-                        type="password"
-                        value={apiKey}
-                        onChange={handleApiKeyChange}
-                        placeholder="Enter your Infinity API key"
-                        className="flex-1"
-                      />
-                      <Button onClick={saveApiKey}>Save Key</Button>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      <a
-                        href="https://m.me/infinitytechmyanmar"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-500 hover:underline"
-                      >
-                        Get your key here
-                      </a>
-                    </p>
-                  </div>
-                </div>
+                <p>No FAL.AI API key is available. Please contact an administrator to set up the API key.</p>
               </AlertDescription>
             </Alert>
           )}
@@ -365,7 +310,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             <div className="flex items-center justify-between">
               <Button
                 onClick={generateImage}
-                disabled={isLoading || !prompt.trim() || counts.remainingImages <= 0 || !isApiKeySet}
+                disabled={isLoading || !prompt.trim() || counts.remainingImages <= 0 || !isApiKeyAvailable}
                 className="w-full"
               >
                 {isLoading ? (
