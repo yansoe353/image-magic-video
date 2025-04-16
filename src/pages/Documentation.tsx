@@ -38,8 +38,8 @@ const Documentation = () => {
       subsections: [
         {
           id: "setup-account",
-          title: "Setting Up Your Account",
-          content: "Create an account by clicking on the 'Sign Up' button in the top right corner. After verification, you'll have access to all basic features. To unlock advanced features, you may need to purchase credits."
+          title: "Setting Up Demo Account",
+          content: "Clock Create button in Home page and login with Demo Account. After login, you'll have access to all basic features. To unlock advanced features, you may need to buy account and purchase credits."
         },
         {
           id: "api-key",
@@ -49,7 +49,7 @@ const Documentation = () => {
         {
           id: "understanding-limits",
           title: "Understanding Generation Limits",
-          content: "Free accounts have daily limits on image and video generations. You can view your remaining generations on each creation page. Premium users or those who purchase additional credits have higher or unlimited generations."
+          content: "Pro Generations have limits on image and video generations. You can view your remaining generations on each creation page. Premium users or those who purchase additional credits have higher or unlimited generations."
         }
       ]
     },
@@ -89,13 +89,13 @@ const Documentation = () => {
     },
     {
       id: "story-to-video",
-      title: "Story to Video",
+      title: "Story to Video (Story Generator)",
       content: "Create a video sequence from a written story or narrative.",
       subsections: [
         {
           id: "story-to-video-basics",
           title: "Basic Usage",
-          content: "1. Navigate to the Story to Video page\n2. Enter your story or narrative in the text field\n3. Adjust video settings and preferences\n4. Click 'Create Video' to start generation\n5. Each scene will be generated sequentially\n6. Review, edit, or download the final video"
+          content: "1. Navigate to the Story to Video page\n2. Enter your story or narrative in the text field\n3. Adjust video settings and preferences\n4. Click 'Generate Story' to start generations\n5. Each scene will be generated sequentially\n6. Review, edit Story, or download the final video"
         },
         {
           id: "story-to-video-tips",
@@ -112,7 +112,7 @@ const Documentation = () => {
         {
           id: "script-to-video-basics",
           title: "Basic Usage",
-          content: "1. Go to the Script to Video page\n2. Enter your script using proper formatting\n3. Define scenes, dialogue, and transitions\n4. Set video properties and style preferences\n5. Generate the video sequence\n6. Edit timing and transitions if needed"
+          content: "1. Go to the Script to Video page\n2. Enter title and Enter your script using proper formatting\n3. Define scenes, dialogue, and transitions\n4. Set video properties and style preferences\n5. Generate the video script\n6. Generate images and Generate Videos"
         },
         {
           id: "script-format",
@@ -129,7 +129,7 @@ const Documentation = () => {
         {
           id: "credit-options",
           title: "Credit Options",
-          content: "Navigate to the Buy Credits page to see available packages. We offer plans starting at 25,000 Ks (approximately 175 Thai Baht) for 50 credits and 20,000 Ks (approximately 150 Thai Baht) for 40 credits. Each credit allows you to generate one image or video."
+          content: "Navigate to the Buy Credits page to see available packages. We offer plans starting at 25,000 Ks (approximately 175 Thai Baht) for 20 Pro Video Generation credits and 20,000 Ks (approximately 150 Thai Baht) for 100 Pro Image Generation credits. Each credit allows you to generate one image or video."
         },
         {
           id: "payment-process",
