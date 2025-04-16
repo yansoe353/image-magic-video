@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { setUserLimits, isAdmin, getAllUsers, AppUser } from "@/utils/authUtils";
+import { setUserLimits, isAdmin, getCurrentUser, AppUser } from "@/utils/authUtils";
 import { BarChart } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const UserLimits = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -38,17 +39,33 @@ const UserLimits = () => {
       
       // Load user data
       if (userId) {
-        const users = await getAllUsers();
-        const foundUser = users.find(u => u.id === userId);
-        
-        if (foundUser) {
-          setUser(foundUser);
-          setImageLimit(foundUser.imageLimit || 100);
-          setVideoLimit(foundUser.videoLimit || 20);
-        } else {
+        try {
+          // Get user from Supabase
+          const { data: userData, error: userError } = await supabase
+            .auth.admin.getUserById(userId);
+          
+          if (userError || !userData?.user) {
+            throw new Error("User not found or access denied");
+          }
+          
+          const userMeta = userData.user.user_metadata || {};
+          
+          setUser({
+            id: userData.user.id,
+            email: userData.user.email || '',
+            name: userMeta.name,
+            isAdmin: userMeta.isAdmin === true,
+            imageLimit: userMeta.imageLimit || 100,
+            videoLimit: userMeta.videoLimit || 20
+          });
+          
+          setImageLimit(userMeta.imageLimit || 100);
+          setVideoLimit(userMeta.videoLimit || 20);
+        } catch (error) {
+          console.error("Error loading user data:", error);
           toast({
             title: "Error",
-            description: "User not found",
+            description: "User not found or you don't have permission to edit this user",
             variant: "destructive",
           });
           navigate("/users");

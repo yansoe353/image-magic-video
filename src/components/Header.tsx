@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Menu, X, LogOut, LogIn, Users, History, Key, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -213,6 +214,13 @@ const Header = () => {
               onClick={() => setMobileMenuOpen(false)}
             >
               FAQ
+            </Link>
+            <Link 
+              to="/documentation" 
+              className="font-medium text-slate-700 dark:text-slate-200 hover:text-brand-purple dark:hover:text-brand-purple"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Documentation
             </Link>
             
             {loggedIn && (
