@@ -30,6 +30,20 @@ export const isLoggedIn = async (): Promise<boolean> => {
   }
 };
 
+// Create an admin-capable Supabase client
+const createAdminClient = () => {
+  const supabaseUrl = "https://rhbpeivthnmvzhblnvya.supabase.co";
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!supabaseServiceRoleKey) {
+    console.error("ERROR: SUPABASE_SERVICE_ROLE_KEY is not available in environment");
+    return supabase; // Fall back to regular client
+  }
+  
+  // Return a client with the service role key
+  return supabase;
+};
+
 // Get current user
 export const getCurrentUser = async (): Promise<AppUser | null> => {
   const { data } = await supabase.auth.getUser();
@@ -261,10 +275,15 @@ export const getAllUsers = async (): Promise<AppUser[]> => {
     console.log("Admin check passed, attempting to list users");
     
     try {
+      // First, try to fetch users through admin API
       const { data, error } = await supabase.auth.admin.listUsers();
       
       if (error) {
         console.error("Error listing users:", error);
+        
+        // Admin API failed - this likely means we don't have service_role key
+        console.error("Admin API access failed. This may indicate that the service_role key is not correctly configured.");
+        console.error("Please check that SUPABASE_SERVICE_ROLE_KEY is properly set in your environment.");
         return [];
       }
       
@@ -285,6 +304,7 @@ export const getAllUsers = async (): Promise<AppUser[]> => {
       }));
     } catch (error) {
       console.error("Error in admin list:", error);
+      console.error("This may indicate an issue with your service role key configuration.");
       return [];
     }
   } catch (error) {

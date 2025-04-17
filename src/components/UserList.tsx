@@ -34,9 +34,33 @@ const UserList = () => {
       const loadedUsers = await getAllUsers();
       console.log("Users loaded:", loadedUsers);
       setUsers(loadedUsers);
+      
+      // Check if we got any users or encountered auth errors
+      if (loadedUsers.length === 0) {
+        // Test the admin API directly to diagnose issues
+        try {
+          const { data, error } = await supabase.auth.admin.listUsers();
+          
+          if (error) {
+            if (error.message.includes("not_admin") || error.message.includes("service_role")) {
+              setError("Admin API access error: " + error.message + 
+                "\n\nThis indicates that your app may not be using the service role key when making admin requests. " +
+                "Please check your Supabase service role key configuration.");
+            } else {
+              setError("Error accessing admin API: " + error.message);
+            }
+          } else if (!data || data.users.length === 0) {
+            setError("No users found in the database. This could be because there are genuinely no users registered yet.");
+          }
+        } catch (testError) {
+          console.error("Error testing admin API access:", testError);
+          setError("Failed to test admin API access: " + (testError instanceof Error ? testError.message : String(testError)) + 
+            "\n\nThis indicates that your service role key may not be correctly configured.");
+        }
+      }
     } catch (error) {
       console.error("Error loading users:", error);
-      setError("Failed to load users. This could be due to insufficient permissions.");
+      setError("Failed to load users. This could be due to insufficient permissions or service role key configuration issues.");
       toast({
         title: "Error",
         description: "Failed to load users",
@@ -142,14 +166,20 @@ const UserList = () => {
       {error && (
         <Alert variant="destructive" className="mb-6">
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
+          <AlertDescription className="whitespace-pre-wrap">
             {error}
-            {error.includes("insufficient permissions") && (
+            {error.includes("permissions") || error.includes("service role") || error.includes("not_admin") ? (
               <div className="mt-2">
-                <p>Make sure your account has admin privileges in Supabase.</p>
-                <p className="font-semibold">Current email: {currentUserData?.email}</p>
+                <p><b>Troubleshooting Steps:</b></p>
+                <ol className="list-decimal pl-4 space-y-1 mt-1">
+                  <li>Verify your account has admin privileges in Supabase Auth</li>
+                  <li>Check if the service role key is correctly set in your Supabase project settings</li>
+                  <li>Ensure your application is using the service role key for admin operations</li>
+                </ol>
+                <p className="font-semibold mt-2">Current email: {currentUserData?.email}</p>
+                <p className="text-sm mt-1">Admin status: {currentUserData?.isAdmin ? "Yes" : "No"}</p>
               </div>
-            )}
+            ) : null}
           </AlertDescription>
         </Alert>
       )}
@@ -232,7 +262,10 @@ const UserList = () => {
               <div>
                 <h3 className="text-sm font-medium">2. Supabase Configuration</h3>
                 <p className="text-sm text-muted-foreground">
-                  Check if your Supabase project has service_role access keys configured correctly.
+                  Your application is not correctly configured to use the Supabase service_role key for admin operations.
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Check that your service_role key is correctly set in the Supabase project settings.
                 </p>
               </div>
               <div>
