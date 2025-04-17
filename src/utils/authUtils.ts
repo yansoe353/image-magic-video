@@ -1,5 +1,5 @@
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseAdmin } from "@/integrations/supabase/client";
 import { IMAGE_LIMIT, VIDEO_LIMIT } from "./usageTracker";
 
 // Define interface for our app's user data
@@ -28,20 +28,6 @@ export const isLoggedIn = async (): Promise<boolean> => {
     console.error("Error checking auth status:", error);
     return false;
   }
-};
-
-// Create an admin-capable Supabase client
-const createAdminClient = () => {
-  const supabaseUrl = "https://rhbpeivthnmvzhblnvya.supabase.co";
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  
-  if (!supabaseServiceRoleKey) {
-    console.error("ERROR: SUPABASE_SERVICE_ROLE_KEY is not available in environment");
-    return supabase; // Fall back to regular client
-  }
-  
-  // Return a client with the service role key
-  return supabase;
 };
 
 // Get current user
@@ -96,13 +82,12 @@ export const addNewUser = async (
   try {
     console.log("Creating new user:", { email, name, isAdmin, imageLimit, videoLimit });
     
-    // Use regular signup method instead of admin method
-    const { data, error } = await supabase.auth.signUp({
+    // Use admin client for user creation to ensure admin role works
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      options: {
-        data: { name, isAdmin, imageLimit, videoLimit }
-      }
+      email_confirm: true,
+      user_metadata: { name, isAdmin, imageLimit, videoLimit }
     });
     
     if (error || !data.user) {
@@ -153,7 +138,7 @@ export const updateUser = async (
       // For admin users, use the admin API to update other users
       if (isAdminUser && currentUser?.id !== userId) {
         try {
-          const { error: adminUpdateError } = await supabase.auth.admin.updateUserById(
+          const { error: adminUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
             userId,
             { user_metadata: userMetadata }
           );
@@ -189,7 +174,7 @@ export const updateUser = async (
       
       if (isAdminUser && currentUser?.id !== userId) {
         try {
-          const { error: adminAuthError } = await supabase.auth.admin.updateUserById(
+          const { error: adminAuthError } = await supabaseAdmin.auth.admin.updateUserById(
             userId,
             authUpdates
           );
@@ -242,7 +227,7 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
     console.log("Attempting to delete user:", userId);
     
     try {
-      const { error } = await supabase.auth.admin.deleteUser(userId);
+      const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
       
       if (error) {
         console.error("Error deleting user:", error);
@@ -275,15 +260,12 @@ export const getAllUsers = async (): Promise<AppUser[]> => {
     console.log("Admin check passed, attempting to list users");
     
     try {
-      // First, try to fetch users through admin API
-      const { data, error } = await supabase.auth.admin.listUsers();
+      // Use the supabaseAdmin client with service role key
+      const { data, error } = await supabaseAdmin.auth.admin.listUsers();
       
       if (error) {
         console.error("Error listing users:", error);
-        
-        // Admin API failed - this likely means we don't have service_role key
         console.error("Admin API access failed. This may indicate that the service_role key is not correctly configured.");
-        console.error("Please check that SUPABASE_SERVICE_ROLE_KEY is properly set in your environment.");
         return [];
       }
       

@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from "@/hooks/use-toast";
 import { setUserLimits, isAdmin, getCurrentUser, AppUser } from "@/utils/authUtils";
 import { BarChart } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabaseAdmin } from "@/integrations/supabase/client";
 
 const UserLimits = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -40,8 +40,8 @@ const UserLimits = () => {
       // Load user data
       if (userId) {
         try {
-          // Get user from Supabase
-          const { data: userData, error: userError } = await supabase
+          // Get user from Supabase using admin client
+          const { data: userData, error: userError } = await supabaseAdmin
             .auth.admin.getUserById(userId);
           
           if (userError || !userData?.user) {
@@ -130,7 +130,7 @@ const UserLimits = () => {
             <div>
               <CardTitle className="text-2xl font-bold">User Generation Limits</CardTitle>
               <CardDescription>
-                Set content generation limits for {user.name || user.email}
+                Set content generation limits for {user?.name || user?.email}
               </CardDescription>
             </div>
             <BarChart className="h-10 w-10 text-muted-foreground" />
