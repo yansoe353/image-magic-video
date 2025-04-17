@@ -201,9 +201,15 @@ const UserList = () => {
               {user.isAdmin && (
                 <p className="text-xs font-medium text-amber-600 mt-1">Administrator</p>
               )}
-              <div className="mt-2">
-                <p className="text-xs font-medium">Image Limit: {user.imageLimit || 100}</p>
-                <p className="text-xs font-medium">Video Limit: {user.videoLimit || 50}</p>
+              <div className="mt-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Image Generations:</span>
+                  <span className="text-sm">{user.imageLimit || 100} total</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Video Generations:</span>
+                  <span className="text-sm">{user.videoLimit || 20} total</span>
+                </div>
               </div>
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
@@ -211,6 +217,7 @@ const UserList = () => {
                 size="sm" 
                 variant="outline"
                 onClick={() => navigate(`/user-limits/${user.id}`)}
+                className="flex items-center"
               >
                 <BarChart className="h-4 w-4 mr-1" />
                 Limits
@@ -219,6 +226,7 @@ const UserList = () => {
                 size="sm" 
                 variant="outline"
                 onClick={() => navigate(`/edit-user/${user.id}`)}
+                className="flex items-center"
               >
                 <Pencil className="h-4 w-4 mr-1" />
                 Edit
@@ -228,6 +236,7 @@ const UserList = () => {
                 variant="destructive"
                 onClick={() => handleDeleteUser(user.id)}
                 disabled={isDeleting || user.isAdmin}
+                className="flex items-center"
               >
                 <Trash className="h-4 w-4 mr-1" />
                 Delete
