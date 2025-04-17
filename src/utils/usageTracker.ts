@@ -1,5 +1,5 @@
-
 import { supabase } from "@/integrations/supabase/client";
+import { supabaseAdmin } from "@/integrations/supabase/admin";
 import { getCurrentUser } from "./authUtils";
 
 // Define constants for default usage limits
@@ -130,6 +130,78 @@ export const getRemainingCountsAsync = async (): Promise<{
     remainingVideos: Math.max(0, videoLimit - usage.videoCount),
     remainingRunwayVideos: Math.max(0, RUNWAY_VIDEO_LIMIT - (usage.runwayVideoCount || 0))
   };
+};
+
+// Get remaining counts for a specific user (admin function)
+export const getRemainingCountsForUser = async (userId: string): Promise<{ 
+  remainingImages: number; 
+  remainingVideos: number;
+}> => {
+  try {
+    // Get user's custom limits
+    const { data: userData, error: userError } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    
+    if (userError) throw userError;
+    
+    // Get user's generation counts
+    const { data: imageData, error: imageError } = await supabaseAdmin
+      .from('user_content_history')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('content_type', 'image');
+    
+    if (imageError) throw imageError;
+    
+    const { data: videoData, error: videoError } = await supabaseAdmin
+      .from('user_content_history')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('content_type', 'video');
+    
+    if (videoError) throw videoError;
+    
+    const imageLimit = userData?.image_credits || IMAGE_LIMIT;
+    const videoLimit = userData?.video_credits || VIDEO_LIMIT;
+    
+    return {
+      remainingImages: Math.max(0, imageLimit - (imageData?.length || 0)),
+      remainingVideos: Math.max(0, videoLimit - (videoData?.length || 0))
+    };
+  } catch (error) {
+    console.error("Error getting remaining counts for user:", error);
+    return { remainingImages: 0, remainingVideos: 0 };
+  }
+};
+
+// Refill user limits to their maximum values (admin function)
+export const refillUserLimits = async (userId: string): Promise<boolean> => {
+  try {
+    const isAdminUser = await isAdmin();
+    if (!isAdminUser) {
+      console.error("Only admins can refill user limits");
+      return false;
+    }
+    
+    // Delete all user's content history to reset their usage
+    const { error: deleteError } = await supabaseAdmin
+      .from('user_content_history')
+      .delete()
+      .eq('user_id', userId);
+    
+    if (deleteError) {
+      console.error("Error deleting user content history:", deleteError);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error refilling user limits:", error);
+    return false;
+  }
 };
 
 // For backwards compatibility

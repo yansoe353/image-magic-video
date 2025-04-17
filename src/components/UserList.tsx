@@ -1,11 +1,12 @@
-
 import { useState, useEffect } from "react";
 import { getAllUsers, AppUser, isAdmin, deleteUser, getCurrentUser } from "@/utils/authUtils";
+import { getRemainingCountsForUser, refillUserLimits } from "@/utils/usageTracker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { Plus, Shield, Pencil, Trash, BarChart } from "lucide-react";
+import { Plus, Shield, Pencil, Trash, BarChart, Search, RefreshCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,9 @@ const UserList = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchEmail, setSearchEmail] = useState("");
+  const [userLimits, setUserLimits] = useState<Record<string, { remainingImages: number; remainingVideos: number }>>({});
+  const [isRefilling, setIsRefilling] = useState<string | null>(null);
 
   const loadUsers = async () => {
     try {
@@ -35,9 +39,7 @@ const UserList = () => {
       console.log("Users loaded:", loadedUsers);
       setUsers(loadedUsers);
       
-      // Check if we got any users or encountered auth errors
       if (loadedUsers.length === 0) {
-        // Test the admin API directly to diagnose issues
         try {
           const { data, error } = await supabase.auth.admin.listUsers();
           
@@ -74,11 +76,9 @@ const UserList = () => {
   useEffect(() => {
     const checkAdminAndLoadUsers = async () => {
       try {
-        // Get current user info
         const user = await getCurrentUser();
         setCurrentUserData(user);
         
-        // Check if user is admin
         const adminStatus = await isAdmin();
         setUserIsAdmin(adminStatus);
         
@@ -96,7 +96,6 @@ const UserList = () => {
           return;
         }
         
-        // Load users when component mounts (only if admin)
         loadUsers();
       } catch (err) {
         console.error("Error checking admin status:", err);
@@ -107,6 +106,25 @@ const UserList = () => {
     
     checkAdminAndLoadUsers();
   }, [navigate, toast]);
+
+  useEffect(() => {
+    if (users.length > 0) {
+      fetchUserLimits();
+    }
+  }, [users]);
+
+  const fetchUserLimits = async () => {
+    const limits: Record<string, { remainingImages: number; remainingVideos: number }> = {};
+    for (const user of users) {
+      try {
+        const counts = await getRemainingCountsForUser(user.id);
+        limits[user.id] = counts;
+      } catch (error) {
+        console.error(`Error fetching limits for user ${user.id}:`, error);
+      }
+    }
+    setUserLimits(limits);
+  };
 
   const handleDeleteUser = async (userId: string) => {
     if (!window.confirm("Are you sure you want to delete this user?")) {
@@ -123,7 +141,7 @@ const UserList = () => {
           title: "Success",
           description: "User deleted successfully",
         });
-        loadUsers(); // Reload users after deletion
+        loadUsers();
       } else {
         toast({
           title: "Error",
@@ -143,6 +161,43 @@ const UserList = () => {
     }
   };
 
+  const handleRefillLimits = async (userId: string) => {
+    if (!window.confirm("Are you sure you want to refill this user's generation limits?")) {
+      return;
+    }
+    
+    setIsRefilling(userId);
+    try {
+      const success = await refillUserLimits(userId);
+      if (success) {
+        toast({
+          title: "Success",
+          description: "Generation limits refilled successfully",
+        });
+        fetchUserLimits();
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to refill generation limits",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error refilling limits:", error);
+      toast({
+        title: "Error",
+        description: "An error occurred while refilling limits",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefilling(null);
+    }
+  };
+
+  const filteredUsers = users.filter(user => 
+    searchEmail ? user.email.toLowerCase().includes(searchEmail.toLowerCase()) : true
+  );
+
   if (isLoading) {
     return (
       <div className="container mx-auto py-8 px-4 text-center">
@@ -161,6 +216,18 @@ const UserList = () => {
             Add New User
           </Button>
         )}
+      </div>
+
+      <div className="mb-6">
+        <div className="relative">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by email..."
+            value={searchEmail}
+            onChange={(e) => setSearchEmail(e.target.value)}
+            className="pl-8"
+          />
+        </div>
       </div>
       
       {error && (
@@ -185,7 +252,7 @@ const UserList = () => {
       )}
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {users.map(user => (
+        {filteredUsers.map(user => (
           <Card key={user.id} className={user.isAdmin ? "border-2 border-amber-500" : ""}>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -204,15 +271,31 @@ const UserList = () => {
               <div className="mt-4 space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Image Generations:</span>
-                  <span className="text-sm">{user.imageLimit || 100} total</span>
+                  <div className="text-right">
+                    <span className="text-sm">{userLimits[user.id]?.remainingImages || 0} remaining</span>
+                    <span className="text-xs text-muted-foreground"> / {user.imageLimit || 100} total</span>
+                  </div>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Video Generations:</span>
-                  <span className="text-sm">{user.videoLimit || 20} total</span>
+                  <div className="text-right">
+                    <span className="text-sm">{userLimits[user.id]?.remainingVideos || 0} remaining</span>
+                    <span className="text-xs text-muted-foreground"> / {user.videoLimit || 20} total</span>
+                  </div>
                 </div>
               </div>
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => handleRefillLimits(user.id)}
+                disabled={isRefilling === user.id}
+                className="flex items-center"
+              >
+                <RefreshCcw className="h-4 w-4 mr-1" />
+                {isRefilling === user.id ? "Refilling..." : "Refill"}
+              </Button>
               <Button 
                 size="sm" 
                 variant="outline"
