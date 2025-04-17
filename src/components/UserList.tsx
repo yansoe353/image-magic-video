@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { getAllUsers, AppUser, isAdmin, deleteUser } from "@/utils/authUtils";
+import { getAllUsers, AppUser, isAdmin, deleteUser, getCurrentUser } from "@/utils/authUtils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -13,22 +13,30 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { supabase } from "@/integrations/supabase/client";
 
 const UserList = () => {
   const [users, setUsers] = useState<AppUser[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
   const [userIsAdmin, setUserIsAdmin] = useState(false);
+  const [currentUserData, setCurrentUserData] = useState<AppUser | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadUsers = async () => {
     try {
+      console.log("Attempting to load users...");
       const loadedUsers = await getAllUsers();
+      console.log("Users loaded:", loadedUsers);
       setUsers(loadedUsers);
     } catch (error) {
       console.error("Error loading users:", error);
+      setError("Failed to load users. This could be due to insufficient permissions.");
       toast({
         title: "Error",
         description: "Failed to load users",
@@ -41,22 +49,36 @@ const UserList = () => {
 
   useEffect(() => {
     const checkAdminAndLoadUsers = async () => {
-      // Check if user is admin
-      const adminStatus = await isAdmin();
-      setUserIsAdmin(adminStatus);
-      
-      if (!adminStatus) {
-        toast({
-          title: "Access Denied",
-          description: "You need admin privileges to view this page",
-          variant: "destructive",
-        });
-        navigate("/");
-        return;
+      try {
+        // Get current user info
+        const user = await getCurrentUser();
+        setCurrentUserData(user);
+        
+        // Check if user is admin
+        const adminStatus = await isAdmin();
+        setUserIsAdmin(adminStatus);
+        
+        console.log("Current user:", user);
+        console.log("Is admin:", adminStatus);
+        
+        if (!adminStatus) {
+          setError("You need admin privileges to view this page");
+          toast({
+            title: "Access Denied",
+            description: "You need admin privileges to view this page",
+            variant: "destructive",
+          });
+          navigate("/");
+          return;
+        }
+        
+        // Load users when component mounts (only if admin)
+        loadUsers();
+      } catch (err) {
+        console.error("Error checking admin status:", err);
+        setError("Error checking admin status");
+        setIsLoading(false);
       }
-      
-      // Load users when component mounts (only if admin)
-      loadUsers();
     };
     
     checkAdminAndLoadUsers();
@@ -117,6 +139,21 @@ const UserList = () => {
         )}
       </div>
       
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {error}
+            {error.includes("insufficient permissions") && (
+              <div className="mt-2">
+                <p>Make sure your account has admin privileges in Supabase.</p>
+                <p className="font-semibold">Current email: {currentUserData?.email}</p>
+              </div>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {users.map(user => (
           <Card key={user.id} className={user.isAdmin ? "border-2 border-amber-500" : ""}>
@@ -170,10 +207,49 @@ const UserList = () => {
         ))}
       </div>
       
-      {users.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">No users found.</p>
-        </div>
+      {!error && users.length === 0 && (
+        <Dialog>
+          <DialogTrigger asChild>
+            <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg p-8 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+              <p className="text-muted-foreground mb-2">No users found.</p>
+              <p className="text-sm text-muted-foreground">Click to see potential solutions</p>
+            </div>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>No Users Found</DialogTitle>
+              <DialogDescription>
+                Here are some possible reasons why no users are showing up:
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-medium">1. Administrator Status</h3>
+                <p className="text-sm text-muted-foreground">
+                  Your account ({currentUserData?.email || "unknown"}) might not have proper admin privileges in Supabase.
+                </p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium">2. Supabase Configuration</h3>
+                <p className="text-sm text-muted-foreground">
+                  Check if your Supabase project has service_role access keys configured correctly.
+                </p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium">3. No Registered Users</h3>
+                <p className="text-sm text-muted-foreground">
+                  There might not be any users registered in your system yet. Try adding a test user.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <DialogClose asChild>
+                <Button>Close</Button>
+              </DialogClose>
+              <Button className="ml-2" onClick={() => navigate("/add-user")}>Add User</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
