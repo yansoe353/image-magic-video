@@ -1,12 +1,9 @@
-
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
 
-// Default API key
 const DEFAULT_API_KEY = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA";
 
-// Model URLs/IDs - Updated with latest models
 export const TEXT_TO_IMAGE_MODEL = "fal-ai/imagen3/fast";
 export const IMAGE_TO_VIDEO_MODEL = "fal-ai/kling-video/v1.6/standard/image-to-video";
 export const VIDEO_TO_VIDEO_MODEL = "fal-ai/mmaudio-v2";
@@ -25,7 +22,6 @@ interface FalRunResult {
   url?: string;
 }
 
-// Generic type for handling different API response formats
 type GenericApiResponse = {
   [key: string]: any;
   data?: {
@@ -43,22 +39,18 @@ class FalService {
   private falClient: ReturnType<typeof createFalClient>;
 
   constructor() {
-    // Try to get API key from environment first, then localStorage, then default
     const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_API_KEY : undefined;
     this.apiKey = envApiKey || localStorage.getItem("falApiKey") || DEFAULT_API_KEY;
 
-    // Create fal client with API key and proper CORS configuration
     this.falClient = createFalClient({ 
       credentials: this.apiKey,
-      // Add clientOptions to handle CORS issues
-      clientOptions: {
-        fetchOptions: {
-          mode: 'cors',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          }
-        }
+      requestOptions: {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Origin': window.location.origin
+        },
+        mode: 'cors'
       }
     });
     this.initialize();
@@ -66,27 +58,24 @@ class FalService {
 
   initialize(apiKey?: string) {
     try {
-      // Use provided key or try to get from environment or localStorage
       if (apiKey) {
         this.apiKey = apiKey;
       } else {
-        const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_API_KEY : undefined;
+        const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_AI_API_KEY : undefined;
         this.apiKey = envApiKey || localStorage.getItem("falApiKey") || this.apiKey || DEFAULT_API_KEY;
       }
 
       console.log("Initializing Infinity API client with key:", this.apiKey ? "API key present" : "No API key");
 
-      // Initialize client with the right credentials and CORS configuration
       this.falClient = createFalClient({ 
         credentials: this.apiKey,
-        clientOptions: {
-          fetchOptions: {
-            mode: 'cors',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            }
-          }
+        requestOptions: {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Origin': window.location.origin
+          },
+          mode: 'cors'
         }
       });
 
@@ -104,7 +93,6 @@ class FalService {
     this.initialize(apiKey);
   }
 
-  // Text to Image generation
   async generateImage(
     prompt: string,
     options: {
@@ -139,7 +127,6 @@ class FalService {
     }
   }
 
-  // Image to Video generation - improved implementation
   async generateVideoFromImage(
     image_url: string,
     options: {
@@ -153,12 +140,10 @@ class FalService {
     try {
       console.log("Generating video from image:", image_url);
 
-      // Validate image URL
       if (!image_url || typeof image_url !== 'string' || !image_url.startsWith('http')) {
         throw new Error("Invalid image URL format");
       }
 
-      // Try the primary model
       try {
         console.log("Attempting video generation with Kling model");
         const result = await this.falClient.run(IMAGE_TO_VIDEO_MODEL, {
@@ -173,7 +158,6 @@ class FalService {
       } catch (primaryError) {
         console.error("Error with primary model, falling back to backup:", primaryError);
 
-        // Fallback to original model if primary fails
         const fallbackModel = "110602490-ltx-animation/run";
         const result = await this.falClient.run(fallbackModel, {
           input: {
@@ -191,7 +175,6 @@ class FalService {
     }
   }
 
-  // Video to Video generation
   async generateVideoFromVideo(input: {
     video_url: string;
     prompt: string;
@@ -218,7 +201,6 @@ class FalService {
     }
   }
 
-  // Image generation with Imagen 3
   async generateImageWithImagen3(prompt: string, options: any = {}): Promise<FalRunResult> {
     if (!this.isInitialized) {
       this.initialize();
@@ -238,26 +220,20 @@ class FalService {
           negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
           ...options
         }
-      }) as GenericApiResponse; // Cast to our generic type to handle response variations
+      }) as GenericApiResponse;
 
       console.log("Imagen3 response received:", result);
 
-      // Fix the type issue - handle the result properly based on actual structure
       if (!result) {
         throw new Error("Empty response from Imagen3 API");
       }
 
-      // Access data first to ensure we're working with the correct structure
       if (result.data && result.data.images && result.data.images.length > 0) {
-        // If we have a direct data.images structure, use it
         return result as FalRunResult;
       } else if (result.images && result.images.length > 0) {
-        // If images are at the top level
         return result as FalRunResult;
       } else {
-        // If there's no standard images structure, wrap any available URL in our expected format
         const imageUrl = result.image_url || result.url ||
-                        // Access potential nested properties safely
                         result.data?.image_url ||
                         result.data?.url;
 
@@ -278,14 +254,12 @@ class FalService {
     }
   }
 
-  // Upload file to FAL.ai
   async uploadFile(file: File) {
     if (!this.isInitialized) {
       this.initialize();
     }
 
     try {
-      // Use the file-upload specific endpoint
       const formData = new FormData();
       formData.append('file', file);
 
@@ -302,14 +276,13 @@ class FalService {
       }
 
       const data = await response.json();
-      return data.url; // Return the URL of the uploaded file
+      return data.url;
     } catch (error) {
       console.error("Error uploading file:", error);
       throw error;
     }
   }
 
-  // Save content to history
   async saveToHistory(
     contentType: 'image' | 'video',
     contentUrl: string,
@@ -339,8 +312,5 @@ class FalService {
   }
 }
 
-// Create and export a singleton instance
 export const falService = new FalService();
-
-// Re-export the createFalClient function for direct access when needed
 export { createFalClient };
