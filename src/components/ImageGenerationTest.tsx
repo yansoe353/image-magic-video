@@ -66,26 +66,27 @@ const ImageGenerationTest = () => {
         foundUrl = result.images[0].url;
         addLog(`Found image URL in images[0].url`);
       }
-      // Check for other possible locations
-      else if (result?.data?.image_url) {
-        // Use type assertion for accessing potential properties not in the type definition
-        foundUrl = (result.data as any).image_url;
-        addLog(`Found image URL in data.image_url`);
-      }
-      else if (result?.data?.url) {
-        // Use type assertion for accessing potential properties not in the type definition
-        foundUrl = (result.data as any).url;
-        addLog(`Found image URL in data.url`);
-      }
-      else if (result && 'image_url' in result) {
-        // Safer way to check if property exists in object
-        foundUrl = (result as any).image_url;
-        addLog(`Found image URL in image_url (from dynamic property)`);
-      }
-      else if (result && 'url' in result) {
-        // Safer way to check if property exists in object
-        foundUrl = (result as any).url;
-        addLog(`Found image URL in url (from dynamic property)`);
+      // Check for other possible locations using type-safe property checks
+      else {
+        const dataObject = result?.data as Record<string, any>;
+        const resultObject = result as Record<string, any>;
+        
+        if (dataObject && 'image_url' in dataObject) {
+          foundUrl = dataObject.image_url;
+          addLog(`Found image URL in data.image_url`);
+        }
+        else if (dataObject && 'url' in dataObject) {
+          foundUrl = dataObject.url;
+          addLog(`Found image URL in data.url`);
+        }
+        else if (resultObject && 'image_url' in resultObject) {
+          foundUrl = resultObject.image_url;
+          addLog(`Found image URL in image_url (from dynamic property)`);
+        }
+        else if (resultObject && 'url' in resultObject) {
+          foundUrl = resultObject.url;
+          addLog(`Found image URL in url (from dynamic property)`);
+        }
       }
       
       if (foundUrl) {
