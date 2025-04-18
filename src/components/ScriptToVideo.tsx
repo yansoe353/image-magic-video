@@ -1,351 +1,709 @@
-
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { FileText, Loader2, Sparkles } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
+import { useToast } from "@/hooks/use-toast";
+import { Wand2, FileText, Video, Download, Save, Loader2, RefreshCw, AlertTriangle, FileDown, CreditCard } from "lucide-react";
+import { generateStoryTextFile, downloadTextFile } from "@/services/textFileService";
+import { falService } from "@/services/falService";
+import { StoryScene } from "@/types";
+import { getRemainingCountsAsync } from "@/utils/usageTracker";
+import BuyApiKeyPopover from "./api-key/BuyApiKeyPopover";
+import { generateStoryPDF } from "@/services/pdfService";
+import { LANGUAGES, LanguageOption } from "@/utils/translationUtils";
+import { useNavigate } from "react-router-dom";
+import { Alert } from "./ui/alert";
+import MyanmarVpnWarning from "./MyanmarVpnWarning";
 
-interface ScriptScene {
-  sceneNumber: number;
-  description: string;
-  dialogue: string;
+interface ScriptItem {
+  text: string;
+  imagePrompt: string;
+  imageUrl?: string;
+  videoUrl?: string;
 }
 
 const ScriptToVideo = () => {
-  const [scriptTitle, setScriptTitle] = useState("");
-  const [scriptPrompt, setScriptPrompt] = useState("");
-  const [genre, setGenre] = useState("drama");
-  const [numScenes, setNumScenes] = useState("3");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedScript, setGeneratedScript] = useState<ScriptScene[]>([]);
-  const [currentTab, setCurrentTab] = useState("0");
-
-  const { generateResponse } = useGeminiAPI();
+  const [title, setTitle] = useState<string>("");
+  const [scriptIdea, setScriptIdea] = useState<string>("");
+  const [generatedScript, setGeneratedScript] = useState<ScriptItem[]>([]);
+  const [generatingScript, setGeneratingScript] = useState<boolean>(false);
+  const [generatingVideo, setGeneratingVideo] = useState<boolean>(false);
+  const [scenesCount, setScenesCount] = useState<number>(3);
+  const [activeTab, setActiveTab] = useState<string>("script");
+  const [scriptStyle, setScriptStyle] = useState<string>("cinematic");
+  const [remainingImages, setRemainingImages] = useState<number>(0);
+  const [remainingVideos, setRemainingVideos] = useState<number>(0);
+  const [hasApiKey, setHasApiKey] = useState<boolean>(true);
+  const [generatingPDF, setGeneratingPDF] = useState<boolean>(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageOption>("en");
+  
+  const { generateResponse, isLoading } = useGeminiAPI({
+    temperature: 0.7,
+    maxOutputTokens: 2048,
+  });
+  
   const { toast } = useToast();
-
-  const parseScriptResponse = (response: string): ScriptScene[] => {
-    try {
-      // Try parsing as direct JSON
-      const directParse = JSON.parse(response.trim());
-      if (Array.isArray(directParse)) return directParse;
-    } catch (e) {}
-
-    try {
-      // Try finding JSON in code blocks
-      const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      if (codeBlockMatch) {
-        const extracted = codeBlockMatch[1].trim();
-        const parsed = JSON.parse(extracted);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) {}
-
-    try {
-      // Try finding JSON between brackets
-      const firstBracket = response.indexOf('[');
-      const lastBracket = response.lastIndexOf(']');
-      if (firstBracket >= 0 && lastBracket > firstBracket) {
-        const extracted = response.slice(firstBracket, lastBracket + 1);
-        const parsed = JSON.parse(extracted);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) {}
-
-    throw new Error("Unable to parse script response");
-  };
-
-  const generateScript = async () => {
-    if (!scriptPrompt) {
-      toast({ 
-        title: "Error", 
-        description: "Please enter a script concept", 
-        variant: "destructive" 
-      });
-      return;
-    }
-
-    setIsGenerating(true);
-    setGeneratedScript([]);
-
-    try {
-      const scriptRequest = `Create a ${numScenes}-scene script for a ${genre} about: "${scriptPrompt}". 
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    const checkLimits = async () => {
+      const limits = await getRemainingCountsAsync();
+      setRemainingImages(limits.remainingImages);
+      setRemainingVideos(limits.remainingVideos);
       
-      Format as a JSON array with scenes like:
-      [{
-        "sceneNumber": 1,
-        "description": "Detailed scene setting description",
-        "dialogue": "CHARACTER: Actual dialogue text with speaker names"
-      }]
-      
-      Return valid JSON only.`;
-
-      console.log("Generating script with prompt:", scriptRequest);
-      const response = await generateResponse(scriptRequest);
-      
-      try {
-        const parsedScript = parseScriptResponse(response);
-        
-        if (Array.isArray(parsedScript) && parsedScript.length > 0) {
-          const formattedScript = parsedScript.map((scene, idx) => ({
-            sceneNumber: scene.sceneNumber || idx + 1,
-            description: scene.description || "",
-            dialogue: scene.dialogue || ""
-          }));
-          
-          setGeneratedScript(formattedScript);
-          setScriptTitle(scriptTitle || `${genre.charAt(0).toUpperCase() + genre.slice(1)} Script: ${scriptPrompt.slice(0, 30)}${scriptPrompt.length > 30 ? '...' : ''}`);
-        } else {
-          throw new Error("Generated script doesn't contain valid scenes");
-        }
-      } catch (parseError) {
-        console.error("Failed to parse script:", parseError);
-        await fallbackScriptGeneration();
-      }
-    } catch (error) {
-      console.error("Script generation failed:", error);
+      const apiKey = localStorage.getItem("falApiKey");
+      setHasApiKey(!!apiKey);
+    };
+    
+    checkLimits();
+  }, []);
+  
+  const handleGenerateScript = async () => {
+    if (!scriptIdea.trim()) {
       toast({
-        title: "Error",
-        description: "Failed to generate script. Please try a different prompt.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const fallbackScriptGeneration = async () => {
-    try {
-      toast({
-        title: "Trying alternative approach...",
-        description: "Having trouble with the script format, attempting simplified version",
-        variant: "default"
-      });
-
-      const fallbackPrompt = `Write a simple ${numScenes}-scene script for a ${genre} film about "${scriptPrompt}".
-        For each scene include:
-        1. Scene description (setting)
-        2. Character dialogue
-        
-        Format as simple JSON array: [{"sceneNumber":1,"description":"...","dialogue":"..."}]`;
-
-      const fallbackResponse = await generateResponse(fallbackPrompt);
-      
-      try {
-        const parsedFallback = parseScriptResponse(fallbackResponse);
-        
-        if (Array.isArray(parsedFallback) && parsedFallback.length > 0) {
-          setGeneratedScript(parsedFallback);
-          toast({
-            title: "Success",
-            description: "Used simplified script format",
-            variant: "default"
-          });
-        } else {
-          throw new Error("Fallback parse failed");
-        }
-      } catch (fallbackError) {
-        // Create an emergency fallback with minimal structure
-        const emergencyFallback: ScriptScene[] = [];
-        for (let i = 1; i <= parseInt(numScenes); i++) {
-          emergencyFallback.push({
-            sceneNumber: i,
-            description: `Scene ${i} from a ${genre} about "${scriptPrompt}"`,
-            dialogue: "CHARACTER: (Unable to generate detailed dialogue)",
-          });
-        }
-        
-        setGeneratedScript(emergencyFallback);
-        toast({
-          title: "Limited Script Generated",
-          description: "Created a basic script structure. You may want to edit it.",
-          variant: "warning"
-        });
-      }
-    } catch (error) {
-      console.error("Complete fallback generation failed:", error);
-      toast({
-        title: "Error",
-        description: "Failed to generate any usable script. Please try a different prompt.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const exportScript = () => {
-    if (generatedScript.length === 0) {
-      toast({
-        title: "No script to export",
-        description: "Please generate a script first",
+        title: "Please enter a script idea",
+        description: "Add a brief description of what you want the script to be about.",
         variant: "destructive",
       });
       return;
     }
-
-    let scriptText = `TITLE: ${scriptTitle || "Untitled Script"}\n\n`;
-    scriptText += `GENRE: ${genre.toUpperCase()}\n\n`;
     
-    generatedScript.forEach(scene => {
-      scriptText += `SCENE ${scene.sceneNumber}\n\n`;
-      scriptText += `SETTING: ${scene.description}\n\n`;
-      scriptText += `${scene.dialogue}\n\n`;
-      scriptText += `---\n\n`;
+    setGeneratingScript(true);
+    
+    try {
+      const prompt = `
+        Act as a professional script writer and create a ${scriptStyle} script with ${scenesCount} scenes based on the following idea:
+        "${scriptIdea}"
+        
+        Format your response as valid JSON like this:
+        [
+          {
+            "text": "Scene description and script text for scene 1",
+            "imagePrompt": "Visual description for generating an image for this scene"
+          },
+          {
+            "text": "Scene description and script text for scene 2",
+            "imagePrompt": "Visual description for generating an image for this scene"
+          }
+        ]
+        
+        Make each scene descriptive and visual, with the imagePrompt being a clear, detailed description for an AI image generator.
+        Do not include any explanations, just return valid JSON.
+      `;
+      
+      const response = await generateResponse(prompt);
+      
+      try {
+        const jsonStart = response.indexOf('[');
+        const jsonEnd = response.lastIndexOf(']') + 1;
+        const jsonStr = response.substring(jsonStart, jsonEnd);
+        const parsedScript = JSON.parse(jsonStr) as ScriptItem[];
+        
+        const validatedScript = parsedScript.map(scene => ({
+          ...scene,
+          imagePrompt: scene.imagePrompt || scene.text
+        }));
+        
+        setGeneratedScript(validatedScript);
+        setActiveTab("preview");
+        
+        toast({
+          title: "Script generated!",
+          description: `Created ${validatedScript.length} scenes for your script.`,
+        });
+      } catch (jsonError) {
+        console.error("Failed to parse script JSON:", jsonError, response);
+        toast({
+          title: "Error parsing script",
+          description: "The generated script format was invalid. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to generate script:", error);
+      toast({
+        title: "Failed to generate script",
+        description: "There was an error while generating your script. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingScript(false);
+    }
+  };
+  
+  const generateImages = async () => {
+    if (generatedScript.length === 0) return;
+    
+    if (!hasApiKey) {
+      toast({
+        title: "API Key Required",
+        description: "To generate images, buy an Infinity API key",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const limits = await getRemainingCountsAsync();
+    setRemainingImages(limits.remainingImages);
+    
+    if (limits.remainingImages < generatedScript.length) {
+      toast({
+        title: "Not enough image credits",
+        description: `You need at least ${generatedScript.length} image credits, but only have ${limits.remainingImages} remaining.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const updatedScript = [...generatedScript];
+    
+    for (let i = 0; i < updatedScript.length; i++) {
+      const scene = updatedScript[i];
+      
+      if (!scene.imageUrl) {
+        try {
+          toast({
+            title: "Generating image",
+            description: `Creating image for scene ${i + 1}...`,
+          });
+          
+          const result = await falService.generateImageWithImagen3(
+            scene.imagePrompt,
+            { aspect_ratio: "1:1" }
+          );
+          
+          const imageUrl = result.data?.images?.[0]?.url || 
+                          result.images?.[0]?.url ||
+                          result.image_url || 
+                          result.url;
+          
+          if (imageUrl) {
+            updatedScript[i] = { ...scene, imageUrl };
+          }
+          
+          await falService.saveToHistory('image', imageUrl, scene.imagePrompt, false, {
+            scriptTitle: title,
+            sceneIndex: i
+          });
+        } catch (error) {
+          console.error(`Error generating image for scene ${i + 1}:`, error);
+          toast({
+            title: `Error on scene ${i + 1}`,
+            description: "Failed to generate image. Please check your API key.",
+            variant: "destructive",
+          });
+        }
+      }
+    }
+    
+    setGeneratedScript(updatedScript);
+    
+    const updatedLimits = await getRemainingCountsAsync();
+    setRemainingImages(updatedLimits.remainingImages);
+  };
+  
+  const generateVideo = async () => {
+    if (!hasApiKey) {
+      toast({
+        title: "API Key Required",
+        description: "To generate videos, buy an Infinity API key",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setGeneratingVideo(true);
+    toast({
+      title: "Video generation",
+      description: "Starting video generation process...",
     });
     
-    const element = document.createElement("a");
-    const file = new Blob([scriptText], {type: 'text/plain'});
-    element.href = URL.createObjectURL(file);
-    element.download = `${scriptTitle || "script"}.txt`.replace(/\s+/g, '_').toLowerCase();
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+    try {
+      const sceneWithImage = generatedScript.find(scene => scene.imageUrl);
+      
+      if (!sceneWithImage || !sceneWithImage.imageUrl) {
+        throw new Error("No images available to create video");
+      }
+      
+      const limits = await getRemainingCountsAsync();
+      setRemainingVideos(limits.remainingVideos);
+      
+      if (limits.remainingVideos <= 0) {
+        throw new Error("You have reached your video generation limit");
+      }
+      
+      falService.initialize();
+      
+      const result = await falService.generateVideoFromImage(
+        sceneWithImage.imageUrl, 
+        { cameraMode: "zoom-out" }
+      );
+      
+      const videoUrl = result?.video_url || 
+                      result?.data?.video?.url || 
+                      (result as any)?.url;
+      
+      if (videoUrl) {
+        const updatedScript = generatedScript.map(scene => {
+          if (scene === sceneWithImage) {
+            return { ...scene, videoUrl };
+          }
+          return scene;
+        });
+        
+        setGeneratedScript(updatedScript);
+        
+        await falService.saveToHistory(
+          'video',
+          videoUrl,
+          sceneWithImage.imagePrompt,
+          false,
+          {
+            scriptTitle: title,
+            sourceImageUrl: sceneWithImage.imageUrl
+          }
+        );
+        
+        toast({
+          title: "Video created!",
+          description: "Generated a sample video from your scene.",
+        });
+        
+        const updatedLimits = await getRemainingCountsAsync();
+        setRemainingVideos(updatedLimits.remainingVideos);
+      } else {
+        throw new Error("No video URL returned from the API");
+      }
+    } catch (error) {
+      console.error("Failed to generate video:", error);
+      toast({
+        title: "Video generation failed",
+        description: error instanceof Error ? error.message : "An error occurred during video generation",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingVideo(false);
+    }
+  };
+  
+  const handleDownloadTextFile = () => {
+    if (generatedScript.length === 0) {
+      toast({
+        title: "No script to download",
+        description: "Please generate a script first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const fileName = title.trim() ? `${title.trim().replace(/\s+/g, '_')}.txt` : 'script.txt';
+    
+    const storyScenes: StoryScene[] = generatedScript.map(item => ({
+      text: item.text,
+      imagePrompt: item.imagePrompt,
+      imageUrl: item.imageUrl
+    }));
+    
+    const content = generateStoryTextFile(title || "Untitled Script", storyScenes);
+    downloadTextFile(content, fileName);
     
     toast({
-      title: "Success",
-      description: "Script exported as text file",
+      title: "Script downloaded",
+      description: `Your script has been saved as ${fileName}.`,
     });
   };
-
+  
+  const handleDownloadPDF = async () => {
+    if (generatedScript.length === 0) {
+      toast({
+        title: "No script to download",
+        description: "Please generate a script first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setGeneratingPDF(true);
+    
+    try {
+      const storyScenes: StoryScene[] = generatedScript.map(item => ({
+        text: item.text,
+        imagePrompt: item.imagePrompt,
+        imageUrl: item.imageUrl
+      }));
+      
+      const characterDetails = {
+        title: title || "Untitled Script",
+        scriptStyle: scriptStyle,
+        scenesCount: scenesCount.toString(),
+      };
+      
+      const pdfDataUri = await generateStoryPDF(
+        title || "Untitled Script", 
+        storyScenes,
+        characterDetails,
+        selectedLanguage
+      );
+      
+      const link = document.createElement('a');
+      link.href = pdfDataUri;
+      link.download = `${title.trim() ? title.trim().replace(/\s+/g, '_') : 'script'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "PDF downloaded",
+        description: `Your script has been saved as a PDF.`,
+      });
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+      toast({
+        title: "PDF generation failed",
+        description: error instanceof Error ? error.message : "An error occurred while generating the PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+  
+  const navigateToBuyCredits = () => {
+    navigate("/buy-credits");
+  };
+  
   return (
-    <div className="space-y-8">
-      <Card className="overflow-hidden">
-        <CardContent className="p-6">
-          <h2 className="text-2xl font-bold mb-4 flex items-center">
-            <FileText className="mr-2 h-6 w-6" />
-            Script Generator
-          </h2>
-
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="scriptTitle">Script Title (Optional)</Label>
-              <Input
-                id="scriptTitle"
-                placeholder="Enter a title for your script"
-                value={scriptTitle}
-                onChange={(e) => setScriptTitle(e.target.value)}
-                disabled={isGenerating}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="scriptPrompt">Script Concept</Label>
-              <Textarea
-                id="scriptPrompt"
-                placeholder="Describe your script idea, like 'A detective solving a mystery in a cyberpunk future'"
-                value={scriptPrompt}
-                onChange={(e) => setScriptPrompt(e.target.value)}
-                className="min-h-[80px]"
-                disabled={isGenerating}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="genre">Genre</Label>
-                <Select value={genre} onValueChange={setGenre} disabled={isGenerating}>
-                  <SelectTrigger id="genre">
-                    <SelectValue placeholder="Select genre" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="drama">Drama</SelectItem>
-                    <SelectItem value="comedy">Comedy</SelectItem>
-                    <SelectItem value="action">Action</SelectItem>
-                    <SelectItem value="sci-fi">Sci-Fi</SelectItem>
-                    <SelectItem value="horror">Horror</SelectItem>
-                    <SelectItem value="romance">Romance</SelectItem>
-                    <SelectItem value="thriller">Thriller</SelectItem>
-                    <SelectItem value="fantasy">Fantasy</SelectItem>
-                    <SelectItem value="animation">Animation</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="numScenes">Number of Scenes</Label>
-                <Select value={numScenes} onValueChange={setNumScenes} disabled={isGenerating}>
-                  <SelectTrigger id="numScenes">
-                    <SelectValue placeholder="Select scenes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="2">2 Scenes</SelectItem>
-                    <SelectItem value="3">3 Scenes</SelectItem>
-                    <SelectItem value="4">4 Scenes</SelectItem>
-                    <SelectItem value="5">5 Scenes</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <Button
-              onClick={generateScript}
-              disabled={isGenerating || !scriptPrompt}
-              className="w-full"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating Script...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate Script
-                </>
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {generatedScript.length > 0 && (
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">{scriptTitle || "Generated Script"}</h2>
-              <Button onClick={exportScript} variant="outline" size="sm">
-                <FileText className="mr-2 h-4 w-4" />
-                Export as Text
-              </Button>
-            </div>
-
-            <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-              <TabsList className="w-full grid" style={{ gridTemplateColumns: `repeat(${generatedScript.length}, 1fr)` }}>
-                {generatedScript.map((scene) => (
-                  <TabsTrigger key={scene.sceneNumber} value={scene.sceneNumber.toString()}>
-                    Scene {scene.sceneNumber}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-
-              {generatedScript.map((scene) => (
-                <TabsContent key={scene.sceneNumber} value={scene.sceneNumber.toString()} className="space-y-6">
-                  <div className="space-y-4">
-                    <div>
-                      <Label className="font-bold">Setting</Label>
-                      <div className="p-3 bg-slate-800/50 rounded-md mt-1">
-                        <p className="text-slate-200">{scene.description}</p>
-                      </div>
+    <div className="w-full">
+      <MyanmarVpnWarning className="mb-4" />
+      
+      <Card className="mb-6 shadow-lg glass-morphism">
+        <CardHeader>
+          <CardTitle className="text-gradient">Script to Video Generator</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-4">
+              <TabsTrigger value="script">Write Script</TabsTrigger>
+              <TabsTrigger value="preview">Preview</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="script">
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="title">Title</Label>
+                  <Input 
+                    id="title" 
+                    placeholder="Enter a title for your script"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="scriptIdea">Script Idea</Label>
+                  <Textarea 
+                    id="scriptIdea" 
+                    placeholder="Describe your script idea here..."
+                    value={scriptIdea}
+                    onChange={(e) => setScriptIdea(e.target.value)}
+                    className="min-h-32 mt-1"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Number of Scenes ({scenesCount})</Label>
+                    <Slider
+                      value={[scenesCount]}
+                      min={1}
+                      max={10}
+                      step={1}
+                      onValueChange={(value) => setScenesCount(value[0])}
+                      className="mt-2"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="scriptStyle">Script Style</Label>
+                    <Select 
+                      value={scriptStyle} 
+                      onValueChange={setScriptStyle}
+                    >
+                      <SelectTrigger id="scriptStyle" className="mt-1">
+                        <SelectValue placeholder="Select style" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cinematic">Cinematic</SelectItem>
+                        <SelectItem value="documentary">Documentary</SelectItem>
+                        <SelectItem value="animated">Animated</SelectItem>
+                        <SelectItem value="educational">Educational</SelectItem>
+                        <SelectItem value="commercial">Commercial</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label htmlFor="language">PDF Language</Label>
+                  <Select 
+                    value={selectedLanguage} 
+                    onValueChange={(value) => setSelectedLanguage(value as LanguageOption)}
+                  >
+                    <SelectTrigger id="language" className="mt-1">
+                      <SelectValue placeholder="Select language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(LANGUAGES).map(([code, name]) => (
+                        <SelectItem key={code} value={code}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <Button 
+                  onClick={handleGenerateScript} 
+                  className="w-full"
+                  disabled={generatingScript || !scriptIdea.trim()}
+                >
+                  {generatingScript ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating Script...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="mr-2 h-4 w-4" />
+                      Generate Script
+                    </>
+                  )}
+                </Button>
+                
+                {!hasApiKey && (
+                  <div className="mt-2 p-3 bg-amber-600/30 border border-amber-700/50 rounded-md flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <div className="text-sm text-amber-200">
+                      <p>To generate images, you need an Infinity API key.</p>
+                      <p className="mt-1 text-amber-300">
+                        <BuyApiKeyPopover />
+                      </p>
                     </div>
-                    
-                    <div>
-                      <Label className="font-bold">Dialogue</Label>
-                      <div className="p-3 bg-slate-800/50 rounded-md mt-1 whitespace-pre-line">
-                        <p className="text-slate-200">{scene.dialogue}</p>
+                  </div>
+                )}
+                
+                {hasApiKey && remainingImages <= 5 && (
+                  <div className="mt-2 p-3 bg-amber-600/30 border border-amber-700/50 rounded-md flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <div className="text-sm text-amber-200">
+                      <p>You have {remainingImages} image credits remaining.</p>
+                      <div className="mt-1 text-amber-300 flex gap-2">
+                        <BuyApiKeyPopover />
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={navigateToBuyCredits}
+                          className="text-amber-300 hover:text-amber-100 border-amber-400"
+                        >
+                          <CreditCard className="mr-1 h-3 w-3" />
+                          Buy Credits
+                        </Button>
                       </div>
                     </div>
                   </div>
-                </TabsContent>
-              ))}
-            </Tabs>
-          </CardContent>
-        </Card>
-      )}
+                )}
+                
+                {hasApiKey && remainingVideos <= 3 && (
+                  <div className="mt-2 p-3 bg-amber-600/30 border border-amber-700/50 rounded-md flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <div className="text-sm text-amber-200">
+                      <p>You have {remainingVideos} video credits remaining.</p>
+                      <div className="mt-1 text-amber-300 flex gap-2">
+                        <BuyApiKeyPopover />
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={navigateToBuyCredits}
+                          className="text-amber-300 hover:text-amber-100 border-amber-400"
+                        >
+                          <CreditCard className="mr-1 h-3 w-3" />
+                          Buy Credits
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="preview">
+              {generatedScript.length > 0 ? (
+                <div className="space-y-6">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <h3 className="text-xl font-bold">{title || "Untitled Script"}</h3>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleDownloadTextFile}
+                      >
+                        <FileText className="mr-2 h-4 w-4" />
+                        Download Text
+                      </Button>
+                      
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleDownloadPDF}
+                        disabled={generatingPDF}
+                      >
+                        {generatingPDF ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Creating PDF...
+                          </>
+                        ) : (
+                          <>
+                            <FileDown className="mr-2 h-4 w-4" />
+                            Download PDF
+                          </>
+                        )}
+                      </Button>
+                      
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={generateImages}
+                        disabled={!hasApiKey || remainingImages < generatedScript.length}
+                      >
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Generate Images
+                      </Button>
+                      
+                      <Button 
+                        variant="default" 
+                        size="sm"
+                        onClick={generateVideo}
+                        disabled={generatingVideo || !hasApiKey || !generatedScript.some(scene => scene.imageUrl) || remainingVideos <= 0}
+                      >
+                        {generatingVideo ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <Video className="mr-2 h-4 w-4" />
+                            Create Video
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {hasApiKey && (remainingImages <= 5 || remainingVideos <= 3) && (
+                    <Alert variant="warning" className="bg-amber-600/30 border border-amber-700/50">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+                          <span className="text-amber-200">
+                            {remainingImages <= 5 && remainingVideos <= 3 
+                              ? `Low credits: ${remainingImages} images, ${remainingVideos} videos remaining.` 
+                              : remainingImages <= 5 
+                                ? `${remainingImages} image credits remaining.` 
+                                : `${remainingVideos} video credits remaining.`}
+                          </span>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={navigateToBuyCredits}
+                          className="text-amber-300 hover:text-amber-100 border-amber-400"
+                        >
+                          <CreditCard className="mr-1 h-3 w-3" />
+                          Buy Credits
+                        </Button>
+                      </div>
+                    </Alert>
+                  )}
+                  
+                  <div className="space-y-6">
+                    {generatedScript.map((scene, index) => (
+                      <Card key={index} className="overflow-hidden">
+                        <CardHeader className="bg-slate-800/50">
+                          <CardTitle className="text-sm">Scene {index + 1}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="md:col-span-2">
+                              <p className="whitespace-pre-line text-sm">{scene.text}</p>
+                              <p className="mt-2 text-xs text-muted-foreground">
+                                <strong>Image prompt:</strong> {scene.imagePrompt}
+                              </p>
+                              
+                              {scene.videoUrl && (
+                                <div className="mt-4">
+                                  <h4 className="text-xs font-semibold mb-2">Generated Video:</h4>
+                                  <video
+                                    controls
+                                    src={scene.videoUrl}
+                                    className="w-full h-auto rounded-md"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex justify-center items-center">
+                              {scene.imageUrl ? (
+                                <img 
+                                  src={scene.imageUrl} 
+                                  alt={`Scene ${index + 1}`} 
+                                  className="rounded-md max-h-40 object-cover"
+                                />
+                              ) : (
+                                <div className="w-full aspect-square bg-slate-700/30 rounded-md flex flex-col items-center justify-center p-4">
+                                  {!hasApiKey ? (
+                                    <>
+                                      <p className="text-xs text-center text-slate-400 mb-2">API key required</p>
+                                      <Button variant="link" size="sm" className="p-0 h-auto">
+                                        <BuyApiKeyPopover />
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <p className="text-xs text-center text-slate-400">No image generated</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                  
+                  {hasApiKey && (
+                    <p className="text-xs text-slate-500 text-center">
+                      You have {remainingImages} image generation credits and {remainingVideos} video credits remaining
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">
+                    No script generated yet. Go to the "Write Script" tab to create one.
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 };

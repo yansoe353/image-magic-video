@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,7 +21,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import ProLabel from "./ProLabel";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
-import { useLocation } from "react-router-dom";
 
 type SupportedLanguage = "en" | "my" | "th";
 
@@ -33,12 +33,11 @@ const LANGUAGES = {
 type LanguageOption = keyof typeof LANGUAGES;
 
 interface TextToImageProps {
-  onImageGenerated: (url: string) => void;
+  onImageGenerated: (imageUrl: string) => void;
 }
 
-const TextToImage = ({ onImageGenerated }: { onImageGenerated: (url: string) => void }) => {
-  const location = useLocation();
-  const [prompt, setPrompt] = useState(location.state?.prompt || "");
+const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
+  const [prompt, setPrompt] = useState("");
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [imageSize, setImageSize] = useState<ImageSizeOption>("square_hd");
@@ -60,12 +59,6 @@ const TextToImage = ({ onImageGenerated }: { onImageGenerated: (url: string) => 
     };
     updateCounts();
   }, []);
-
-  useEffect(() => {
-    if (location.state?.prompt) {
-      setPrompt(location.state.prompt);
-    }
-  }, [location.state?.prompt]);
 
   const handlePromptChange = (newPrompt: string) => {
     setPrompt(newPrompt);

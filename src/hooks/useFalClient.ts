@@ -42,11 +42,10 @@ interface ImageToVideoResult {
 
 interface ImageToVideoInput {
   image_url: string;
-  prompt?: string;
   cameraMode?: string;
   framesPerSecond?: number;
   modelType?: string; 
-  seed?: number;  // Added seed property to match usage in StoryToVideo component
+  seed?: number;
 }
 
 // Hook for text-to-image generation
@@ -73,7 +72,7 @@ export function useTextToImage(): TextToImageResult {
       // Make sure falService is initialized with latest key
       falService.initialize();
       
-      const result = await falService.generateImageWithImagen3(input.prompt, {
+      const result = await falService.generateImage(input.prompt, {
         negative_prompt: input.negative_prompt,
         height: input.height,
         width: input.width,
@@ -84,7 +83,7 @@ export function useTextToImage(): TextToImageResult {
       });
       
       // Handle either direct images array or nested in data
-      const imageData = result?.data?.images?.[0]?.url || result?.images?.[0]?.url;
+      const imageData = result?.images?.[0]?.url || result?.data?.images?.[0]?.url;
       if (imageData) {
         setImageUrl(imageData);
         console.log("Image generated successfully");
@@ -159,33 +158,24 @@ export function useImageToVideo(): ImageToVideoResult {
       // Make sure falService is initialized with latest key
       falService.initialize();
       
-      // Enhanced error handling
-      if (!input.image_url || typeof input.image_url !== 'string' || !input.image_url.startsWith('http')) {
-        throw new Error("Invalid image URL provided. Please ensure you have a valid image.");
-      }
-      
       const result = await falService.generateVideoFromImage(input.image_url, {
-        prompt: input.prompt || "Animate this image with smooth motion"
+        cameraMode: input.cameraMode,
+        framesPerSecond: input.framesPerSecond,
+        modelType: input.modelType,
+        seed: input.seed
       });
       
-      // Improved response handling with more detailed logging
-      console.log("Video generation raw result:", JSON.stringify(result));
-      
-      // Handle different response formats more robustly
-      const videoData = result?.video_url || 
-                        result?.data?.video?.url || 
-                        result?.url || 
-                        (result?.data && typeof result.data === 'string' ? result.data : null);
-      
+      // Handle either direct video_url or nested in data.video.url
+      const videoData = result?.video_url || result?.data?.video?.url;
       if (videoData) {
         setVideoUrl(videoData);
-        console.log("Video generated successfully:", videoData);
+        console.log("Video generated successfully");
         
         // Store the generated video in user history
         await falService.saveToHistory(
           'video',
           videoData,
-          input.prompt || "Generated from image",
+          "Generated from image",
           false,
           {
             source_image_url: input.image_url,
@@ -195,8 +185,7 @@ export function useImageToVideo(): ImageToVideoResult {
           }
         );
       } else {
-        console.error("Video generation response structure:", result);
-        throw new Error("No video was returned from the API. Check console for details.");
+        throw new Error("No video was returned from the API");
       }
     } catch (e) {
       console.error("Error generating video:", e);
