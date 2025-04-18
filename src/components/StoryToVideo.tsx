@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
@@ -446,7 +447,7 @@ const StoryToVideo = () => {
       falService.initialize(apiKey);
 
       const result = await falService.generateVideoFromImage(scene.imageUrl, {
-        prompt: scene.imagePrompt || "Animate this image with smooth motion"
+        seed: Math.floor(Math.random() * 1000000)
       });
 
       const videoUrl = result.video_url || result.data?.video?.url;
@@ -654,8 +655,6 @@ const StoryToVideo = () => {
 
   return (
     <div className="space-y-8">
-      <MyanmarVpnWarning className="mb-4" />
-      
       <Card className="overflow-hidden">
         <CardContent className="p-6">
           <h2 className="text-2xl font-bold mb-4 flex items-center">
