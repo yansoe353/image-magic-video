@@ -49,13 +49,8 @@ class FalService {
     
     // Create fal client with API key
     this.falClient = createFalClient({ 
-      credentials: this.apiKey,
-      // Configure the client to use 'opaque' mode which avoids CORS preflight
-      requestConfig: {
-        mode: 'cors',
-        cache: 'no-cache',
-        credentials: 'omit'
-      }
+      credentials: this.apiKey
+      // Removed the requestConfig property as it's not in the Config type
     });
     this.initialize();
   }
@@ -72,15 +67,9 @@ class FalService {
       
       console.log("Initializing Infinity API client with key:", this.apiKey ? "API key present" : "No API key");
       
-      // Initialize client with the right credentials
+      // Initialize client with the right credentials - removing requestConfig
       this.falClient = createFalClient({ 
-        credentials: this.apiKey,
-        // Configure the client to use 'opaque' mode which avoids CORS preflight
-        requestConfig: {
-          mode: 'cors',
-          cache: 'no-cache',
-          credentials: 'omit'
-        }
+        credentials: this.apiKey
       });
       
       this.isInitialized = true;
@@ -240,7 +229,7 @@ class FalService {
       this.proxyEnabled = false;
       console.log("Falling back to direct API call...");
       
-      // Try direct API call with modified settings to avoid CORS issues
+      // Try direct API call
       const result = await this.falClient.run(IMAGEN_3_MODEL, {
         input: {
           prompt,
@@ -248,12 +237,6 @@ class FalService {
           negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
           ...options
         },
-      }, {
-        forceRequestOptions: {
-          mode: 'no-cors',  // This helps bypass CORS issues but returns opaque response
-          cache: 'no-cache',
-          credentials: 'omit'
-        }
       }) as GenericApiResponse;
       
       return result as FalRunResult;
