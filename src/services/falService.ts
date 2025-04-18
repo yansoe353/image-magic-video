@@ -6,9 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 // Default API key
 const DEFAULT_API_KEY = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA";
 
-// Model URLs/IDs
+// Model URLs/IDs - Updated with latest models
 export const TEXT_TO_IMAGE_MODEL = "110602490-lcm-sd15-i2i/fast"; // Lt. Create model
-export const IMAGE_TO_VIDEO_MODEL = "110602490-ltx-animation/run"; 
+export const IMAGE_TO_VIDEO_MODEL = "fal-ai/sdxl-lightning-4step"; // More reliable model
 export const VIDEO_TO_VIDEO_MODEL = "fal-ai/mmaudio-v2";
 export const IMAGEN_3_MODEL = "fal-ai/imagen3/fast";
 
@@ -116,7 +116,7 @@ class FalService {
     }
   }
 
-  // Image to Video generation
+  // Image to Video generation - improved implementation
   async generateVideoFromImage(
     image_url: string,
     options: {
@@ -133,15 +133,42 @@ class FalService {
     try {
       console.log("Generating video from image:", image_url);
       
-      const result = await this.falClient.run(IMAGE_TO_VIDEO_MODEL, {
-        input: {
-          image_url,
-          ...options
-        }
-      });
-
-      console.log("Video generation result:", result);
-      return result;
+      // Validate image URL
+      if (!image_url || typeof image_url !== 'string' || !image_url.startsWith('http')) {
+        throw new Error("Invalid image URL format");
+      }
+      
+      // Try the primary model first
+      try {
+        console.log("Attempting video generation with primary model");
+        const result = await this.falClient.run(IMAGE_TO_VIDEO_MODEL, {
+          input: {
+            image_url,
+            motion_bucket_id: 127, // Higher value = more motion
+            cond_aug: 0.02,
+            steps: 25,
+            fps: options.framesPerSecond || 24,
+            seed: options.seed || Math.floor(Math.random() * 10000)
+          }
+        });
+        
+        console.log("Primary model result:", result);
+        return result;
+      } catch (primaryError) {
+        console.error("Error with primary model, falling back to backup:", primaryError);
+        
+        // Fallback to original model if primary fails
+        const fallbackModel = "110602490-ltx-animation/run";
+        const result = await this.falClient.run(fallbackModel, {
+          input: {
+            image_url,
+            ...options
+          }
+        });
+        
+        console.log("Fallback model result:", result);
+        return result;
+      }
     } catch (error) {
       console.error("Error generating video from image:", error);
       throw error;

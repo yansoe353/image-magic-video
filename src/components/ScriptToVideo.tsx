@@ -423,7 +423,7 @@ const ScriptToVideo = () => {
                     <Slider
                       value={[scenesCount]}
                       min={1}
-                      max={10}
+                      max={5}
                       step={1}
                       onValueChange={(value) => setScenesCount(value[0])}
                       className="mt-2"

@@ -158,18 +158,30 @@ export function useImageToVideo(): ImageToVideoResult {
       // Make sure falService is initialized with latest key
       falService.initialize();
       
+      // Enhanced error handling
+      if (!input.image_url || typeof input.image_url !== 'string' || !input.image_url.startsWith('http')) {
+        throw new Error("Invalid image URL provided. Please ensure you have a valid image.");
+      }
+      
       const result = await falService.generateVideoFromImage(input.image_url, {
-        cameraMode: input.cameraMode,
-        framesPerSecond: input.framesPerSecond,
+        cameraMode: input.cameraMode || "zoom-out", // Provide default camera mode
+        framesPerSecond: input.framesPerSecond || 24,
         modelType: input.modelType,
-        seed: input.seed
+        seed: input.seed || Math.floor(Math.random() * 10000)
       });
       
-      // Handle either direct video_url or nested in data.video.url
-      const videoData = result?.video_url || result?.data?.video?.url;
+      // Improved response handling with more detailed logging
+      console.log("Video generation raw result:", JSON.stringify(result));
+      
+      // Handle different response formats more robustly
+      const videoData = result?.video_url || 
+                        result?.data?.video?.url || 
+                        result?.url || 
+                        (result?.data && typeof result.data === 'string' ? result.data : null);
+      
       if (videoData) {
         setVideoUrl(videoData);
-        console.log("Video generated successfully");
+        console.log("Video generated successfully:", videoData);
         
         // Store the generated video in user history
         await falService.saveToHistory(
@@ -185,7 +197,8 @@ export function useImageToVideo(): ImageToVideoResult {
           }
         );
       } else {
-        throw new Error("No video was returned from the API");
+        console.error("Video generation response structure:", result);
+        throw new Error("No video was returned from the API. Check console for details.");
       }
     } catch (e) {
       console.error("Error generating video:", e);
