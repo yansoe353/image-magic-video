@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { getAllUsers, AppUser, isAdmin, deleteUser, getCurrentUser } from "@/utils/authUtils";
 import { getRemainingCountsForUser, refillUserLimits, addCustomAmountToUser } from "@/utils/usageTracker";
@@ -15,6 +14,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogTrigger,
+  DialogClose
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,7 +24,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
-// Schema for custom credits form
 const formSchema = z.object({
   imageCredits: z.coerce.number().int().min(0, "Must be a positive number"),
   videoCredits: z.coerce.number().int().min(0, "Must be a positive number")
@@ -44,7 +44,6 @@ const UserList = () => {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [isAddingCredits, setIsAddingCredits] = useState(false);
 
-  // Form for custom credits
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -53,7 +52,6 @@ const UserList = () => {
     },
   });
 
-  // Handle the form submission for adding credits
   const handleAddCredits = async (data: z.infer<typeof formSchema>) => {
     if (!selectedUserId) return;
     
