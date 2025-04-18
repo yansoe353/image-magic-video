@@ -15,8 +15,6 @@ import { type LanguageOption } from "@/utils/translationUtils";
 import CharacterDetailsForm from "./story-generator/CharacterDetailsForm";
 import StoryDisplay from "./story-generator/StoryDisplay";
 import { useGeminiStoryGenerator } from "@/hooks/useGeminiStoryGenerator";
-import { useStoryImageGenerator } from "@/hooks/useStoryImageGenerator";
-import { useStoryVideoGenerator } from "@/hooks/useStoryVideoGenerator";
 
 const StoryToVideo = () => {
   const [storyPrompt, setStoryPrompt] = useState("");
@@ -42,21 +40,7 @@ const StoryToVideo = () => {
     setGeneratedStory
   } = useGeminiStoryGenerator();
 
-  const { 
-    currentGeneratingIndex: imageGeneratingIndex,
-    generateImageForScene: generateImageForSceneFromHook 
-  } = useStoryImageGenerator();
-
-  const {
-    currentGeneratingIndex: videoGeneratingIndex,
-    videoUrls,
-    setVideoUrls,
-    generateVideoForScene: generateVideoForSceneFromHook
-  } = useStoryVideoGenerator();
-
   const { toast } = useToast();
-
-  const currentGeneratingIndex = imageGeneratingIndex ?? videoGeneratingIndex;
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -80,7 +64,6 @@ const StoryToVideo = () => {
   const handleGenerateStory = async () => {
     const story = await generateStory(storyPrompt, parseInt(sceneCount), characterDetails, imageStyle);
     setEditedStory(story);
-    setVideoUrls([]);
   };
 
   const handleEditedStoryChange = (index: number, field: 'text' | 'imagePrompt', value: string) => {
@@ -101,42 +84,6 @@ const StoryToVideo = () => {
   const updateCounts = async () => {
     const freshCounts = await getRemainingCountsAsync();
     setCounts(freshCounts);
-  };
-
-  const generateImageForScene = async (sceneIndex: number) => {
-    const scene = generatedStory[sceneIndex];
-    if (!scene) return;
-
-    await generateImageForSceneFromHook(
-      scene,
-      sceneIndex,
-      isPublic,
-      storyTitle,
-      storyPrompt,
-      setGeneratedStory,
-      updateCounts,
-      generatedStory
-    );
-  };
-
-  const generateVideoForScene = async (sceneIndex: number) => {
-    const scene = generatedStory[sceneIndex];
-    if (!scene) return;
-
-    const videoUrl = await generateVideoForSceneFromHook(
-      scene,
-      sceneIndex,
-      isPublic,
-      storyTitle,
-      storyPrompt,
-      updateCounts
-    );
-
-    if (videoUrl) {
-      const newVideoUrls = [...videoUrls];
-      newVideoUrls[sceneIndex] = videoUrl;
-      setVideoUrls(newVideoUrls);
-    }
   };
 
   return (
@@ -271,20 +218,15 @@ const StoryToVideo = () => {
             <StoryDisplay
               storyTitle={storyTitle}
               generatedStory={generatedStory}
-              videoUrls={videoUrls}
-              currentGeneratingIndex={currentGeneratingIndex}
               isGeneratingPDF={isGeneratingPDF}
               isDownloadingText={isDownloadingText}
               pdfLanguage={pdfLanguage}
               characterDetails={characterDetails}
-              counts={counts}
               onEditModeToggle={() => setEditMode(!editMode)}
               onSaveEdits={handleSaveEdits}
               editMode={editMode}
               editedStory={editedStory}
               onEditedStoryChange={handleEditedStoryChange}
-              generateImageForScene={generateImageForScene}
-              generateVideoForScene={generateVideoForScene}
               setPdfLanguage={setPdfLanguage}
               storyPrompt={storyPrompt}
             />
