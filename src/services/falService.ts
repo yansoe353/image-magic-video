@@ -1,4 +1,3 @@
-
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,7 +45,7 @@ class FalService {
     // Try to get API key from environment first, then localStorage, then default
     const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_API_KEY : undefined;
     this.apiKey = envApiKey || localStorage.getItem("falApiKey") || DEFAULT_API_KEY;
-    
+
     // Create fal client with API key
     this.falClient = createFalClient({ credentials: this.apiKey });
     this.initialize();
@@ -61,12 +60,12 @@ class FalService {
         const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_API_KEY : undefined;
         this.apiKey = envApiKey || localStorage.getItem("falApiKey") || this.apiKey || DEFAULT_API_KEY;
       }
-      
+
       console.log("Initializing Infinity API client with key:", this.apiKey ? "API key present" : "No API key");
-      
+
       // Initialize client with the right credentials
       this.falClient = createFalClient({ credentials: this.apiKey });
-      
+
       this.isInitialized = true;
       console.log("Infinity API client initialized successfully");
     } catch (error) {
@@ -83,7 +82,7 @@ class FalService {
 
   // Text to Image generation
   async generateImage(
-    prompt: string, 
+    prompt: string,
     options: {
       negative_prompt?: string;
       height?: number;
@@ -100,7 +99,7 @@ class FalService {
 
     try {
       console.log("Generating image with prompt:", prompt);
-      
+
       const result = await this.falClient.run(TEXT_TO_IMAGE_MODEL, {
         input: {
           prompt,
@@ -129,12 +128,12 @@ class FalService {
 
     try {
       console.log("Generating video from image:", image_url);
-      
+
       // Validate image URL
       if (!image_url || typeof image_url !== 'string' || !image_url.startsWith('http')) {
         throw new Error("Invalid image URL format");
       }
-      
+
       // Try the primary model
       try {
         console.log("Attempting video generation with Kling model");
@@ -144,12 +143,12 @@ class FalService {
             prompt: options.prompt || "Animate this image with smooth motion"
           }
         });
-        
+
         console.log("Primary model result:", result);
         return result;
       } catch (primaryError) {
         console.error("Error with primary model, falling back to backup:", primaryError);
-        
+
         // Fallback to original model if primary fails
         const fallbackModel = "110602490-ltx-animation/run";
         const result = await this.falClient.run(fallbackModel, {
@@ -158,7 +157,7 @@ class FalService {
             ...options
           }
         });
-        
+
         console.log("Fallback model result:", result);
         return result;
       }
@@ -203,11 +202,11 @@ class FalService {
 
     try {
       console.log("Generating image with Imagen3, prompt:", prompt);
-      
+
       if (!prompt || prompt.trim() === '') {
         throw new Error("Prompt cannot be empty");
       }
-      
+
       const result = await this.falClient.run(IMAGEN_3_MODEL, {
         input: {
           prompt,
@@ -216,14 +215,14 @@ class FalService {
           ...options
         }
       }) as GenericApiResponse; // Cast to our generic type to handle response variations
-      
+
       console.log("Imagen3 response received:", result);
-      
+
       // Fix the type issue - handle the result properly based on actual structure
       if (!result) {
         throw new Error("Empty response from Imagen3 API");
       }
-      
+
       // Access data first to ensure we're working with the correct structure
       if (result.data && result.data.images && result.data.images.length > 0) {
         // If we have a direct data.images structure, use it
@@ -233,16 +232,16 @@ class FalService {
         return result as FalRunResult;
       } else {
         // If there's no standard images structure, wrap any available URL in our expected format
-        const imageUrl = result.image_url || result.url || 
+        const imageUrl = result.image_url || result.url ||
                         // Access potential nested properties safely
-                        result.data?.image_url || 
+                        result.data?.image_url ||
                         result.data?.url;
-                        
+
         if (!imageUrl) {
           console.error("Unable to find image URL in response:", result);
           throw new Error("Could not extract image URL from API response");
         }
-        
+
         return {
           data: {
             images: [{ url: imageUrl }]
@@ -288,8 +287,8 @@ class FalService {
 
   // Save content to history
   async saveToHistory(
-    contentType: 'image' | 'video', 
-    contentUrl: string, 
+    contentType: 'image' | 'video',
+    contentUrl: string,
     prompt: string,
     isPublic: boolean = false,
     metadata: any = {}
@@ -306,7 +305,7 @@ class FalService {
         is_public: isPublic,
         metadata: metadata
       });
-      
+
       console.log(`${contentType} saved to history`);
       return true;
     } catch (error) {
