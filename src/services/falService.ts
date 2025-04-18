@@ -38,33 +38,31 @@ type GenericApiResponse = {
 };
 
 class FalService {
-  private apiKey: string = DEFAULT_API_KEY;
+  private apiKey: string = '';
   private isInitialized: boolean = false;
   private falClient: ReturnType<typeof createFalClient>;
 
   constructor() {
-    // Try to get API key from environment first, then localStorage, then default
-    const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_API_KEY : undefined;
-    this.apiKey = envApiKey || localStorage.getItem("falApiKey") || DEFAULT_API_KEY;
-    
-    // Create fal client with API key
+    // Initialize with a temporary client that will be updated
     this.falClient = createFalClient({ credentials: this.apiKey });
     this.initialize();
   }
 
-  initialize(apiKey?: string) {
+  async initialize() {
     try {
-      // Use provided key or try to get from environment or localStorage
-      if (apiKey) {
-        this.apiKey = apiKey;
-      } else {
-        const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_API_KEY : undefined;
-        this.apiKey = envApiKey || localStorage.getItem("falApiKey") || this.apiKey || DEFAULT_API_KEY;
+      // Try to get API key from Supabase edge function
+      const response = await supabase.functions.invoke('fal-key', {
+        method: 'GET'
+      });
+
+      if (response.error) {
+        throw new Error('Failed to get FAL API key: ' + response.error.message);
       }
+
+      this.apiKey = response.data.apiKey;
+      console.log("Initializing Infinity API client");
       
-      console.log("Initializing Infinity API client with key:", this.apiKey ? "API key present" : "No API key");
-      
-      // Initialize client with the right credentials
+      // Initialize client with the fetched credentials
       this.falClient = createFalClient({ credentials: this.apiKey });
       
       this.isInitialized = true;
@@ -73,12 +71,6 @@ class FalService {
       console.error("Failed to initialize Infinity API client:", error);
       this.isInitialized = false;
     }
-  }
-
-  setApiKey(apiKey: string) {
-    this.apiKey = apiKey;
-    localStorage.setItem("falApiKey", apiKey);
-    this.initialize(apiKey);
   }
 
   // Text to Image generation
