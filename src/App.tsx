@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,8 +20,6 @@ import { supabase } from "./integrations/supabase/client";
 import BuyAccount from "./pages/BuyAccount";
 import BuyCredits from "./pages/BuyCredits";
 import FAQ from "./pages/FAQ";
-import PricingPage from "./pages/PricingPage";
-import Documentation from "./pages/Documentation";
 
 const queryClient = new QueryClient();
 
@@ -66,7 +65,6 @@ const App = () => {
             <Route path="/login" element={<Login />} />
             <Route path="/buy-account" element={<BuyAccount />} />
             <Route path="/buy-credits" element={<BuyCredits />} />
-            <Route path="/pricing" element={<PricingPage />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/gallery" element={<UserGallery />} />
             <Route 
@@ -118,7 +116,6 @@ const App = () => {
                 </ProtectedRoute>
               } 
             />
-            <Route path="/documentation" element={<Documentation />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

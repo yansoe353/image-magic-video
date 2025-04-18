@@ -49,7 +49,7 @@ const BuyAccount = () => {
           <CardHeader className="bg-gradient-to-r from-brand-purple to-brand-blue text-white rounded-t-lg">
             <CardTitle className="text-center">Premium Account</CardTitle>
             <CardDescription className="text-center text-lg font-semibold text-white">
-              60000 Ks / Year
+              60000 Ks
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 py-6">
@@ -91,31 +91,6 @@ const BuyAccount = () => {
                 <span>API access for generations</span>
               </li>
             </ul>
-            
-            {/* Payment Information */}
-            <div className="mt-4 bg-slate-800/70 rounded-lg p-4">
-              <h3 className="text-lg font-semibold mb-3">Payment Information</h3>
-              <div className="space-y-3 text-sm">
-                <div className="p-2 bg-slate-700/60 rounded">
-                  <p className="font-medium mb-1">KBZ Pay</p>
-                  <p>Account: 09974902335</p>
-                  <p>Name: Yan Naing Soe</p>
-                </div>
-                
-                <div className="p-2 bg-slate-700/60 rounded">
-                  <p className="font-medium mb-1">Wave Pay</p>
-                  <p>Account: 09969609655</p>
-                  <p>Name: Su Shwe Sin Win</p>
-                </div>
-                
-                <div className="p-2 bg-slate-700/60 rounded">
-                  <p className="font-medium mb-1">Bangkok Bank</p>
-                  <p>Account: 1494154519</p>
-                  <p>Name: Yan Naing Soe</p>
-                  <p className="text-xs italic mt-1">(Price will be automatically converted to Thai Baht)</p>
-                </div>
-              </div>
-            </div>
           </CardContent>
           <CardFooter className="flex-col space-y-4">
             <div className="w-full text-center mb-2">

@@ -5,7 +5,6 @@ import type { Database } from './types';
 
 const SUPABASE_URL = "https://rhbpeivthnmvzhblnvya.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnBlaXZ0aG5tdnpoYmxudnlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzMTQ4MDAsImV4cCI6MjA1Nzg5MDgwMH0.XzviG_Ir2UKIpMR2Vsh8RE3rppQvz7awjNZvfF7eVMI";
-const SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoYnBlaXZ0aG5tdnpoYmxudnlhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MjMxNDgwMCwiZXhwIjoyMDU3ODkwODAwfQ.D19k0wGRW7iicHRQpTnopztwwrpg9hKVn7ewXjvYyuc";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
@@ -18,10 +17,4 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
 export const supabase = createClient<Database>(
   SUPABASE_URL,
   SUPABASE_PUBLISHABLE_KEY
-);
-
-// Create an admin client with service role for admin operations
-export const supabaseAdmin = createClient<Database>(
-  SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY
 );
