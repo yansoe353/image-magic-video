@@ -411,11 +411,27 @@ class FalService {
         }
       });
 
-      if (!result || !result.response) {
-        throw new Error('No valid response from FAL API');
+      // Check different possible response formats
+      if (result && typeof result === 'object') {
+        // Check common response field names
+        if ('response' in result) {
+          return result.response as string;
+        } else if ('text' in result) {
+          return result.text as string;
+        } else if ('completion' in result) {
+          return result.completion as string;
+        } else if ('output' in result) {
+          return result.output as string;
+        } else if ('generated_text' in result) {
+          return result.generated_text as string;
+        } else {
+          // If none of the expected fields exist, stringify the entire result
+          console.log('Unexpected response format:', result);
+          return JSON.stringify(result);
+        }
       }
 
-      return result.response;
+      throw new Error('No valid response from FAL API');
     } catch (error) {
       console.error('Error generating completion with FAL:', error);
       throw error;
