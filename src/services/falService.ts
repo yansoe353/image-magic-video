@@ -141,9 +141,7 @@ class FalService {
         console.error("Proxy approach failed, trying direct API call:", proxyError);
         
         // Fall back to direct API call if proxy fails
-        // Use no-cors mode if we're in production to avoid CORS issues
-        const mode = window.location.hostname.includes('lovable.app') ? 'no-cors' : undefined;
-        
+        // Fix: Remove the third argument as it's causing the TypeScript error
         const result = await this.falClient.run(IMAGEN_3_MODEL, {
           input: {
             prompt,
@@ -151,7 +149,7 @@ class FalService {
             negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
             ...options
           }
-        }, { mode }) as GenericApiResponse;
+        }) as GenericApiResponse;
         
         console.log("Direct API call response:", result);
         
