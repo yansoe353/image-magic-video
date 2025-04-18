@@ -1,4 +1,3 @@
-
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -395,6 +394,31 @@ class FalService {
     } catch (error) {
       console.error(`Failed to save ${contentType} to history:`, error);
       return false;
+    }
+  }
+
+  async generateCompletion(prompt: string): Promise<string> {
+    if (!this.isInitialized) {
+      this.initialize();
+    }
+
+    try {
+      const result = await this.falClient.run("fal-ai/text-generation", {
+        input: {
+          prompt: prompt,
+          max_length: 1000,
+          temperature: 0.7,
+        }
+      });
+
+      if (!result || !result.response) {
+        throw new Error('No valid response from FAL API');
+      }
+
+      return result.response;
+    } catch (error) {
+      console.error('Error generating completion with FAL:', error);
+      throw error;
     }
   }
 }
