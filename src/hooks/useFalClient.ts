@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
@@ -72,7 +73,7 @@ export function useTextToImage(): TextToImageResult {
       // Make sure falService is initialized with latest key
       falService.initialize();
       
-      const result = await falService.generateImage(input.prompt, {
+      const result = await falService.generateImageWithImagen3(input.prompt, {
         negative_prompt: input.negative_prompt,
         height: input.height,
         width: input.width,
@@ -83,7 +84,7 @@ export function useTextToImage(): TextToImageResult {
       });
       
       // Handle either direct images array or nested in data
-      const imageData = result?.images?.[0]?.url || result?.data?.images?.[0]?.url;
+      const imageData = result?.data?.images?.[0]?.url || result?.images?.[0]?.url;
       if (imageData) {
         setImageUrl(imageData);
         console.log("Image generated successfully");
