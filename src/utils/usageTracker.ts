@@ -1,6 +1,6 @@
-import { supabase } from "@/integrations/supabase/client";
-import { supabaseAdmin } from "@/integrations/supabase/admin";
-import { getCurrentUser } from "./authUtils";
+
+import { supabase, supabaseAdmin } from "@/integrations/supabase/client";
+import { getCurrentUser, isAdmin } from "./authUtils";
 
 // Define constants for default usage limits
 export const IMAGE_LIMIT = 100;
