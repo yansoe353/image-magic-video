@@ -2,7 +2,7 @@
 import { geminiImagePromptTemplate } from "@/utils/promptTemplates";
 
 export class GeminiImageService {
-  private apiKey: string = "YOUR_GEMINI_API_KEY_HERE"; // Replace with your actual API key
+  private apiKey: string = "AIzaSyBAJJLHI8kwwmNJwfuTInH2KYIGs9Nnhbc"; // Replace with your actual API key
   private model: string = "gemini-2.0-flash-exp";
 
   initialize(apiKey?: string) {
