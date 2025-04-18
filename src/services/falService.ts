@@ -1,4 +1,3 @@
-
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -134,51 +133,44 @@ class FalService {
         throw new Error("Prompt cannot be empty");
       }
       
-      if (this.proxyEnabled) {
-        // Use local API route as proxy to avoid CORS
-        return this.generateImageViaProxy(prompt, options);
-      }
-      
-      const result = await this.falClient.run(IMAGEN_3_MODEL, {
-        input: {
-          prompt,
-          aspect_ratio: options.aspect_ratio || "1:1",
-          negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
-          ...options
-        }
-      }) as GenericApiResponse; // Cast to our generic type to handle response variations
-      
-      console.log("Imagen3 response received:", result);
-      
-      // Fix the type issue - handle the result properly based on actual structure
-      if (!result) {
-        throw new Error("Empty response from Imagen3 API");
-      }
-      
-      // Access data first to ensure we're working with the correct structure
-      if (result.data && result.data.images && result.data.images.length > 0) {
-        // If we have a direct data.images structure, use it
-        return result as FalRunResult;
-      } else if (result.images && result.images.length > 0) {
-        // If images are at the top level
-        return result as FalRunResult;
-      } else {
-        // If there's no standard images structure, wrap any available URL in our expected format
-        const imageUrl = result.image_url || result.url || 
-                        // Access potential nested properties safely
-                        result.data?.image_url || 
-                        result.data?.url;
-                        
-        if (!imageUrl) {
-          console.error("Unable to find image URL in response:", result);
-          throw new Error("Could not extract image URL from API response");
-        }
+      try {
+        // First try using the proxy
+        return await this.generateImageViaProxy(prompt, options);
+      } catch (proxyError) {
+        console.error("Proxy approach failed, trying direct API call:", proxyError);
         
-        return {
-          data: {
-            images: [{ url: imageUrl }]
+        // Fall back to direct API call if proxy fails
+        const result = await this.falClient.run(IMAGEN_3_MODEL, {
+          input: {
+            prompt,
+            aspect_ratio: options.aspect_ratio || "1:1",
+            negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
+            ...options
           }
-        };
+        }) as GenericApiResponse;
+        
+        console.log("Direct API call response:", result);
+        
+        // Format the response to match our expected structure
+        if (result.data?.images?.[0]?.url) {
+          return result as FalRunResult;
+        } else if (result.images?.[0]?.url) {
+          return {
+            data: {
+              images: result.images
+            }
+          };
+        } else {
+          const imageUrl = result.image_url || result.url || result.data?.url;
+          if (!imageUrl) {
+            throw new Error("Could not extract image URL from API response");
+          }
+          return {
+            data: {
+              images: [{ url: imageUrl }]
+            }
+          };
+        }
       }
     } catch (error) {
       console.error("Error generating image with Imagen3:", error);
@@ -200,7 +192,7 @@ class FalService {
 
       console.log("Sending proxy request with input:", JSON.stringify(input).substring(0, 100) + "...");
       
-      // Using fetch with proper error handling and additional logging
+      // Using fetch with proper error handling
       const response = await fetch('/api/generate-image', {
         method: 'POST',
         headers: {
@@ -214,25 +206,17 @@ class FalService {
       });
       
       if (!response.ok) {
-        let errorMessage = `HTTP error ${response.status}`;
-        
-        try {
+        const contentType = response.headers.get('Content-Type');
+        if (contentType && contentType.includes('application/json')) {
           const errorData = await response.json();
-          console.error("Proxy response error:", errorData);
-          errorMessage = errorData.error || errorData.message || errorMessage;
-        } catch (parseError) {
-          // If we can't parse JSON, try to get text
+          throw new Error(errorData.error || errorData.message || `HTTP error ${response.status}`);
+        } else {
           const errorText = await response.text();
-          console.error("Proxy response error (text):", errorText);
-          errorMessage = errorText || errorMessage;
+          throw new Error(`HTTP error ${response.status}: ${errorText.substring(0, 100)}`);
         }
-        
-        throw new Error(`Image generation failed: ${errorMessage}`);
       }
       
       const contentType = response.headers.get('Content-Type');
-      console.log("Proxy response type:", contentType);
-      
       if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text();
         console.error("Received non-JSON response:", text.substring(0, 200));
@@ -244,48 +228,25 @@ class FalService {
       
       // Format the response to match the expected structure
       if (result.data?.images?.[0]?.url) {
-        return {
-          data: {
-            images: [{ url: result.data.images[0].url }]
-          },
-          seed: result.seed || 0
-        };
+        return result;
       } else if (result.images?.[0]?.url) {
         return {
           data: {
-            images: [{ url: result.images[0].url }]
-          },
-          seed: result.seed || 0
+            images: result.images
+          }
         };
       } else if (result.image_url || result.url) {
         return {
           data: {
             images: [{ url: result.image_url || result.url }]
-          },
-          seed: result.seed || 0
+          }
         };
       } else {
-        console.error("Unexpected proxy response format:", result);
         throw new Error("Could not extract image URL from proxy response");
       }
     } catch (error) {
       console.error("Error in proxy image generation:", error);
-      
-      // Fall back to direct API call if proxy fails
-      this.proxyEnabled = false;
-      console.log("Falling back to direct API call...");
-      
-      // Try direct API call
-      const result = await this.falClient.run(IMAGEN_3_MODEL, {
-        input: {
-          prompt,
-          aspect_ratio: options.aspect_ratio || "1:1",
-          negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
-          ...options
-        }
-      }) as GenericApiResponse;
-      
-      return result as FalRunResult;
+      throw error;
     }
   }
 

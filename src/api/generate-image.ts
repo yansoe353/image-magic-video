@@ -1,5 +1,5 @@
 
-// Simple API proxy endpoint to handle FAL.AI requests and avoid CORS issues
+// API proxy endpoint to handle FAL.AI requests and avoid CORS issues
 
 export async function POST(req: Request) {
   try {
@@ -20,13 +20,12 @@ export async function POST(req: Request) {
 
     console.log(`Proxying request to ${model} with input:`, JSON.stringify(input).substring(0, 100) + '...');
 
-    // Forward the request directly to FAL.AI with proper headers
+    // Forward the request to FAL.AI with proper headers
     const falResponse = await fetch(`https://fal.run/${model}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Key ${apiKey}`,
-        'Origin': 'https://fal.run'
       },
       body: JSON.stringify({ input }),
     });
