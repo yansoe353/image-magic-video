@@ -46,7 +46,7 @@ interface ImageToVideoInput {
   cameraMode?: string;
   framesPerSecond?: number;
   modelType?: string; 
-  seed?: number;
+  seed?: number;  // Added seed property to match usage in StoryToVideo component
 }
 
 // Hook for text-to-image generation
