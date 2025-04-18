@@ -2,37 +2,28 @@
 import { geminiImagePromptTemplate } from "@/utils/promptTemplates";
 
 export class GeminiImageService {
-  private apiKey: string = "";
+  private apiKey: string = "YOUR_GEMINI_API_KEY_HERE"; // Replace with your actual API key
+  private model: string = "gemini-2.0-flash-exp";
 
   initialize(apiKey?: string) {
     if (apiKey) {
       this.apiKey = apiKey;
-    } else {
-      const envApiKey = localStorage.getItem("geminiApiKey");
-      if (envApiKey) {
-        this.apiKey = envApiKey;
-      }
     }
   }
 
   setApiKey(apiKey: string) {
     this.apiKey = apiKey;
-    localStorage.setItem("geminiApiKey", apiKey);
   }
 
   async generateImage(prompt: string, options: {
     negative_prompt?: string;
     style?: string;
   } = {}): Promise<string> {
-    if (!this.apiKey) {
-      throw new Error("Gemini API key not set");
-    }
-
     const enhancedPrompt = geminiImagePromptTemplate(prompt, options);
 
     try {
       const response = await fetch(
-        "https://generativelanguage.googleapis.com/v1/models/gemini-pro-vision:generateContent",
+        `https://generativelanguage.googleapis.com/v1/models/${this.model}:generateContent`,
         {
           method: "POST",
           headers: {

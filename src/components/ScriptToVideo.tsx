@@ -225,17 +225,6 @@ const ScriptToVideo = () => {
     setCurrentGeneratingIndex(sceneIndex);
 
     try {
-      const apiKey = localStorage.getItem("geminiApiKey");
-      if (!apiKey) {
-        toast({
-          title: "API Key Required",
-          description: "Please set your Gemini API key in the settings",
-          variant: "destructive",
-        });
-        setCurrentGeneratingIndex(null);
-        return;
-      }
-
       const canGenerate = await incrementImageCount();
       if (!canGenerate) {
         toast({
@@ -246,8 +235,6 @@ const ScriptToVideo = () => {
         setCurrentGeneratingIndex(null);
         return;
       }
-
-      geminiImageService.initialize(apiKey);
 
       const imageUrl = await geminiImageService.generateImage(scene.imagePrompt, {
         style: visualStyle
