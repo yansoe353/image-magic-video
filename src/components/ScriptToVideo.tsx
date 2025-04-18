@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -225,11 +224,11 @@ const ScriptToVideo = () => {
     setCurrentGeneratingIndex(sceneIndex);
 
     try {
-      const apiKey = localStorage.getItem("falApiKey");
+      const apiKey = localStorage.getItem("geminiApiKey");
       if (!apiKey) {
         toast({
           title: "API Key Required",
-          description: "Please set your FAL.ai API key in the settings",
+          description: "Please set your Gemini API key in the settings",
           variant: "destructive",
         });
         setCurrentGeneratingIndex(null);
@@ -247,50 +246,38 @@ const ScriptToVideo = () => {
         return;
       }
 
-      falService.initialize(apiKey);
+      geminiImageService.initialize(apiKey);
 
-      console.log("Generating image with prompt:", scene.imagePrompt);
-      
-      const result = await falService.generateImageWithImagen3(scene.imagePrompt, {
-        aspect_ratio: "16:9",
-        negative_prompt: "low quality, bad anatomy, distorted, ugly"
+      const imageUrl = await geminiImageService.generateImage(scene.imagePrompt, {
+        style: visualStyle
       });
 
-      if (!result || !result.data || !result.data.images || result.data.images.length === 0) {
-        throw new Error("No image was returned from the API");
+      const updatedScript = [...generatedScript];
+      updatedScript[sceneIndex] = { ...updatedScript[sceneIndex], imageUrl };
+      setGeneratedScript(updatedScript);
+
+      const freshCounts = await getRemainingCountsAsync();
+      setCounts(freshCounts);
+
+      const userId = await getUserId();
+      if (userId) {
+        await falService.saveToHistory(
+          'image',
+          imageUrl,
+          scene.imagePrompt,
+          isPublic,
+          {
+            script_title: scriptTitle,
+            scene_number: scene.sceneNumber,
+            script_prompt: scriptPrompt
+          }
+        );
       }
 
-      if (result.data?.images?.[0]?.url) {
-        const imageUrl = result.data.images[0].url;
-        console.log("Successfully received image URL:", imageUrl);
-        
-        const updatedScript = [...generatedScript];
-        updatedScript[sceneIndex] = { ...updatedScript[sceneIndex], imageUrl };
-        setGeneratedScript(updatedScript);
-
-        const freshCounts = await getRemainingCountsAsync();
-        setCounts(freshCounts);
-
-        const userId = await getUserId();
-        if (userId) {
-          await falService.saveToHistory(
-            'image',
-            imageUrl,
-            scene.imagePrompt,
-            isPublic,
-            {
-              script_title: scriptTitle,
-              scene_number: scene.sceneNumber,
-              script_prompt: scriptPrompt
-            }
-          );
-        }
-
-        toast({
-          title: "Success",
-          description: "Image generated successfully!",
-        });
-      }
+      toast({
+        title: "Success",
+        description: "Image generated successfully!",
+      });
     } catch (error) {
       console.error("Image generation failed:", error);
       toast({
