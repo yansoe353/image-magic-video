@@ -68,20 +68,22 @@ const ImageGenerationTest = () => {
       }
       // Check for other possible locations
       else if (result?.data?.image_url) {
-        foundUrl = result.data.image_url;
+        // Use type assertion for accessing potential properties not in the type definition
+        foundUrl = (result.data as any).image_url;
         addLog(`Found image URL in data.image_url`);
       }
       else if (result?.data?.url) {
-        foundUrl = result.data.url;
+        // Use type assertion for accessing potential properties not in the type definition
+        foundUrl = (result.data as any).url;
         addLog(`Found image URL in data.url`);
       }
-      else if (result?.image_url) {
-        // This property doesn't exist in the TypeScript type, but might be in the actual API response
+      else if (result && 'image_url' in result) {
+        // Safer way to check if property exists in object
         foundUrl = (result as any).image_url;
         addLog(`Found image URL in image_url (from dynamic property)`);
       }
-      else if (result?.url) {
-        // This property doesn't exist in the TypeScript type, but might be in the actual API response
+      else if (result && 'url' in result) {
+        // Safer way to check if property exists in object
         foundUrl = (result as any).url;
         addLog(`Found image URL in url (from dynamic property)`);
       }
