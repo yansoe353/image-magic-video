@@ -1,15 +1,16 @@
+
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
 
+// Default API key
 const DEFAULT_API_KEY = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA";
 
+// Model URLs/IDs - Updated with latest models
 export const TEXT_TO_IMAGE_MODEL = "fal-ai/imagen3/fast";
 export const IMAGE_TO_VIDEO_MODEL = "fal-ai/kling-video/v1.6/standard/image-to-video";
 export const VIDEO_TO_VIDEO_MODEL = "fal-ai/mmaudio-v2";
 export const IMAGEN_3_MODEL = "fal-ai/imagen3/fast";
-export const STORY_TO_VIDEO_MODEL = "fal-ai/write-and-animate";
-export const SCRIPT_TO_VIDEO_MODEL = "fal-ai/vivid-text-to-video";
 
 interface FalRunResult {
   images?: { url: string }[];
@@ -24,6 +25,7 @@ interface FalRunResult {
   url?: string;
 }
 
+// Generic type for handling different API response formats
 type GenericApiResponse = {
   [key: string]: any;
   data?: {
@@ -41,30 +43,30 @@ class FalService {
   private falClient: ReturnType<typeof createFalClient>;
 
   constructor() {
+    // Try to get API key from environment first, then localStorage, then default
     const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_API_KEY : undefined;
     this.apiKey = envApiKey || localStorage.getItem("falApiKey") || DEFAULT_API_KEY;
-
-    this.falClient = createFalClient({ 
-      credentials: this.apiKey,
-    });
+    
+    // Create fal client with API key
+    this.falClient = createFalClient({ credentials: this.apiKey });
     this.initialize();
   }
 
   initialize(apiKey?: string) {
     try {
+      // Use provided key or try to get from environment or localStorage
       if (apiKey) {
         this.apiKey = apiKey;
       } else {
         const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_API_KEY : undefined;
         this.apiKey = envApiKey || localStorage.getItem("falApiKey") || this.apiKey || DEFAULT_API_KEY;
       }
-
+      
       console.log("Initializing Infinity API client with key:", this.apiKey ? "API key present" : "No API key");
-
-      this.falClient = createFalClient({ 
-        credentials: this.apiKey,
-      });
-
+      
+      // Initialize client with the right credentials
+      this.falClient = createFalClient({ credentials: this.apiKey });
+      
       this.isInitialized = true;
       console.log("Infinity API client initialized successfully");
     } catch (error) {
@@ -79,8 +81,9 @@ class FalService {
     this.initialize(apiKey);
   }
 
+  // Text to Image generation
   async generateImage(
-    prompt: string,
+    prompt: string, 
     options: {
       negative_prompt?: string;
       height?: number;
@@ -97,7 +100,7 @@ class FalService {
 
     try {
       console.log("Generating image with prompt:", prompt);
-
+      
       const result = await this.falClient.run(TEXT_TO_IMAGE_MODEL, {
         input: {
           prompt,
@@ -113,6 +116,7 @@ class FalService {
     }
   }
 
+  // Image to Video generation - improved implementation
   async generateVideoFromImage(
     image_url: string,
     options: {
@@ -125,11 +129,13 @@ class FalService {
 
     try {
       console.log("Generating video from image:", image_url);
-
+      
+      // Validate image URL
       if (!image_url || typeof image_url !== 'string' || !image_url.startsWith('http')) {
         throw new Error("Invalid image URL format");
       }
-
+      
+      // Try the primary model
       try {
         console.log("Attempting video generation with Kling model");
         const result = await this.falClient.run(IMAGE_TO_VIDEO_MODEL, {
@@ -138,12 +144,13 @@ class FalService {
             prompt: options.prompt || "Animate this image with smooth motion"
           }
         });
-
+        
         console.log("Primary model result:", result);
         return result;
       } catch (primaryError) {
         console.error("Error with primary model, falling back to backup:", primaryError);
-
+        
+        // Fallback to original model if primary fails
         const fallbackModel = "110602490-ltx-animation/run";
         const result = await this.falClient.run(fallbackModel, {
           input: {
@@ -151,7 +158,7 @@ class FalService {
             ...options
           }
         });
-
+        
         console.log("Fallback model result:", result);
         return result;
       }
@@ -161,6 +168,7 @@ class FalService {
     }
   }
 
+  // Video to Video generation
   async generateVideoFromVideo(input: {
     video_url: string;
     prompt: string;
@@ -187,6 +195,7 @@ class FalService {
     }
   }
 
+  // Image generation with Imagen 3
   async generateImageWithImagen3(prompt: string, options: any = {}): Promise<FalRunResult> {
     if (!this.isInitialized) {
       this.initialize();
@@ -194,11 +203,11 @@ class FalService {
 
     try {
       console.log("Generating image with Imagen3, prompt:", prompt);
-
+      
       if (!prompt || prompt.trim() === '') {
         throw new Error("Prompt cannot be empty");
       }
-
+      
       const result = await this.falClient.run(IMAGEN_3_MODEL, {
         input: {
           prompt,
@@ -206,28 +215,34 @@ class FalService {
           negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
           ...options
         }
-      }) as GenericApiResponse;
-
+      }) as GenericApiResponse; // Cast to our generic type to handle response variations
+      
       console.log("Imagen3 response received:", result);
-
+      
+      // Fix the type issue - handle the result properly based on actual structure
       if (!result) {
         throw new Error("Empty response from Imagen3 API");
       }
-
+      
+      // Access data first to ensure we're working with the correct structure
       if (result.data && result.data.images && result.data.images.length > 0) {
+        // If we have a direct data.images structure, use it
         return result as FalRunResult;
       } else if (result.images && result.images.length > 0) {
+        // If images are at the top level
         return result as FalRunResult;
       } else {
-        const imageUrl = result.image_url || result.url ||
-                        result.data?.image_url ||
+        // If there's no standard images structure, wrap any available URL in our expected format
+        const imageUrl = result.image_url || result.url || 
+                        // Access potential nested properties safely
+                        result.data?.image_url || 
                         result.data?.url;
-
+                        
         if (!imageUrl) {
           console.error("Unable to find image URL in response:", result);
           throw new Error("Could not extract image URL from API response");
         }
-
+        
         return {
           data: {
             images: [{ url: imageUrl }]
@@ -240,12 +255,14 @@ class FalService {
     }
   }
 
+  // Upload file to FAL.ai
   async uploadFile(file: File) {
     if (!this.isInitialized) {
       this.initialize();
     }
 
     try {
+      // Use the file-upload specific endpoint
       const formData = new FormData();
       formData.append('file', file);
 
@@ -262,16 +279,17 @@ class FalService {
       }
 
       const data = await response.json();
-      return data.url;
+      return data.url; // Return the URL of the uploaded file
     } catch (error) {
       console.error("Error uploading file:", error);
       throw error;
     }
   }
 
+  // Save content to history
   async saveToHistory(
-    contentType: 'image' | 'video',
-    contentUrl: string,
+    contentType: 'image' | 'video', 
+    contentUrl: string, 
     prompt: string,
     isPublic: boolean = false,
     metadata: any = {}
@@ -288,7 +306,7 @@ class FalService {
         is_public: isPublic,
         metadata: metadata
       });
-
+      
       console.log(`${contentType} saved to history`);
       return true;
     } catch (error) {
@@ -296,71 +314,10 @@ class FalService {
       return false;
     }
   }
-
-  async generateStoryVideo(
-    story: string,
-    options: {
-      style?: string;
-      aspect_ratio?: string;
-      duration?: number;
-    } = {}
-  ): Promise<FalRunResult> {
-    if (!this.isInitialized) {
-      this.initialize();
-    }
-
-    try {
-      console.log("Generating video from story:", story.substring(0, 100) + "...");
-
-      const result = await this.falClient.run(STORY_TO_VIDEO_MODEL, {
-        input: {
-          text: story,
-          style: options.style || "animated",
-          aspect_ratio: options.aspect_ratio || "16:9",
-          duration: options.duration || 10,
-        }
-      });
-
-      console.log("Story to video generation result:", result);
-      return result;
-    } catch (error) {
-      console.error("Error generating video from story:", error);
-      throw error;
-    }
-  }
-
-  async generateScriptVideo(
-    script: string,
-    options: {
-      style?: string;
-      aspect_ratio?: string;
-      duration?: number;
-    } = {}
-  ): Promise<FalRunResult> {
-    if (!this.isInitialized) {
-      this.initialize();
-    }
-
-    try {
-      console.log("Generating video from script:", script.substring(0, 100) + "...");
-
-      const result = await this.falClient.run(SCRIPT_TO_VIDEO_MODEL, {
-        input: {
-          text: script,
-          style: options.style || "cinematic",
-          aspect_ratio: options.aspect_ratio || "16:9",
-          duration: options.duration || 10,
-        }
-      });
-
-      console.log("Script to video generation result:", result);
-      return result;
-    } catch (error) {
-      console.error("Error generating video from script:", error);
-      throw error;
-    }
-  }
 }
 
+// Create and export a singleton instance
 export const falService = new FalService();
+
+// Re-export the createFalClient function for direct access when needed
 export { createFalClient };
