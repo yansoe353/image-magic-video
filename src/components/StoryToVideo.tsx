@@ -132,46 +132,45 @@ const StoryToVideo = () => {
     }
   };
 
-const cleanJsonResponse = (response: string): string => {
-  let cleaned = response.replace(/```(?\:json)?\s*|```/g, '').trim();
-  const firstBrace = cleaned.indexOf('{');
-  const lastBrace = cleaned.lastIndexOf('}');
+  const cleanJsonResponse = (response: string): string => {
+    let cleaned = response.replace(/```(?\:json)?\s*|```/g, '').trim();
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
 
-  if (firstBrace >= 0 && lastBrace > firstBrace) {
-    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
-  }
-
-  return cleaned;
-};
-
-const parseStoryResponse = (response: string): StoryScene[] => {
-  try {
-    const directParse = JSON.parse(response.trim());
-    if (Array.isArray(directParse)) return directParse;
-  } catch (e) {}
-
-  try {
-    const codeBlockMatch = response.match(/```(?\:json)?\s*([\s\S]*?)\s*```/);
-    if (codeBlockMatch) {
-      const extracted = codeBlockMatch[1].trim();
-      const parsed = JSON.parse(extracted);
-      if (Array.isArray(parsed)) return parsed;
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      cleaned = cleaned.slice(firstBrace, lastBrace + 1);
     }
-  } catch (e) {}
 
-  try {
-    const firstBracket = response.indexOf('[');
-    const lastBracket = response.lastIndexOf(']');
-    if (firstBracket >= 0 && lastBracket > firstBracket) {
-      const extracted = response.slice(firstBracket, lastBracket + 1);
-      const parsed = JSON.parse(extracted);
-      if (Array.isArray(parsed)) return parsed;
-    }
-  } catch (e) {}
+    return cleaned;
+  };
 
-  throw new Error("Unable to parse story response");
-};
+  const parseStoryResponse = (response: string): StoryScene[] => {
+    try {
+      const directParse = JSON.parse(response.trim());
+      if (Array.isArray(directParse)) return directParse;
+    } catch (e) {}
 
+    try {
+      const codeBlockMatch = response.match(/```(?\:json)?\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) {
+        const extracted = codeBlockMatch[1].trim();
+        const parsed = JSON.parse(extracted);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+
+    try {
+      const firstBracket = response.indexOf('[');
+      const lastBracket = response.lastIndexOf(']');
+      if (firstBracket >= 0 && lastBracket > firstBracket) {
+        const extracted = response.slice(firstBracket, lastBracket + 1);
+        const parsed = JSON.parse(extracted);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+
+    throw new Error("Unable to parse story response");
+  };
 
   const generateStory = async () => {
     if (!storyPrompt) {
