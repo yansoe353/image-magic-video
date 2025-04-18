@@ -13,46 +13,96 @@ export async function POST(req: Request) {
       });
     }
 
-    // Forward the request to FAL.AI
-    const falResponse = await fetch(`https://fal.run/${model}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Key ${apiKey}`
-      },
-      body: JSON.stringify({ input }),
-    });
+    console.log(`Proxying request to ${model} with input:`, JSON.stringify(input).substring(0, 100) + '...');
 
-    if (!falResponse.ok) {
-      const errorText = await falResponse.text();
+    // Forward the request to FAL.AI with proper error handling
+    try {
+      const falResponse = await fetch(`https://fal.run/${model}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Key ${apiKey}`
+        },
+        body: JSON.stringify({ input }),
+      });
+
+      if (!falResponse.ok) {
+        const errorText = await falResponse.text();
+        console.error(`FAL API responded with status ${falResponse.status}:`, errorText);
+        return new Response(
+          JSON.stringify({ 
+            error: `Image generation failed with status ${falResponse.status}`, 
+            statusCode: falResponse.status,
+            message: errorText
+          }), 
+          {
+            status: falResponse.status,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+            },
+          }
+        );
+      }
+
+      const data = await falResponse.json();
+      return new Response(JSON.stringify(data), {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+        },
+      });
+    } catch (fetchError) {
+      console.error('Error fetching from FAL API:', fetchError);
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to generate image', 
-          statusCode: falResponse.status,
-          message: errorText
+          error: 'Failed to fetch from FAL API',
+          message: fetchError instanceof Error ? fetchError.message : String(fetchError)
         }), 
         {
-          status: falResponse.status,
-          headers: { 'Content-Type': 'application/json' },
+          status: 502,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+          },
         }
       );
     }
-
-    const data = await falResponse.json();
-    return new Response(JSON.stringify(data), {
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    console.error('Error proxying image generation request:', error);
+  } catch (parseError) {
+    console.error('Error parsing request:', parseError);
     return new Response(
       JSON.stringify({ 
-        error: 'Failed to process request',
-        message: error instanceof Error ? error.message : String(error)
+        error: 'Failed to parse request',
+        message: parseError instanceof Error ? parseError.message : String(parseError)
       }), 
       {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        status: 400,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+        },
       }
     );
   }
+}
+
+// Handle OPTIONS requests for CORS preflight
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400',
+    },
+  });
 }

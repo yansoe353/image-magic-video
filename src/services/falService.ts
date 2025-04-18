@@ -1,3 +1,4 @@
+
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,7 +51,6 @@ class FalService {
     // Create fal client with API key
     this.falClient = createFalClient({ 
       credentials: this.apiKey
-      // Removed the requestConfig property as it's not in the Config type
     });
     this.initialize();
   }
@@ -67,7 +67,7 @@ class FalService {
       
       console.log("Initializing Infinity API client with key:", this.apiKey ? "API key present" : "No API key");
       
-      // Initialize client with the right credentials - removing requestConfig
+      // Initialize client with the right credentials
       this.falClient = createFalClient({ 
         credentials: this.apiKey
       });
@@ -135,7 +135,7 @@ class FalService {
       }
       
       if (this.proxyEnabled) {
-        // Use Supabase Edge Function as proxy to avoid CORS
+        // Use local API route as proxy to avoid CORS
         return this.generateImageViaProxy(prompt, options);
       }
       
@@ -189,7 +189,8 @@ class FalService {
   // Proxy approach to avoid CORS
   private async generateImageViaProxy(prompt: string, options: any = {}): Promise<FalRunResult> {
     try {
-      // If supabase auth is available, we can use it to call our edge function
+      console.log("Using proxy for image generation with prompt:", prompt);
+      
       const input = {
         prompt,
         aspect_ratio: options.aspect_ratio || "1:1",
@@ -197,7 +198,7 @@ class FalService {
         ...options
       };
       
-      // Fallback to direct fetch with correct CORS settings
+      // Using fetch with proper error handling
       const response = await fetch('/api/generate-image', {
         method: 'POST',
         headers: {
@@ -211,21 +212,44 @@ class FalService {
       });
       
       if (!response.ok) {
-        throw new Error(`Image generation failed: ${response.status} ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({ error: `HTTP error ${response.status}` }));
+        console.error("Proxy response error:", errorData);
+        throw new Error(errorData.error || `Image generation failed: ${response.status} ${response.statusText}`);
       }
       
       const result = await response.json();
+      console.log("Proxy response received:", result);
       
       // Format the response to match the expected structure
-      return {
-        data: {
-          images: [{ url: result.imageUrl || result.url || result.data?.images?.[0]?.url }]
-        },
-        seed: result.seed || 0
-      };
+      if (result.data?.images?.[0]?.url) {
+        return {
+          data: {
+            images: [{ url: result.data.images[0].url }]
+          },
+          seed: result.seed || 0
+        };
+      } else if (result.images?.[0]?.url) {
+        return {
+          data: {
+            images: [{ url: result.images[0].url }]
+          },
+          seed: result.seed || 0
+        };
+      } else if (result.image_url || result.url) {
+        return {
+          data: {
+            images: [{ url: result.image_url || result.url }]
+          },
+          seed: result.seed || 0
+        };
+      } else {
+        console.error("Unexpected proxy response format:", result);
+        throw new Error("Could not extract image URL from proxy response");
+      }
     } catch (error) {
       console.error("Error in proxy image generation:", error);
-      // Fallback to direct API call if proxy fails
+      
+      // Fall back to direct API call if proxy fails
       this.proxyEnabled = false;
       console.log("Falling back to direct API call...");
       
@@ -236,7 +260,7 @@ class FalService {
           aspect_ratio: options.aspect_ratio || "1:1",
           negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
           ...options
-        },
+        }
       }) as GenericApiResponse;
       
       return result as FalRunResult;
