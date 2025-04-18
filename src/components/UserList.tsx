@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from "react";
 import { getAllUsers, AppUser, isAdmin, deleteUser, getCurrentUser } from "@/utils/authUtils";
-import { getRemainingCountsForUser, refillUserLimits } from "@/utils/usageTracker";
+import { getRemainingCountsForUser, refillUserLimits, addCustomAmountToUser } from "@/utils/usageTracker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -15,9 +16,21 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogClose,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
+import { Label } from "@/components/ui/label";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from "@/components/ui/form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+
+// Schema for custom credits form
+const formSchema = z.object({
+  imageCredits: z.coerce.number().int().min(0, "Must be a positive number"),
+  videoCredits: z.coerce.number().int().min(0, "Must be a positive number")
+});
 
 const UserList = () => {
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -31,6 +44,17 @@ const UserList = () => {
   const [searchEmail, setSearchEmail] = useState("");
   const [userLimits, setUserLimits] = useState<Record<string, { remainingImages: number; remainingVideos: number }>>({});
   const [isRefilling, setIsRefilling] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [isAddingCredits, setIsAddingCredits] = useState(false);
+
+  // Form for custom credits
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      imageCredits: 0,
+      videoCredits: 0
+    },
+  });
 
   const loadUsers = async () => {
     try {
@@ -193,6 +217,44 @@ const UserList = () => {
       setIsRefilling(null);
     }
   };
+  
+  const handleAddCredits = async (data: z.infer<typeof formSchema>) => {
+    if (!selectedUserId) return;
+    
+    setIsAddingCredits(true);
+    try {
+      const success = await addCustomAmountToUser(
+        selectedUserId, 
+        data.imageCredits, 
+        data.videoCredits
+      );
+      
+      if (success) {
+        toast({
+          title: "Success",
+          description: "Credits added successfully",
+        });
+        fetchUserLimits();
+        setSelectedUserId(null);
+        form.reset();
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to add credits",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error adding credits:", error);
+      toast({
+        title: "Error",
+        description: "An error occurred while adding credits",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAddingCredits(false);
+    }
+  };
 
   const filteredUsers = users.filter(user => 
     searchEmail ? user.email.toLowerCase().includes(searchEmail.toLowerCase()) : true
@@ -285,7 +347,82 @@ const UserList = () => {
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="flex justify-end gap-2">
+            <CardFooter className="flex flex-wrap justify-end gap-2">
+              <Dialog open={selectedUserId === user.id} onOpenChange={(open) => {
+                if (!open) setSelectedUserId(null);
+                else setSelectedUserId(user.id);
+                form.reset();
+              }}>
+                <DialogTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="flex items-center"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Credits
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add Credits to {user.name || user.email}</DialogTitle>
+                    <DialogDescription>
+                      Enter the number of credits you want to add to this user's account.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(handleAddCredits)} className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="imageCredits"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Image Credits</FormLabel>
+                            <FormControl>
+                              <Input type="number" min="0" {...field} />
+                            </FormControl>
+                            <FormDescription>
+                              Number of image generation credits to add
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="videoCredits"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Video Credits</FormLabel>
+                            <FormControl>
+                              <Input type="number" min="0" {...field} />
+                            </FormControl>
+                            <FormDescription>
+                              Number of video generation credits to add
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <DialogFooter>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={() => setSelectedUserId(null)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          type="submit"
+                          disabled={isAddingCredits}
+                        >
+                          {isAddingCredits ? "Adding..." : "Add Credits"}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
               <Button 
                 size="sm" 
                 variant="outline"
@@ -294,7 +431,7 @@ const UserList = () => {
                 className="flex items-center"
               >
                 <RefreshCcw className="h-4 w-4 mr-1" />
-                {isRefilling === user.id ? "Refilling..." : "Refill"}
+                {isRefilling === user.id ? "Refilling..." : "Full Refill"}
               </Button>
               <Button 
                 size="sm" 

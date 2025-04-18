@@ -204,6 +204,55 @@ export const refillUserLimits = async (userId: string): Promise<boolean> => {
   }
 };
 
+// Add custom amount to user's limits (admin function)
+export const addCustomAmountToUser = async (userId: string, imageAmount: number, videoAmount: number): Promise<boolean> => {
+  try {
+    const isAdminUser = await isAdmin();
+    if (!isAdminUser) {
+      console.error("Only admins can add credits to users");
+      return false;
+    }
+    
+    // Get current limits
+    const { data: userData, error: userError } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    
+    if (userError) {
+      console.error("Error getting user data:", userError);
+      return false;
+    }
+    
+    // Calculate new limits
+    const currentImageCredits = userData?.image_credits || IMAGE_LIMIT;
+    const currentVideoCredits = userData?.video_credits || VIDEO_LIMIT;
+    
+    const newImageCredits = currentImageCredits + imageAmount;
+    const newVideoCredits = currentVideoCredits + videoAmount;
+    
+    // Update user's limits
+    const { error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        image_credits: newImageCredits,
+        video_credits: newVideoCredits
+      })
+      .eq('id', userId);
+    
+    if (updateError) {
+      console.error("Error updating user limits:", updateError);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error adding custom amount to user:", error);
+    return false;
+  }
+};
+
 // For backwards compatibility
 export const initializeApiKeyUsage = async (apiKey: string): Promise<void> => {
   // We don't need to track the API key usage in local storage anymore
