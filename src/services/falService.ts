@@ -1,3 +1,4 @@
+
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -119,7 +120,7 @@ class FalService {
   async generateVideoFromImage(
     image_url: string,
     options: {
-      // Remove unsupported parameters
+      prompt?: string;
     } = {}
   ): Promise<FalRunResult> {
     if (!this.isInitialized) {
@@ -139,8 +140,8 @@ class FalService {
         console.log("Attempting video generation with Kling model");
         const result = await this.falClient.run(IMAGE_TO_VIDEO_MODEL, {
           input: {
-            // Only include the required parameter
             image_url,
+            prompt: options.prompt || "Animate this image with smooth motion"
           }
         });
         

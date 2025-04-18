@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -202,6 +203,7 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
       
       await generateVideoFromImage({
         image_url: imageUrl,
+        prompt: promptToUse,  // Pass the prompt to the generate function
         cameraMode: "zoom-out",
         framesPerSecond: 24,
         seed: Math.floor(Math.random() * 10000)

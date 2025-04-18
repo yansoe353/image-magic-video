@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
@@ -42,6 +41,7 @@ interface ImageToVideoResult {
 
 interface ImageToVideoInput {
   image_url: string;
+  prompt?: string;
   cameraMode?: string;
   framesPerSecond?: number;
   modelType?: string; 
@@ -164,10 +164,7 @@ export function useImageToVideo(): ImageToVideoResult {
       }
       
       const result = await falService.generateVideoFromImage(input.image_url, {
-        cameraMode: input.cameraMode || "zoom-out", // Provide default camera mode
-        framesPerSecond: input.framesPerSecond || 24,
-        modelType: input.modelType,
-        seed: input.seed || Math.floor(Math.random() * 10000)
+        prompt: input.prompt || "Animate this image with smooth motion"
       });
       
       // Improved response handling with more detailed logging
@@ -187,7 +184,7 @@ export function useImageToVideo(): ImageToVideoResult {
         await falService.saveToHistory(
           'video',
           videoData,
-          "Generated from image",
+          input.prompt || "Generated from image",
           false,
           {
             source_image_url: input.image_url,
