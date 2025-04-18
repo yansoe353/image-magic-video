@@ -448,7 +448,7 @@ const StoryToVideo = () => {
       falService.initialize(apiKey);
 
       const result = await falService.generateVideoFromImage(scene.imageUrl, {
-        seed: Math.floor(Math.random() * 1000000)
+        prompt: scene.imagePrompt || "Animate this image with smooth motion"
       });
 
       const videoUrl = result.video_url || result.data?.video?.url;

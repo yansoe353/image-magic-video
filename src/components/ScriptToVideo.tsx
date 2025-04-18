@@ -242,7 +242,9 @@ const ScriptToVideo = () => {
       
       const result = await falService.generateVideoFromImage(
         sceneWithImage.imageUrl, 
-        { cameraMode: "zoom-out" }
+        { 
+          prompt: `Animate this image from the script: "${sceneWithImage.imagePrompt}"` 
+        }
       );
       
       const videoUrl = result?.video_url || 
