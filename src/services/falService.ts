@@ -1,4 +1,3 @@
-
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,14 +44,6 @@ class FalService {
 
     this.falClient = createFalClient({ 
       credentials: this.apiKey,
-      fetchOptions: {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': window.location.origin
-        },
-        mode: 'cors'
-      }
     });
     this.initialize();
   }
@@ -70,14 +61,6 @@ class FalService {
 
       this.falClient = createFalClient({ 
         credentials: this.apiKey,
-        fetchOptions: {
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Origin': window.location.origin
-          },
-          mode: 'cors'
-        }
       });
 
       this.isInitialized = true;
