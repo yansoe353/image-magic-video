@@ -8,6 +8,8 @@ export const TEXT_TO_IMAGE_MODEL = "fal-ai/imagen3/fast";
 export const IMAGE_TO_VIDEO_MODEL = "fal-ai/kling-video/v1.6/standard/image-to-video";
 export const VIDEO_TO_VIDEO_MODEL = "fal-ai/mmaudio-v2";
 export const IMAGEN_3_MODEL = "fal-ai/imagen3/fast";
+export const STORY_TO_VIDEO_MODEL = "fal-ai/write-and-animate";
+export const SCRIPT_TO_VIDEO_MODEL = "fal-ai/vivid-text-to-video";
 
 interface FalRunResult {
   images?: { url: string }[];
@@ -292,6 +294,70 @@ class FalService {
     } catch (error) {
       console.error(`Failed to save ${contentType} to history:`, error);
       return false;
+    }
+  }
+
+  async generateStoryVideo(
+    story: string,
+    options: {
+      style?: string;
+      aspect_ratio?: string;
+      duration?: number;
+    } = {}
+  ): Promise<FalRunResult> {
+    if (!this.isInitialized) {
+      this.initialize();
+    }
+
+    try {
+      console.log("Generating video from story:", story.substring(0, 100) + "...");
+
+      const result = await this.falClient.run(STORY_TO_VIDEO_MODEL, {
+        input: {
+          text: story,
+          style: options.style || "animated",
+          aspect_ratio: options.aspect_ratio || "16:9",
+          duration: options.duration || 10,
+        }
+      });
+
+      console.log("Story to video generation result:", result);
+      return result;
+    } catch (error) {
+      console.error("Error generating video from story:", error);
+      throw error;
+    }
+  }
+
+  async generateScriptVideo(
+    script: string,
+    options: {
+      style?: string;
+      aspect_ratio?: string;
+      duration?: number;
+    } = {}
+  ): Promise<FalRunResult> {
+    if (!this.isInitialized) {
+      this.initialize();
+    }
+
+    try {
+      console.log("Generating video from script:", script.substring(0, 100) + "...");
+
+      const result = await this.falClient.run(SCRIPT_TO_VIDEO_MODEL, {
+        input: {
+          text: script,
+          style: options.style || "cinematic",
+          aspect_ratio: options.aspect_ratio || "16:9",
+          duration: options.duration || 10,
+        }
+      });
+
+      console.log("Script to video generation result:", result);
+      return result;
+    } catch (error) {
+      console.error("Error generating video from script:", error);
+      throw error;
     }
   }
 }
