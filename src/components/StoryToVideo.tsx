@@ -323,17 +323,6 @@ const StoryToVideo = () => {
     setCurrentGeneratingIndex(sceneIndex);
 
     try {
-      const apiKey = localStorage.getItem("falApiKey");
-      if (!apiKey) {
-        toast({
-          title: "API Key Required",
-          description: "Please set your FAL.ai API key in the settings",
-          variant: "destructive",
-        });
-        setCurrentGeneratingIndex(null);
-        return;
-      }
-
       const canGenerate = await incrementImageCount();
       if (!canGenerate) {
         toast({
@@ -345,7 +334,7 @@ const StoryToVideo = () => {
         return;
       }
 
-      falService.initialize(apiKey);
+      falService.initialize();
 
       const enhancedPrompt = characterDetails.mainCharacter 
         ? `${characterDetails.mainCharacter}. ${scene.imagePrompt} in ${imageStyle} style`
@@ -425,16 +414,6 @@ const StoryToVideo = () => {
     setCurrentGeneratingIndex(sceneIndex);
 
     try {
-      const apiKey = localStorage.getItem("falApiKey");
-      if (!apiKey) {
-        toast({
-          title: "Infinity API Key Required",
-          description: "Please set your Infinity API key first",
-          variant: "destructive",
-        });
-        return;
-      }
-
       const canGenerate = await incrementVideoCount();
       if (!canGenerate) {
         toast({
@@ -445,7 +424,7 @@ const StoryToVideo = () => {
         return;
       }
 
-      falService.initialize(apiKey);
+      falService.initialize();
 
       const result = await falService.generateVideoFromImage(scene.imageUrl, {
         seed: Math.floor(Math.random() * 1000000)

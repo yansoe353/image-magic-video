@@ -164,12 +164,7 @@ const VideoToVideo = () => {
         setGenerationLogs(prev => [...prev, "Uploading video file..."]);
         setIsUploading(true);
         
-        const apiKey = localStorage.getItem("falApiKey");
-        if (!apiKey) {
-          throw new Error("API key not found. Please set your API key first.");
-        }
-        
-        falService.initialize(apiKey);
+        falService.initialize();
         
         uploadedVideoUrl = await falService.uploadFile(videoFile);
         setGenerationLogs(prev => [...prev, "Video uploaded successfully."]);
