@@ -197,8 +197,10 @@ class FalService {
         negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
         ...options
       };
+
+      console.log("Sending proxy request with input:", JSON.stringify(input).substring(0, 100) + "...");
       
-      // Using fetch with proper error handling
+      // Using fetch with proper error handling and additional logging
       const response = await fetch('/api/generate-image', {
         method: 'POST',
         headers: {
@@ -212,9 +214,29 @@ class FalService {
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: `HTTP error ${response.status}` }));
-        console.error("Proxy response error:", errorData);
-        throw new Error(errorData.error || `Image generation failed: ${response.status} ${response.statusText}`);
+        let errorMessage = `HTTP error ${response.status}`;
+        
+        try {
+          const errorData = await response.json();
+          console.error("Proxy response error:", errorData);
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (parseError) {
+          // If we can't parse JSON, try to get text
+          const errorText = await response.text();
+          console.error("Proxy response error (text):", errorText);
+          errorMessage = errorText || errorMessage;
+        }
+        
+        throw new Error(`Image generation failed: ${errorMessage}`);
+      }
+      
+      const contentType = response.headers.get('Content-Type');
+      console.log("Proxy response type:", contentType);
+      
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error("Received non-JSON response:", text.substring(0, 200));
+        throw new Error("Invalid response format from proxy");
       }
       
       const result = await response.json();

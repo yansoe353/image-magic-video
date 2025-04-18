@@ -11,9 +11,8 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     proxy: {
       '/api/generate-image': {
-        target: 'https://fal.run',
+        target: 'http://localhost:8080',
         changeOrigin: true,
-        secure: false,
         rewrite: (path) => path,
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {

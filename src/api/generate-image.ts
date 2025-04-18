@@ -9,46 +9,6 @@ export async function POST(req: Request) {
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'API key is required' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log(`Proxying request to ${model} with input:`, JSON.stringify(input).substring(0, 100) + '...');
-
-    // Forward the request to FAL.AI with proper error handling
-    try {
-      const falResponse = await fetch(`https://fal.run/${model}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Key ${apiKey}`
-        },
-        body: JSON.stringify({ input }),
-      });
-
-      if (!falResponse.ok) {
-        const errorText = await falResponse.text();
-        console.error(`FAL API responded with status ${falResponse.status}:`, errorText);
-        return new Response(
-          JSON.stringify({ 
-            error: `Image generation failed with status ${falResponse.status}`, 
-            statusCode: falResponse.status,
-            message: errorText
-          }), 
-          {
-            status: falResponse.status,
-            headers: { 
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-              'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-            },
-          }
-        );
-      }
-
-      const data = await falResponse.json();
-      return new Response(JSON.stringify(data), {
         headers: { 
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
@@ -56,15 +16,32 @@ export async function POST(req: Request) {
           'Access-Control-Allow-Headers': 'Content-Type, Authorization'
         },
       });
-    } catch (fetchError) {
-      console.error('Error fetching from FAL API:', fetchError);
+    }
+
+    console.log(`Proxying request to ${model} with input:`, JSON.stringify(input).substring(0, 100) + '...');
+
+    // Forward the request directly to FAL.AI with proper headers
+    const falResponse = await fetch(`https://fal.run/${model}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Key ${apiKey}`,
+        'Origin': 'https://fal.run'
+      },
+      body: JSON.stringify({ input }),
+    });
+
+    if (!falResponse.ok) {
+      const errorText = await falResponse.text();
+      console.error(`FAL API responded with status ${falResponse.status}:`, errorText);
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to fetch from FAL API',
-          message: fetchError instanceof Error ? fetchError.message : String(fetchError)
+          error: `Image generation failed with status ${falResponse.status}`, 
+          statusCode: falResponse.status,
+          message: errorText
         }), 
         {
-          status: 502,
+          status: falResponse.status,
           headers: { 
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
@@ -74,11 +51,21 @@ export async function POST(req: Request) {
         }
       );
     }
+
+    const data = await falResponse.json();
+    return new Response(JSON.stringify(data), {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+      },
+    });
   } catch (parseError) {
     console.error('Error parsing request:', parseError);
     return new Response(
       JSON.stringify({ 
-        error: 'Failed to parse request',
+        error: 'Failed to process request',
         message: parseError instanceof Error ? parseError.message : String(parseError)
       }), 
       {
