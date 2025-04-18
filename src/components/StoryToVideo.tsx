@@ -1,381 +1,948 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2, ImageIcon, PlayIcon } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { falService } from "@/services/falService";
-import { incrementVideoCount, VIDEO_LIMIT, getRemainingCounts, getRemainingCountsAsync } from "@/utils/usageTracker";
-import { UsageLimits } from "./image-generation/UsageLimits";
-import { isLoggedIn } from "@/utils/authUtils";
-import { getUserId } from "@/utils/storageUtils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, ImageIcon, BookText, Film, Sparkles, User, Download, Globe, FileText } from "lucide-react";
+import { useGeminiAPI } from "@/hooks/useGeminiAPI";
+import { incrementImageCount, incrementVideoCount, getRemainingCountsAsync } from "@/utils/usageTracker";
 import { supabase } from "@/integrations/supabase/client";
-import ProLabel from "./ProLabel";
-
-interface Scene {
-  text: string;
-  imagePrompt: string;
-  imageUrl: string | null;
-}
+import { getUserId } from "@/utils/storageUtils";
+import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
+import { falService } from "@/services/falService";
+import { generateStoryPDF } from "@/services/pdfService";
+import { generateStoryTextFile, downloadTextFile } from "@/services/textFileService";
+import { StoryScene, CharacterDetails } from "@/types";
+import { LANGUAGES, type LanguageOption } from "@/utils/translationUtils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import MyanmarVpnWarning from "./MyanmarVpnWarning";
 
 const StoryToVideo = () => {
-  const [title, setTitle] = useState("");
-  const [story, setStory] = useState("");
-  const [scenes, setScenes] = useState<Scene[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [currentStep, setCurrentStep] = useState("");
-  const { toast } = useToast();
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [isCreatingVideo, setIsCreatingVideo] = useState(false);
-  const [cameraMode, setCameraMode] = useState("zoom in");
-  const [framesPerSecond, setFramesPerSecond] = useState(8);
-  const [counts, setCounts] = useState(getRemainingCounts());
+  const [storyPrompt, setStoryPrompt] = useState("");
+  const [storyTitle, setStoryTitle] = useState("");
+  const [isGeneratingStory, setIsGeneratingStory] = useState(false);
+  const [generatedStory, setGeneratedStory] = useState<StoryScene[]>([]);
   const [isPublic, setIsPublic] = useState(false);
+  const [currentGeneratingIndex, setCurrentGeneratingIndex] = useState<number | null>(null);
+  const [videoUrls, setVideoUrls] = useState<string[]>([]);
+  const [counts, setCounts] = useState({ remainingImages: 0, remainingVideos: 0 });
+  const [sceneCount, setSceneCount] = useState("3");
+  const [imageStyle, setImageStyle] = useState("photorealism");
+  const [editMode, setEditMode] = useState(false);
+  const [editedStory, setEditedStory] = useState<StoryScene[]>([]);
+  const [characterDetails, setCharacterDetails] = useState<CharacterDetails>({});
+  const [showCharacterForm, setShowCharacterForm] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [pdfLanguage, setPdfLanguage] = useState<LanguageOption>("en");
+  const [isDownloadingText, setIsDownloadingText] = useState(false);
+
+  const { generateResponse, isLoading: isGeminiLoading } = useGeminiAPI();
+  const { toast } = useToast();
 
   useEffect(() => {
-    const updateCounts = async () => {
+    const fetchCounts = async () => {
       const freshCounts = await getRemainingCountsAsync();
       setCounts(freshCounts);
     };
-    updateCounts();
+    fetchCounts();
   }, []);
 
-  const generateScenes = async () => {
-    if (!title.trim() || !story.trim()) {
+  const generateCharacterTemplate = async () => {
+    if (!storyPrompt) {
       toast({
         title: "Error",
-        description: "Please enter both title and story.",
+        description: "Please enter a story prompt first",
         variant: "destructive"
       });
       return;
     }
 
-    setIsGenerating(true);
-    setCurrentStep("Generating scenes from story...");
-
+    setIsGeneratingStory(true);
     try {
-      // Basic scene splitting logic - split by paragraphs
-      const paragraphs = story.split('\n').filter(p => p.trim() !== '');
-      const newScenes: Scene[] = paragraphs.map((paragraph, index) => ({
-        text: paragraph,
-        imagePrompt: `A visually stunning scene from the story "${title}": ${paragraph}`,
-        imageUrl: null
-      }));
-      setScenes(newScenes);
-      setCurrentStep("Scenes generated. Generating images...");
-
-      const updatedScenes = await generateImagesForScenes(newScenes);
-      if (updatedScenes) {
-        setScenes(updatedScenes);
-        setCurrentStep("Images generated. Ready to create video.");
-      }
-    } catch (error) {
-      console.error("Error generating scenes:", error);
-      toast({
-        title: "Error",
-        description: "Failed to generate scenes. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const generateImagesForScenes = async (scenes: Scene[]) => {
-    const updatedScenes = [...scenes];
-    setIsGenerating(true);
-    
-    try {
-      for (let i = 0; i < scenes.length; i++) {
-        const scene = scenes[i];
-        setCurrentStep(`Generating image for scene ${i + 1}/${scenes.length}`);
+      const response = await generateResponse(
+        `Create detailed character descriptions for a story about: "${storyPrompt}". 
+        Provide this information in valid JSON format only:
+        {
+          "mainCharacter": "Detailed description including age, gender, appearance, clothing and distinctive features",
+          "secondaryCharacters": "Descriptions of other important characters",
+          "environment": "Description of the main setting/environment",
+          "styleNotes": "Specific visual style requirements"
+        }
         
-        const result = await falService.generateImage(scene.imagePrompt, {
-          negative_prompt: "low quality, bad anatomy, distorted",
-          width: 1024,
-          height: 1024
-        });
+        Important: Only return valid JSON without any additional text or explanations.`
+      );
 
-        if (result.images?.[0]?.url) {
-          updatedScenes[i] = {
-            ...scene,
-            imageUrl: result.images[0].url
-          };
-          setScenes(updatedScenes);
+      let parsedResponse;
+      try {
+        parsedResponse = JSON.parse(response.trim());
+      } catch (e) {
+        const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (codeBlockMatch) {
+          parsedResponse = JSON.parse(codeBlockMatch[1].trim());
         } else {
-          throw new Error("Failed to generate image for scene");
+          const firstBrace = response.indexOf('{');
+          const lastBrace = response.lastIndexOf('}');
+          if (firstBrace >= 0 && lastBrace > firstBrace) {
+            parsedResponse = JSON.parse(response.slice(firstBrace, lastBrace + 1));
+          } else {
+            throw new Error("Could not extract valid JSON");
+          }
         }
       }
-      return updatedScenes;
+
+      if (
+        typeof parsedResponse === 'object' && 
+        parsedResponse !== null &&
+        (parsedResponse.mainCharacter || 
+         parsedResponse.secondaryCharacters ||
+         parsedResponse.environment ||
+         parsedResponse.styleNotes)
+      ) {
+        setCharacterDetails({
+          mainCharacter: parsedResponse.mainCharacter || '',
+          secondaryCharacters: parsedResponse.secondaryCharacters || '',
+          environment: parsedResponse.environment || '',
+          styleNotes: parsedResponse.styleNotes || ''
+        });
+        toast({
+          title: "Character template created!",
+          description: "Review and edit the character details before generating story."
+        });
+      } else {
+        throw new Error("Invalid character template format");
+      }
     } catch (error) {
-      console.error("Error generating images:", error);
+      console.error("Error generating character template:", error);
       toast({
         title: "Error",
-        description: "Failed to generate images. Please try again.",
+        description: "Failed to generate character template. Please try again or enter details manually.",
         variant: "destructive"
       });
-      return null;
     } finally {
-      setIsGenerating(false);
+      setIsGeneratingStory(false);
     }
   };
 
-  const createVideoFromScenes = async () => {
-    if (counts.remainingVideos <= 0) {
+  const cleanJsonResponse = (response: string): string => {
+    let cleaned = response.replace(/```json|```/g, '').trim();
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+    }
+    
+    return cleaned;
+  };
+
+  const parseStoryResponse = (response: string): StoryScene[] => {
+    try {
+      const directParse = JSON.parse(response.trim());
+      if (Array.isArray(directParse)) return directParse;
+    } catch (e) {}
+
+    try {
+      const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) {
+        const extracted = codeBlockMatch[1].trim();
+        const parsed = JSON.parse(extracted);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+
+    try {
+      const firstBracket = response.indexOf('[');
+      const lastBracket = response.lastIndexOf(']');
+      if (firstBracket >= 0 && lastBracket > firstBracket) {
+        const extracted = response.slice(firstBracket, lastBracket + 1);
+        const parsed = JSON.parse(extracted);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+
+    throw new Error("Unable to parse story response");
+  };
+
+  const generateStory = async () => {
+    if (!storyPrompt) {
       toast({
-        title: "Usage Limit Reached",
-        description: `You've reached the limit of ${VIDEO_LIMIT} video generations.`,
+        title: "Error",
+        description: "Please enter a story prompt",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGeneratingStory(true);
+    setGeneratedStory([]);
+    setVideoUrls([]);
+
+    try {
+      const numScenes = parseInt(sceneCount);
+      const characterContext = characterDetails.mainCharacter 
+        ? `Main Character: ${characterDetails.mainCharacter}\n` +
+          `Secondary Characters: ${characterDetails.secondaryCharacters || 'none'}\n` +
+          `Environment: ${characterDetails.environment || 'unspecified'}\n` +
+          `Style: ${characterDetails.styleNotes || 'unspecified'}\n\n`
+        : '';
+
+      const geminiPrompt = `${characterContext}Create a ${numScenes}-scene story about: "${storyPrompt}".
+
+      Requirements:
+      1. Maintain strict consistency with provided character details
+      2. Each scene should naturally progress the story
+      3. For each scene provide:
+         - Narrative text (include character actions/dialogue)
+         - Detailed image prompt that maintains visual consistency
+      
+      Image Prompt Guidelines:
+      - Always reference the established character details
+      - Maintain consistent clothing/hairstyles/features
+      - Keep environment/style coherent
+      - Use same character names if provided
+      
+      Format response as a JSON array following this exact structure:
+      [
+        {
+          "text": "Scene narrative...",
+          "imagePrompt": "Detailed prompt with consistent characters..."
+        }
+      ]
+      
+      Important: Only return valid JSON without any other text or markdown.`;
+
+      const response = await generateResponse(geminiPrompt);
+      console.log("Raw API response:", response);
+
+      try {
+        const parsedStory = parseStoryResponse(response);
+        
+        if (!Array.isArray(parsedStory)) {
+          throw new Error("Response was not an array");
+        }
+
+        const isValidStory = parsedStory.every(scene => 
+          typeof scene.text === 'string' && 
+          typeof scene.imagePrompt === 'string'
+        );
+
+        if (!isValidStory) {
+          throw new Error("Invalid scene structure");
+        }
+
+        const enhancedStory = parsedStory.map(scene => ({
+          text: scene.text,
+          imagePrompt: characterDetails.mainCharacter 
+            ? `${characterDetails.mainCharacter}. ${scene.imagePrompt}`
+            : scene.imagePrompt
+        }));
+
+        setGeneratedStory(enhancedStory);
+        setEditedStory(enhancedStory);
+        setStoryTitle(`Story: ${storyPrompt.slice(0, 30)}${storyPrompt.length > 30 ? '...' : ''}`);
+
+      } catch (parseError) {
+        console.error("Failed to parse story:", parseError);
+        await attemptFallbackStoryGeneration();
+      }
+    } catch (error) {
+      console.error("Story generation failed:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate story. Please try a different prompt.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingStory(false);
+    }
+  };
+
+  const attemptFallbackStoryGeneration = async () => {
+    try {
+      toast({
+        title: "Trying alternative approach...",
+        description: "Having trouble with the story format, attempting simplified version",
+        variant: "default"
+      });
+
+      const numScenes = parseInt(sceneCount);
+      const fallbackPrompt = `Create a simple ${numScenes}-scene story about "${storyPrompt}". 
+        Each scene should have:
+        1. A paragraph of story text
+        2. An image description
+        
+        Return as JSON array like: [{"text":"...","imagePrompt":"..."}]`;
+
+      const fallbackResponse = await generateResponse(fallbackPrompt);
+      const parsedFallback = parseStoryResponse(fallbackResponse);
+
+      if (Array.isArray(parsedFallback)) {
+        setGeneratedStory(parsedFallback);
+        setEditedStory(parsedFallback);
+        setStoryTitle(`Story: ${storyPrompt.slice(0, 30)}${storyPrompt.length > 30 ? '...' : ''}`);
+        toast({
+          title: "Success",
+          description: "Used simplified story format",
+          variant: "default"
+        });
+      } else {
+        throw new Error("Fallback parse failed");
+      }
+    } catch (fallbackError) {
+      console.error("Fallback generation failed:", fallbackError);
+      toast({
+        title: "Error",
+        description: "Completely failed to generate story. Please try a different prompt.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const generateImageForScene = async (sceneIndex: number) => {
+    if (counts.remainingImages <= 0) {
+      toast({
+        title: "Limit Reached",
+        description: "You've used all your image generations",
         variant: "destructive",
       });
       return;
     }
 
-    if (!scenes.every(scene => scene.imageUrl)) {
+    const scene = generatedStory[sceneIndex];
+    if (!scene) return;
+
+    setCurrentGeneratingIndex(sceneIndex);
+
+    try {
+      const apiKey = localStorage.getItem("falApiKey");
+      if (!apiKey) {
+        toast({
+          title: "API Key Required",
+          description: "Please set your FAL.ai API key in the settings",
+          variant: "destructive",
+        });
+        setCurrentGeneratingIndex(null);
+        return;
+      }
+
+      const canGenerate = await incrementImageCount();
+      if (!canGenerate) {
+        toast({
+          title: "Limit Reached",
+          description: "You've used all your image generations",
+          variant: "destructive",
+        });
+        setCurrentGeneratingIndex(null);
+        return;
+      }
+
+      falService.initialize(apiKey);
+
+      const enhancedPrompt = characterDetails.mainCharacter 
+        ? `${characterDetails.mainCharacter}. ${scene.imagePrompt} in ${imageStyle} style`
+        : `${scene.imagePrompt} in ${imageStyle} style`;
+
+      console.log("Generating image with prompt:", enhancedPrompt);
+      
+      const result = await falService.generateImageWithImagen3(enhancedPrompt, {
+        aspect_ratio: "1:1",
+        negative_prompt: "low quality, bad anatomy, distorted, ugly"
+      });
+
+      if (!result || !result.data || !result.data.images || result.data.images.length === 0) {
+        throw new Error("No image was returned from the API");
+      }
+
+      if (result.data?.images?.[0]?.url) {
+        const imageUrl = result.data.images[0].url;
+        console.log("Successfully received image URL:", imageUrl);
+        
+        const updatedStory = [...generatedStory];
+        updatedStory[sceneIndex] = { ...updatedStory[sceneIndex], imageUrl };
+        setGeneratedStory(updatedStory);
+
+        const freshCounts = await getRemainingCountsAsync();
+        setCounts(freshCounts);
+
+        await falService.saveToHistory(
+          'image',
+          imageUrl,
+          enhancedPrompt,
+          isPublic,
+          {
+            story_title: storyTitle,
+            scene_text: scene.text,
+            story_prompt: storyPrompt
+          }
+        );
+
+        toast({
+          title: "Success",
+          description: "Image generated successfully!",
+        });
+      }
+    } catch (error) {
+      console.error("Image generation failed:", error);
       toast({
         title: "Error",
-        description: "Please generate images for all scenes first.",
+        description: error instanceof Error ? error.message : "Failed to generate image. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setCurrentGeneratingIndex(null);
+    }
+  };
+
+  const generateVideoForScene = async (sceneIndex: number) => {
+    if (counts.remainingVideos <= 0) {
+      toast({
+        title: "Limit Reached",
+        description: "You've used all your video generations",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const scene = generatedStory[sceneIndex];
+    if (!scene?.imageUrl) {
+      toast({
+        title: "Error",
+        description: "Please generate an image first",
         variant: "destructive"
       });
       return;
     }
 
-    setIsCreatingVideo(true);
-    setCurrentStep("Creating video from images...");
+    setCurrentGeneratingIndex(sceneIndex);
 
     try {
-      const videoUrls = scenes.map(scene => scene.imageUrl).filter(url => url !== null) as string[];
-      if (videoUrls.length === 0) {
-        throw new Error("No image URLs available to create video.");
-      }
-
-      const firstImageUrl = videoUrls[0];
-
-      if (!firstImageUrl || typeof firstImageUrl !== 'string' || !firstImageUrl.startsWith('http')) {
-        throw new Error("Invalid image URL provided. Please ensure you have a valid image.");
+      const apiKey = localStorage.getItem("falApiKey");
+      if (!apiKey) {
+        toast({
+          title: "Infinity API Key Required",
+          description: "Please set your Infinity API key first",
+          variant: "destructive",
+        });
+        return;
       }
 
       const canGenerate = await incrementVideoCount();
       if (!canGenerate) {
-        throw new Error("You have reached your video generation limit");
+        toast({
+          title: "Limit Reached",
+          description: "You've used all your video generations",
+          variant: "destructive",
+        });
+        return;
       }
 
-      falService.initialize();
+      falService.initialize(apiKey);
 
-      const result = await falService.generateVideoFromImage(firstImageUrl, {
-        prompt: `Animate this image with ${cameraMode} motion for the story "${title}"`
+      const result = await falService.generateVideoFromImage(scene.imageUrl, {
+        prompt: scene.imagePrompt || "Animate this image with smooth motion"
       });
 
-      if (result?.video_url) {
-        setVideoUrl(result.video_url);
+      const videoUrl = result.video_url || result.data?.video?.url;
+      
+      if (videoUrl) {
+        const newVideoUrls = [...videoUrls];
+        newVideoUrls[sceneIndex] = videoUrl;
+        setVideoUrls(newVideoUrls);
 
-        if (isLoggedIn()) {
-          const userId = await getUserId();
-          if (userId) {
-            await supabase.from('user_content_history').insert({
-              user_id: userId,
-              content_type: 'video',
-              content_url: result.video_url,
-              prompt: `Video generated from story: ${title}`,
-              is_public: isPublic,
-              metadata: {
-                title: title,
-                cameraMode: cameraMode,
-                framesPerSecond: framesPerSecond
-              }
-            });
+        await falService.saveToHistory(
+          'video',
+          videoUrl,
+          scene.imagePrompt,
+          isPublic,
+          {
+            story_title: storyTitle,
+            scene_text: scene.text,
+            story_prompt: storyPrompt
           }
-        }
+        );
+
+        setCounts(await getRemainingCountsAsync());
 
         toast({
           title: "Success",
-          description: "Video created successfully!",
+          description: "Video generated from scene!",
         });
       } else {
-        throw new Error("Failed to create video.");
+        throw new Error("No video URL in response");
       }
     } catch (error) {
-      console.error("Error creating video:", error);
+      console.error("Video generation failed:", error);
       toast({
         title: "Error",
-        description: "Failed to create video. Please try again.",
+        description: "Failed to generate video",
         variant: "destructive"
       });
     } finally {
-      setIsCreatingVideo(false);
+      setCurrentGeneratingIndex(null);
     }
   };
 
+  const downloadStoryPDF = async () => {
+    if (generatedStory.length === 0) {
+      toast({
+        title: "No story to download",
+        description: "Please generate a story first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingPDF(true);
+
+    try {
+      console.log("Generating PDF with language:", pdfLanguage);
+      
+      const pdfDataUri = await generateStoryPDF(
+        storyTitle || `Story: ${storyPrompt.slice(0, 30)}${storyPrompt.length > 30 ? '...' : ''}`, 
+        generatedStory,
+        characterDetails, 
+        pdfLanguage
+      );
+      
+      if (!pdfDataUri || typeof pdfDataUri !== 'string') {
+        throw new Error("Failed to generate PDF data");
+      }
+      
+      console.log("PDF generated successfully, creating download link");
+      
+      const link = document.createElement('a');
+      link.href = pdfDataUri;
+      link.download = `${storyTitle || 'story'}_${pdfLanguage}.pdf`.replace(/\s+/g, '_').toLowerCase();
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Success",
+        description: `Story downloaded as PDF in ${LANGUAGES[pdfLanguage]}`,
+      });
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to generate PDF. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  const downloadStoryText = () => {
+    if (generatedStory.length === 0) {
+      toast({
+        title: "No story to download",
+        description: "Please generate a story first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDownloadingText(true);
+
+    try {
+      const textContent = generateStoryTextFile(
+        storyTitle || `Story: ${storyPrompt.slice(0, 30)}${storyPrompt.length > 30 ? '...' : ''}`,
+        generatedStory,
+        characterDetails
+      );
+      
+      const filename = `${storyTitle || 'story'}_${pdfLanguage}.txt`.replace(/\s+/g, '_').toLowerCase();
+      
+      downloadTextFile(textContent, filename);
+      
+      toast({
+        title: "Success",
+        description: "Story downloaded as text file",
+      });
+    } catch (error) {
+      console.error("Text file generation failed:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate text file. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDownloadingText(false);
+    }
+  };
+
+  const CharacterDetailsForm = () => (
+    <Card className="mt-4">
+      <CardContent className="p-6 space-y-4">
+        <h3 className="font-bold flex items-center">
+          <User className="mr-2 h-5 w-5" />
+          Character Details
+        </h3>
+        
+        <div>
+          <Label>Main Character</Label>
+          <Textarea
+            value={characterDetails.mainCharacter || ''}
+            onChange={(e) => setCharacterDetails({...characterDetails, mainCharacter: e.target.value})}
+            placeholder="Detailed description of main character (appearance, clothing, etc.)"
+            className="min-h-[100px]"
+          />
+        </div>
+
+        <div>
+          <Label>Secondary Characters</Label>
+          <Textarea
+            value={characterDetails.secondaryCharacters || ''}
+            onChange={(e) => setCharacterDetails({...characterDetails, secondaryCharacters: e.target.value})}
+            placeholder="Descriptions of other important characters"
+            className="min-h-[80px]"
+          />
+        </div>
+
+        <div>
+          <Label>Environment</Label>
+          <Textarea
+            value={characterDetails.environment || ''}
+            onChange={(e) => setCharacterDetails({...characterDetails, environment: e.target.value})}
+            placeholder="Description of the main setting/environment"
+            className="min-h-[80px]"
+          />
+        </div>
+
+        <div>
+          <Label>Style Notes</Label>
+          <Textarea
+            value={characterDetails.styleNotes || ''}
+            onChange={(e) => setCharacterDetails({...characterDetails, styleNotes: e.target.value})}
+            placeholder="Any specific visual style requirements"
+            className="min-h-[80px]"
+          />
+        </div>
+
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => setShowCharacterForm(false)}
+            variant="outline"
+          >
+            Done
+          </Button>
+          <Button 
+            onClick={generateCharacterTemplate}
+            disabled={!storyPrompt || isGeneratingStory}
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            Auto-Generate Details
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const renderSceneTabs = () => {
+    return generatedStory.map((_, index) => (
+      <TabsTrigger key={index} value={index.toString()}>Scene {index + 1}</TabsTrigger>
+    ));
+  };
+
   return (
-    <div className="grid gap-8 md:grid-cols-1">
+    <div className="space-y-8">
+      <MyanmarVpnWarning className="mb-4" />
+      
       <Card className="overflow-hidden">
         <CardContent className="p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-2xl font-bold">Story to Video</h2>
-            <ProLabel />
-          </div>
-
-          <UsageLimits
-            remainingImages={counts.remainingVideos}
-            imageLimit={VIDEO_LIMIT}
-          />
+          <h2 className="text-2xl font-bold mb-4 flex items-center">
+            <BookText className="mr-2 h-6 w-6" />
+            AI Story and Video Generator
+          </h2>
 
           <div className="space-y-4">
             <div>
-              <Label htmlFor="title">Title</Label>
-              <Input
-                id="title"
-                type="text"
-                placeholder="Enter story title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                disabled={isGenerating || isCreatingVideo}
-              />
-            </div>
-            <div>
-              <Label htmlFor="story">Story</Label>
+              <Label htmlFor="storyPrompt">Story Prompt</Label>
               <Textarea
-                id="story"
-                placeholder="Enter your story"
-                value={story}
-                onChange={(e) => setStory(e.target.value)}
-                rows={4}
-                disabled={isGenerating || isCreatingVideo}
+                id="storyPrompt"
+                placeholder="Enter a story idea like ဥပမာ 'မြန်မာဆန်ဆန် သိပ္ပံစွန့်စားခန်း ပုံပြင်တစ်ပုဒ် မြန်မာလိုရေးပေးပါ'"
+                value={storyPrompt}
+                onChange={(e) => setStoryPrompt(e.target.value)}
+                className="min-h-[80px]"
+                disabled={isGeneratingStory}
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <Button
-                onClick={generateScenes}
-                disabled={isGenerating || isCreatingVideo || !title.trim() || !story.trim()}
-                className="w-full"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {currentStep}
-                  </>
-                ) : (
-                  <>
-                    <ImageIcon className="mr-2 h-4 w-4" />
-                    Generate Scenes
-                  </>
-                )}
-              </Button>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <Label>Character Consistency</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCharacterForm(!showCharacterForm)}
+                >
+                  {showCharacterForm ? "Hide Details" : "Add Character Details"}
+                </Button>
+              </div>
+              {showCharacterForm && <CharacterDetailsForm />}
             </div>
+
+            <div>
+              <Label htmlFor="sceneCount">Number of Scenes</Label>
+              <Select
+                value={sceneCount}
+                onValueChange={setSceneCount}
+                disabled={isGeneratingStory}
+              >
+                <SelectTrigger className="w-full" id="sceneCount">
+                  <SelectValue placeholder="Select number of scenes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2">2 Scenes</SelectItem>
+                  <SelectItem value="3">3 Scenes</SelectItem>
+                  <SelectItem value="4">4 Scenes</SelectItem>
+                  <SelectItem value="5">5 Scenes</SelectItem>
+                  <SelectItem value="6">6 Scenes</SelectItem>
+                  <SelectItem value="7">7 Scenes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="imageStyle">Image Style</Label>
+              <Select
+                value={imageStyle}
+                onValueChange={setImageStyle}
+                disabled={isGeneratingStory}
+              >
+                <SelectTrigger className="w-full" id="imageStyle">
+                  <SelectValue placeholder="Select image style" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="photorealism">Photorealism</SelectItem>
+                  <SelectItem value="cartoon">Cartoon</SelectItem>
+                  <SelectItem value="anime">Anime</SelectItem>
+                  <SelectItem value="fantasy">Fantasy Art</SelectItem>
+                  <SelectItem value="comic">Comic Book</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <PublicPrivateToggle
+              isPublic={isPublic}
+              onChange={setIsPublic}
+              disabled={isGeneratingStory}
+            />
+
+            <Button
+              onClick={generateStory}
+              disabled={isGeneratingStory || !storyPrompt || isGeminiLoading}
+              className="w-full"
+            >
+              {isGeneratingStory ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating Story...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Story
+                </>
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {scenes.length > 0 && (
-        <Card className="overflow-hidden">
+      {generatedStory.length > 0 && (
+        <Card>
           <CardContent className="p-6">
-            <h3 className="text-xl font-semibold mb-4">Generated Scenes</h3>
-            <div className="space-y-4">
-              {scenes.map((scene, index) => (
-                <div key={index} className="border rounded-md p-4">
-                  <p className="text-sm text-gray-500 mb-2">Scene {index + 1}</p>
-                  <p className="mb-2">{scene.text}</p>
-                  {scene.imageUrl && (
-                    <div className="relative">
-                      <img
-                        src={scene.imageUrl}
-                        alt={`Scene ${index + 1}`}
-                        className="w-full rounded-md aspect-video object-cover"
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {scenes.length > 0 && (
-        <Card className="overflow-hidden">
-          <CardContent className="p-6">
-            <h3 className="text-xl font-semibold mb-4">Create Video</h3>
-
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="cameraMode">Camera Motion</Label>
-                <Select value={cameraMode} onValueChange={setCameraMode}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select camera motion" />
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">{storyTitle}</h2>
+              <div className="flex items-center space-x-2">
+                <Select
+                  value={pdfLanguage}
+                  onValueChange={(value) => setPdfLanguage(value as LanguageOption)}
+                >
+                  <SelectTrigger className="w-32">
+                    <Globe className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Language" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="zoom in">Zoom In</SelectItem>
-                    <SelectItem value="zoom out">Zoom Out</SelectItem>
-                    <SelectItem value="pan left">Pan Left</SelectItem>
-                    <SelectItem value="pan right">Pan Right</SelectItem>
-                    <SelectItem value="slow">Slow Motion</SelectItem>
+                    {Object.entries(LANGUAGES).map(([code, name]) => (
+                      <SelectItem key={code} value={code}>{name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-              </div>
 
-              <div>
-                <Label htmlFor="framesPerSecond">Animation Speed</Label>
-                <Slider
-                  id="framesPerSecond"
-                  defaultValue={[framesPerSecond]}
-                  max={24}
-                  min={1}
-                  step={1}
-                  onValueChange={(value) => setFramesPerSecond(value[0])}
-                  disabled={isCreatingVideo}
-                />
-                <p className="text-sm text-gray-500 mt-1">Selected: {framesPerSecond}</p>
-              </div>
+                <div className="flex space-x-2">
+                  <Button
+                    onClick={downloadStoryPDF}
+                    disabled={isGeneratingPDF || generatedStory.length === 0}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    {isGeneratingPDF ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    PDF
+                  </Button>
 
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="isPublic"
-                  checked={isPublic}
-                  onChange={(e) => setIsPublic(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <Label htmlFor="isPublic">Make video public</Label>
+                  <Button
+                    onClick={downloadStoryText}
+                    disabled={isDownloadingText || generatedStory.length === 0}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    {isDownloadingText ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <FileText className="mr-2 h-4 w-4" />
+                    )}
+                    Text
+                  </Button>
+                </div>
               </div>
+            </div>
 
-              <div className="flex items-center justify-between">
+            <Button
+              onClick={() => setEditMode(!editMode)}
+              disabled={isGeneratingStory}
+              className="w-full mt-4"
+              variant={editMode ? "default" : "outline"}
+            >
+              {editMode ? "Cancel Editing" : "Edit Story"}
+            </Button>
+
+            {editMode ? (
+              <div className="space-y-4 mt-4">
+                {editedStory.map((scene, index) => (
+                  <div key={index} className="space-y-2">
+                    <Label>Scene {index + 1} Text</Label>
+                    <Textarea
+                      value={scene.text}
+                      onChange={(e) => {
+                        const updated = [...editedStory];
+                        updated[index] = { ...updated[index], text: e.target.value };
+                        setEditedStory(updated);
+                      }}
+                      className="min-h-[120px]"
+                    />
+                    <Label>Scene {index + 1} Image Prompt</Label>
+                    <Textarea
+                      value={scene.imagePrompt}
+                      onChange={(e) => {
+                        const updated = [...editedStory];
+                        updated[index] = { ...updated[index], imagePrompt: e.target.value };
+                        setEditedStory(updated);
+                      }}
+                      className="min-h-[120px]"
+                    />
+                  </div>
+                ))}
                 <Button
-                  onClick={createVideoFromScenes}
-                  disabled={isCreatingVideo || counts.remainingVideos <= 0}
+                  onClick={() => {
+                    setGeneratedStory(editedStory);
+                    setEditMode(false);
+                    toast({
+                      title: "Saved",
+                      description: "Your story edits have been saved",
+                    });
+                  }}
                   className="w-full"
                 >
-                  {isCreatingVideo ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {currentStep}
-                    </>
-                  ) : (
-                    <>
-                      <PlayIcon className="mr-2 h-4 w-4" />
-                      Create Video
-                    </>
-                  )}
+                  Save Changes
                 </Button>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            ) : (
+              <Tabs defaultValue="0" className="w-full mt-4">
+                <TabsList className="w-full grid" style={{ gridTemplateColumns: `repeat(${generatedStory.length}, 1fr)` }}>
+                  {renderSceneTabs()}
+                </TabsList>
 
-      {videoUrl && (
-        <Card className="overflow-hidden">
-          <CardContent className="p-6">
-            <h3 className="text-xl font-semibold mb-4">Generated Video</h3>
-            <div className="relative">
-              <video controls className="w-full rounded-md aspect-video">
-                <source src={videoUrl} type="video/mp4" />
-                Your browser does not support the video tag.
-              </video>
-            </div>
+                {generatedStory.map((scene, index) => (
+                  <TabsContent key={index} value={index.toString()} className="space-y-4">
+                    <div className="p-4 bg-slate-800/50 rounded-md">
+                      <p className="text-slate-200">{scene.text}</p>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="mb-2 block">Scene Image</Label>
+                        <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
+                          {scene.imageUrl ? (
+                            <img
+                              src={scene.imageUrl}
+                              alt={`Scene ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <ImageIcon className="h-16 w-16 text-slate-600" />
+                            </div>
+                          )}
+                          {currentGeneratingIndex === index && !scene.imageUrl && (
+                            <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                              <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
+                            </div>
+                          )}
+                        </div>
+
+                        <Button
+                          onClick={() => generateImageForScene(index)}
+                          disabled={currentGeneratingIndex !== null || counts.remainingImages <= 0}
+                          className="mt-2 w-full"
+                          variant="outline"
+                        >
+                          <ImageIcon className="mr-2 h-4 w-4" />
+                          Generate Image ({counts.remainingImages} remaining)
+                        </Button>
+                      </div>
+
+                      <div>
+                        <Label className="mb-2 block">Scene Video</Label>
+                        <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
+                          {videoUrls[index] ? (
+                            <video
+                              src={videoUrls[index]}
+                              controls
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <Film className="h-16 w-16 text-slate-600" />
+                            </div>
+                          )}
+                          {currentGeneratingIndex === index && scene.imageUrl && !videoUrls[index] && (
+                            <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                              <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
+                            </div>
+                          )}
+                        </div>
+
+                        <Button
+                          onClick={() => generateVideoForScene(index)}
+                          disabled={currentGeneratingIndex !== null || !scene.imageUrl || counts.remainingVideos <= 0}
+                          className="mt-2 w-full"
+                          variant={scene.imageUrl ? "default" : "outline"}
+                        >
+                          <Film className="mr-2 h-4 w-4" />
+                          Generate Video ({counts.remainingVideos} remaining)
+                        </Button>
+                      </div>
+                    </div>
+                  </TabsContent>
+                ))}
+              </Tabs>
+            )}
           </CardContent>
         </Card>
       )}

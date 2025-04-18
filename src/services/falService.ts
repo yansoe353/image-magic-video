@@ -1,3 +1,4 @@
+
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
