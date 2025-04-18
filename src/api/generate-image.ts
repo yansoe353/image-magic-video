@@ -30,14 +30,40 @@ export async function POST(req: Request) {
       body: JSON.stringify({ input }),
     });
 
+    // Check if the response is JSON by examining the content-type header
+    const contentType = falResponse.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      // If not JSON, get the text and log it for debugging
+      const textResponse = await falResponse.text();
+      console.error(`Non-JSON response from FAL API (${falResponse.status}):`, textResponse.substring(0, 200));
+      
+      return new Response(
+        JSON.stringify({ 
+          error: `Image generation failed: received non-JSON response`, 
+          statusCode: falResponse.status,
+          responseType: contentType || 'unknown',
+          message: textResponse.substring(0, 500)
+        }), 
+        {
+          status: 500,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+          },
+        }
+      );
+    }
+
     if (!falResponse.ok) {
-      const errorText = await falResponse.text();
-      console.error(`FAL API responded with status ${falResponse.status}:`, errorText);
+      const errorData = await falResponse.json();
+      console.error(`FAL API responded with status ${falResponse.status}:`, errorData);
       return new Response(
         JSON.stringify({ 
           error: `Image generation failed with status ${falResponse.status}`, 
           statusCode: falResponse.status,
-          message: errorText
+          message: JSON.stringify(errorData)
         }), 
         {
           status: falResponse.status,

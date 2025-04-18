@@ -1,3 +1,4 @@
+
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -133,13 +134,16 @@ class FalService {
         throw new Error("Prompt cannot be empty");
       }
       
+      // Always try the proxy method first for better CORS handling
       try {
-        // First try using the proxy
         return await this.generateImageViaProxy(prompt, options);
       } catch (proxyError) {
         console.error("Proxy approach failed, trying direct API call:", proxyError);
         
         // Fall back to direct API call if proxy fails
+        // Use no-cors mode if we're in production to avoid CORS issues
+        const mode = window.location.hostname.includes('lovable.app') ? 'no-cors' : undefined;
+        
         const result = await this.falClient.run(IMAGEN_3_MODEL, {
           input: {
             prompt,
@@ -147,7 +151,7 @@ class FalService {
             negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
             ...options
           }
-        }) as GenericApiResponse;
+        }, { mode }) as GenericApiResponse;
         
         console.log("Direct API call response:", result);
         
@@ -205,6 +209,10 @@ class FalService {
         })
       });
       
+      // Log response status for debugging
+      console.log(`Proxy response status: ${response.status}`);
+      
+      // Check if response is ok
       if (!response.ok) {
         const contentType = response.headers.get('Content-Type');
         if (contentType && contentType.includes('application/json')) {
@@ -216,6 +224,7 @@ class FalService {
         }
       }
       
+      // Check content type to ensure it's JSON
       const contentType = response.headers.get('Content-Type');
       if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text();
@@ -223,6 +232,7 @@ class FalService {
         throw new Error("Invalid response format from proxy");
       }
       
+      // Parse the JSON response
       const result = await response.json();
       console.log("Proxy response received:", result);
       
@@ -242,6 +252,7 @@ class FalService {
           }
         };
       } else {
+        console.error("Unexpected response format:", result);
         throw new Error("Could not extract image URL from proxy response");
       }
     } catch (error) {
