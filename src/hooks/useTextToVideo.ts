@@ -81,7 +81,7 @@ export function useTextToVideo(): TextToVideoResult {
       let videoData = result?.video_url || 
           result?.data?.video?.url || 
           result?.url || 
-          (result?.output && typeof result.output === 'string' ? result.output : null);
+          null;
       
       if (!videoData && result?.data?.images?.[0]?.url) {
         // If we got an image instead of video, set that
