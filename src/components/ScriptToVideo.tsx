@@ -14,6 +14,7 @@ import { incrementImageCount, incrementVideoCount, getRemainingCountsAsync } fro
 import { falService } from "@/services/falService";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 import { getUserId } from "@/utils/storageUtils";
+import { geminiImageService } from "@/services/geminiImageService";
 
 interface ScriptScene {
   sceneNumber: number;
