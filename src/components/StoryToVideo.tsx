@@ -85,7 +85,7 @@ const StoryToVideo = () => {
       try {
         parsedResponse = JSON.parse(response.trim());
       } catch (e) {
-        const codeBlockMatch = response.match(/```(?\:json)?\s*([\s\S]*?)\s*```/);
+        const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
         if (codeBlockMatch) {
           parsedResponse = JSON.parse(codeBlockMatch[1].trim());
         } else {
@@ -133,7 +133,7 @@ const StoryToVideo = () => {
   };
 
   const cleanJsonResponse = (response: string): string => {
-    let cleaned = response.replace(/```(?\:json)?\s*|```/g, '').trim();
+    let cleaned = response.replace(/```(?:json)?\s*|```/g, '').trim();
     const firstBrace = cleaned.indexOf('{');
     const lastBrace = cleaned.lastIndexOf('}');
 
@@ -151,7 +151,7 @@ const StoryToVideo = () => {
     } catch (e) {}
 
     try {
-      const codeBlockMatch = response.match(/```(?\:json)?\s*([\s\S]*?)\s*```/);
+      const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       if (codeBlockMatch) {
         const extracted = codeBlockMatch[1].trim();
         const parsed = JSON.parse(extracted);
