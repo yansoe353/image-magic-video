@@ -1,3 +1,4 @@
+
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,8 +47,20 @@ class FalService {
     const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_API_KEY : undefined;
     this.apiKey = envApiKey || localStorage.getItem("falApiKey") || DEFAULT_API_KEY;
 
-    // Create fal client with API key
-    this.falClient = createFalClient({ credentials: this.apiKey });
+    // Create fal client with API key and proper CORS configuration
+    this.falClient = createFalClient({ 
+      credentials: this.apiKey,
+      // Add clientOptions to handle CORS issues
+      clientOptions: {
+        fetchOptions: {
+          mode: 'cors',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        }
+      }
+    });
     this.initialize();
   }
 
@@ -63,8 +76,19 @@ class FalService {
 
       console.log("Initializing Infinity API client with key:", this.apiKey ? "API key present" : "No API key");
 
-      // Initialize client with the right credentials
-      this.falClient = createFalClient({ credentials: this.apiKey });
+      // Initialize client with the right credentials and CORS configuration
+      this.falClient = createFalClient({ 
+        credentials: this.apiKey,
+        clientOptions: {
+          fetchOptions: {
+            mode: 'cors',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          }
+        }
+      });
 
       this.isInitialized = true;
       console.log("Infinity API client initialized successfully");

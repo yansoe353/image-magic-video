@@ -133,7 +133,7 @@ const StoryToVideo = () => {
   };
 
   const cleanJsonResponse = (response: string): string => {
-    let cleaned = response.replace(/```(?:json)?\s*|```/g, '').trim();
+    let cleaned = response.replace(/```(?:json)?|```/g, '').trim();
     const firstBrace = cleaned.indexOf('{');
     const lastBrace = cleaned.lastIndexOf('}');
 
