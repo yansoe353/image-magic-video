@@ -33,6 +33,7 @@ export function useStoryImageGenerator() {
         return;
       }
 
+      // Using the hardcoded API key in geminiImageService
       const imageUrl = await geminiImageService.generateImage(scene.imagePrompt, {
         style: "high quality, detailed, cinematic"
       });

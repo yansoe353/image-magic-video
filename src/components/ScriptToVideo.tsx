@@ -236,6 +236,8 @@ const ScriptToVideo = () => {
         return;
       }
 
+      console.log("Generating image for scene:", scene);
+      // Using geminiImageService with hardcoded API key
       const imageUrl = await geminiImageService.generateImage(scene.imagePrompt, {
         style: visualStyle
       });

@@ -3,7 +3,7 @@ import { geminiImagePromptTemplate } from "@/utils/promptTemplates";
 
 export class GeminiImageService {
   private apiKey: string = "AIzaSyBAJJLHI8kwwmNJwfuTInH2KYIGs9Nnhbc"; // Replace with your actual API key
-  private model: string = "gemini-2.0-flash-exp";
+  private model: string = "gemini-2.0-flash-vision";
 
   initialize(apiKey?: string) {
     if (apiKey) {
@@ -22,8 +22,11 @@ export class GeminiImageService {
     const enhancedPrompt = geminiImagePromptTemplate(prompt, options);
 
     try {
+      console.log("Sending request to Gemini API with model:", this.model);
+      console.log("Using prompt:", enhancedPrompt);
+      
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1/models/${this.model}:generateContent`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`,
         {
           method: "POST",
           headers: {
@@ -47,12 +50,18 @@ export class GeminiImageService {
       );
 
       if (!response.ok) {
-        throw new Error(`Gemini API error: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error("Gemini API responded with status:", response.status, response.statusText);
+        console.error("Error details:", errorText);
+        throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log("Gemini API response:", data);
+      
       if (!data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType?.startsWith('image/')) {
-        throw new Error("No image generated");
+        console.error("No image data in response:", data);
+        throw new Error("No image generated in response");
       }
 
       const base64Image = data.candidates[0].content.parts[0].inlineData.data;
