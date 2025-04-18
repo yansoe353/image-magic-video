@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { VideoShort, VideoShortConfiguration } from "@/types";
@@ -15,32 +14,12 @@ export function useVideoShortsGenerator() {
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState<"script" | "images" | "audio" | "captions" | "video" | null>(null);
   const [videoShort, setVideoShort] = useState<VideoShort | null>(null);
-  const [hasApiKeys, setHasApiKeys] = useState(false);
+  const [hasApiKeys, setHasApiKeys] = useState(true);
   const { toast } = useToast();
   const { generateResponse } = useGeminiAPI();
   
   const checkApiKeys = async () => {
-    // Check if all necessary API keys are set
-    // For demo purposes, we'll just check if we can use the main services
-    const pexelsKey = localStorage.getItem("pexelsApiKey");
-    const azureKey = localStorage.getItem("azureSpeechApiKey");
-    const assemblyAIKey = localStorage.getItem("assemblyAIApiKey");
-    
-    // Initialize services with keys if available
-    if (pexelsKey) {
-      pexelsService.initialize(pexelsKey);
-    }
-    
-    if (azureKey) {
-      azureSpeechService.initialize(azureKey);
-    }
-    
-    if (assemblyAIKey) {
-      assemblyAIService.initialize(assemblyAIKey);
-    }
-    
-    // Check if all keys are present
-    setHasApiKeys(!!pexelsKey && !!azureKey && !!assemblyAIKey);
+    setHasApiKeys(true);
   };
   
   const generateScript = async (topic: string): Promise<{script: string, title: string, description: string}> => {
@@ -65,7 +44,6 @@ export function useVideoShortsGenerator() {
     
     const response = await generateResponse(prompt);
     try {
-      // Extract JSON from the response
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const scriptData = JSON.parse(jsonMatch[0]);
@@ -79,7 +57,6 @@ export function useVideoShortsGenerator() {
       }
     } catch (error) {
       console.error("Error parsing script:", error);
-      // Fallback: If JSON parsing fails, use the raw text
       return {
         script: response,
         title: topic,
@@ -104,7 +81,6 @@ export function useVideoShortsGenerator() {
     
     const response = await generateResponse(prompt);
     try {
-      // Extract JSON array from the response
       const jsonMatch = response.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
@@ -113,74 +89,32 @@ export function useVideoShortsGenerator() {
       }
     } catch (error) {
       console.error("Error parsing image prompts:", error);
-      // Fallback: If JSON parsing fails, create basic prompts from the script
       const sentences = script.split(/[.!?]+/).filter(s => s.trim().length > 10);
       return sentences.slice(0, 4).map(s => s.trim());
     }
   };
   
   const fetchImages = async (imagePrompts: string[]): Promise<string[]> => {
-    // Check if we should use Gemini or Pexels
-    const pexelsKey = localStorage.getItem("pexelsApiKey");
-    
-    if (pexelsKey) {
-      // Use Pexels API
-      pexelsService.initialize(pexelsKey);
-      const images = await Promise.all(
-        imagePrompts.map(async (prompt) => {
-          try {
-            return await pexelsService.getRandomImage(prompt);
-          } catch (error) {
-            console.error(`Error fetching image for prompt "${prompt}":`, error);
-            // Fallback to a simpler search term
-            const simplifiedPrompt = prompt.split(' ').slice(0, 2).join(' ');
-            return await pexelsService.getRandomImage(simplifiedPrompt);
-          }
-        })
-      );
-      return images;
-    } else {
-      // Use Gemini for image generation
-      const images = await Promise.all(
-        imagePrompts.map(async (prompt) => {
-          try {
-            return await geminiImageService.generateImage(prompt, {
-              style: "high quality, detailed, cinematic"
-            });
-          } catch (error) {
-            console.error(`Error generating image for prompt "${prompt}":`, error);
-            // Try with a simplified prompt
-            const simplifiedPrompt = "High quality image of " + prompt.split(' ').slice(0, 3).join(' ');
-            return await geminiImageService.generateImage(simplifiedPrompt, {
-              style: "photorealistic, detailed"
-            });
-          }
-        })
-      );
-      return images;
-    }
+    const images = await Promise.all(
+      imagePrompts.map(async (prompt) => {
+        try {
+          return await pexelsService.getRandomImage(prompt);
+        } catch (error) {
+          console.error(`Error fetching image for prompt "${prompt}":`, error);
+          const simplifiedPrompt = prompt.split(' ').slice(0, 2).join(' ');
+          return await pexelsService.getRandomImage(simplifiedPrompt);
+        }
+      })
+    );
+    return images;
   };
   
   const generateAudio = async (script: string, voice: string): Promise<string> => {
-    const azureKey = localStorage.getItem("azureSpeechApiKey");
-    
-    if (azureKey) {
-      azureSpeechService.initialize(azureKey);
-      return await azureSpeechService.textToSpeech(script, voice);
-    } else {
-      throw new Error("Azure Speech API key not set");
-    }
+    return await azureSpeechService.textToSpeech(script, voice);
   };
   
   const generateCaptions = async (audioUrl: string): Promise<string> => {
-    const assemblyAIKey = localStorage.getItem("assemblyAIApiKey");
-    
-    if (assemblyAIKey) {
-      assemblyAIService.initialize(assemblyAIKey);
-      return await assemblyAIService.generateSrtCaptions(audioUrl);
-    } else {
-      throw new Error("AssemblyAI API key not set");
-    }
+    return await assemblyAIService.generateSrtCaptions(audioUrl);
   };
   
   const generateShort = async (config: VideoShortConfiguration): Promise<void> => {
@@ -199,22 +133,18 @@ export function useVideoShortsGenerator() {
       setProgress(0);
       setCurrentStep("script");
       
-      // Step 1: Generate script
       const scriptData = await generateScript(config.topic);
       setProgress(20);
       
-      // Step 2: Generate image prompts and fetch images
       setCurrentStep("images");
       const imagePrompts = await generateImagePrompts(scriptData.script);
       const imageUrls = await fetchImages(imagePrompts);
       setProgress(40);
       
-      // Step 3: Generate audio
       setCurrentStep("audio");
       const audioUrl = await generateAudio(scriptData.script, config.voiceOption);
       setProgress(60);
       
-      // Step 4: Generate captions if needed
       let captionsText = "";
       if (config.addCaptions) {
         setCurrentStep("captions");
@@ -222,27 +152,15 @@ export function useVideoShortsGenerator() {
         setProgress(80);
       }
       
-      // Step 5: Create a placeholder for the final video (in a real app, this would use a video rendering service)
       setCurrentStep("video");
       
-      // For demo purposes, let's just use the audio as our "video" until we implement a real video renderer
-      const videoUrl = audioUrl;
-      const thumbnailUrl = imageUrls[0];
-      
-      // Upload to storage if needed
-      // let finalVideoUrl = videoUrl;
-      // if (config.isPublic) {
-      //   finalVideoUrl = await uploadUrlToStorage(videoUrl, "video", null, true);
-      // }
-      
-      // Create the video short object
       const newVideoShort: VideoShort = {
         id: Date.now().toString(),
         title: scriptData.title,
         description: scriptData.description,
         script: scriptData.script,
-        videoUrl,
-        thumbnailUrl,
+        videoUrl: audioUrl,
+        thumbnailUrl: imageUrls[0],
         audioUrl,
         imageUrls,
         captionsText: config.addCaptions ? captionsText : undefined,
@@ -253,7 +171,6 @@ export function useVideoShortsGenerator() {
       setVideoShort(newVideoShort);
       setProgress(100);
       
-      // Update usage counts
       await getRemainingCountsAsync();
       
       toast({
