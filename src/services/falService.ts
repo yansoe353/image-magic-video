@@ -1,3 +1,4 @@
+
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -143,11 +144,10 @@ class FalService {
         const result = await this.falClient.run(IMAGE_TO_VIDEO_MODEL, {
           input: {
             image_url,
-            motion_bucket_id: 127, // Higher value = more motion
-            cond_aug: 0.02,
-            steps: 25,
+            // Use parameters supported by the Kling Video model
             fps: options.framesPerSecond || 24,
             seed: options.seed || Math.floor(Math.random() * 10000)
+            // Note: cameraMode is handled by the model internally
           }
         });
         
