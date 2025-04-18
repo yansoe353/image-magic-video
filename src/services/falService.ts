@@ -1,4 +1,3 @@
-// Import fal-ai client properly
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,8 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 const DEFAULT_API_KEY = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA";
 
 // Model URLs/IDs - Updated with latest models
-export const TEXT_TO_IMAGE_MODEL = "110602490-lcm-sd15-i2i/fast"; // Lt. Create model
-export const IMAGE_TO_VIDEO_MODEL = "fal-ai/sdxl-lightning-4step"; // More reliable model
+export const TEXT_TO_IMAGE_MODEL = "fal-ai/imagen3/fast";
+export const IMAGE_TO_VIDEO_MODEL = "fal-ai/kling-video/v1.6/standard/image-to-video";
 export const VIDEO_TO_VIDEO_MODEL = "fal-ai/mmaudio-v2";
 export const IMAGEN_3_MODEL = "fal-ai/imagen3/fast";
 
