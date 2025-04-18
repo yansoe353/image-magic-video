@@ -1,32 +1,23 @@
 
 export class PexelsService {
-  private apiKey: string = ""; // This will be set via initialize method
-  private baseUrl: string = "https://api.pexels.com/v1";
-
-  initialize(apiKey?: string) {
-    if (apiKey) {
-      this.apiKey = apiKey;
-    }
-  }
-
-  setApiKey(apiKey: string) {
-    this.apiKey = apiKey;
-  }
+  private baseUrl: string = "https://rhbpeivthnmvzhblnvya.supabase.co/functions/v1/media-services";
 
   async searchImages(query: string, perPage: number = 10, page: number = 1): Promise<any> {
     try {
       console.log("Searching Pexels for images:", query);
       
-      if (!this.apiKey) {
-        throw new Error("Pexels API key not set");
-      }
-      
-      const url = `${this.baseUrl}/search?query=${encodeURIComponent(query)}&per_page=${perPage}&page=${page}`;
-      
-      const response = await fetch(url, {
+      const response = await fetch(this.baseUrl, {
+        method: 'POST',
         headers: {
-          "Authorization": this.apiKey
-        }
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          service: 'pexels',
+          action: 'search',
+          query,
+          perPage,
+          page
+        })
       });
       
       if (!response.ok) {
