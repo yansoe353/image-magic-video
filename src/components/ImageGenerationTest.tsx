@@ -53,17 +53,42 @@ const ImageGenerationTest = () => {
       addLog("API request successful");
       addLog("Parsing response...");
       
-      // Extract image URL from result
-      const url = result?.data?.images?.[0]?.url || 
-                 result?.images?.[0]?.url || 
-                 result?.image_url || 
-                 result?.url || 
-                 result?.data?.image_url || 
-                 result?.data?.url;
+      // Handle different response structures correctly
+      let foundUrl = null;
       
-      if (url) {
-        addLog(`Image URL found: ${url.substring(0, 50)}...`);
-        setImageUrl(url);
+      // Check for nested images array first
+      if (result?.data?.images && result.data.images.length > 0) {
+        foundUrl = result.data.images[0].url;
+        addLog(`Found image URL in data.images[0].url`);
+      } 
+      // Check for top-level images array
+      else if (result?.images && result.images.length > 0) {
+        foundUrl = result.images[0].url;
+        addLog(`Found image URL in images[0].url`);
+      }
+      // Check for other possible locations
+      else if (result?.data?.image_url) {
+        foundUrl = result.data.image_url;
+        addLog(`Found image URL in data.image_url`);
+      }
+      else if (result?.data?.url) {
+        foundUrl = result.data.url;
+        addLog(`Found image URL in data.url`);
+      }
+      else if (result?.image_url) {
+        // This property doesn't exist in the TypeScript type, but might be in the actual API response
+        foundUrl = (result as any).image_url;
+        addLog(`Found image URL in image_url (from dynamic property)`);
+      }
+      else if (result?.url) {
+        // This property doesn't exist in the TypeScript type, but might be in the actual API response
+        foundUrl = (result as any).url;
+        addLog(`Found image URL in url (from dynamic property)`);
+      }
+      
+      if (foundUrl) {
+        addLog(`Image URL found: ${foundUrl.substring(0, 50)}...`);
+        setImageUrl(foundUrl);
         toast({
           title: "Success",
           description: "Image generated successfully!",
