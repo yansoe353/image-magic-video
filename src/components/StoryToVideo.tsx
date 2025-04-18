@@ -1,9 +1,7 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
@@ -25,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import MyanmarVpnWarning from "./MyanmarVpnWarning";
 
 const StoryToVideo = () => {
   const [storyPrompt, setStoryPrompt] = useState("");
@@ -354,16 +351,17 @@ const StoryToVideo = () => {
 
       console.log("Generating image with prompt:", enhancedPrompt);
       
-      // Fix: Using generateImageWithImagen3 instead of generateImage
       const result = await falService.generateImageWithImagen3(enhancedPrompt, {
         aspect_ratio: "1:1",
         negative_prompt: "low quality, bad anatomy, distorted, ugly"
       });
 
-      // Fix: Using the correct property path for the image URL
-      const imageUrl = result?.data?.images?.[0]?.url || result?.images?.[0]?.url;
-      
-      if (imageUrl) {
+      if (!result || !result.data || !result.data.images || result.data.images.length === 0) {
+        throw new Error("No image was returned from the API");
+      }
+
+      if (result.data?.images?.[0]?.url) {
+        const imageUrl = result.data.images[0].url;
         console.log("Successfully received image URL:", imageUrl);
         
         const updatedStory = [...generatedStory];
@@ -389,9 +387,6 @@ const StoryToVideo = () => {
           title: "Success",
           description: "Image generated successfully!",
         });
-      } else {
-        console.error("No image URL found in response:", result);
-        throw new Error("No image was returned from the API");
       }
     } catch (error) {
       console.error("Image generation failed:", error);
