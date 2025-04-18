@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
 import { useToast } from "@/hooks/use-toast";
-import { Wand2, FileText, Video, Download, Save, Loader2, RefreshCw, AlertTriangle, FileDown } from "lucide-react";
+import { Wand2, FileText, Video, Download, Save, Loader2, RefreshCw, AlertTriangle, FileDown, CreditCard } from "lucide-react";
 import { generateStoryTextFile, downloadTextFile } from "@/services/textFileService";
 import { falService } from "@/services/falService";
 import { StoryScene } from "@/types";
@@ -17,6 +17,9 @@ import { getRemainingCountsAsync } from "@/utils/usageTracker";
 import BuyApiKeyPopover from "./api-key/BuyApiKeyPopover";
 import { generateStoryPDF } from "@/services/pdfService";
 import { LANGUAGES, LanguageOption } from "@/utils/translationUtils";
+import { useNavigate } from "react-router-dom";
+import { Alert } from "./ui/alert";
+import MyanmarVpnWarning from "./MyanmarVpnWarning";
 
 interface ScriptItem {
   text: string;
@@ -35,6 +38,7 @@ const ScriptToVideo = () => {
   const [activeTab, setActiveTab] = useState<string>("script");
   const [scriptStyle, setScriptStyle] = useState<string>("cinematic");
   const [remainingImages, setRemainingImages] = useState<number>(0);
+  const [remainingVideos, setRemainingVideos] = useState<number>(0);
   const [hasApiKey, setHasApiKey] = useState<boolean>(true);
   const [generatingPDF, setGeneratingPDF] = useState<boolean>(false);
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageOption>("en");
@@ -45,11 +49,13 @@ const ScriptToVideo = () => {
   });
   
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   useEffect(() => {
     const checkLimits = async () => {
       const limits = await getRemainingCountsAsync();
       setRemainingImages(limits.remainingImages);
+      setRemainingVideos(limits.remainingVideos);
       
       const apiKey = localStorage.getItem("falApiKey");
       setHasApiKey(!!apiKey);
@@ -226,16 +232,24 @@ const ScriptToVideo = () => {
       }
       
       const limits = await getRemainingCountsAsync();
+      setRemainingVideos(limits.remainingVideos);
+      
       if (limits.remainingVideos <= 0) {
         throw new Error("You have reached your video generation limit");
       }
       
+      falService.initialize();
+      
       const result = await falService.generateVideoFromImage(
         sceneWithImage.imageUrl, 
-        { cameraMode: "zoom-out" }
+        { 
+          prompt: `Animate this image from the script: "${sceneWithImage.imagePrompt}"` 
+        }
       );
       
-      const videoUrl = result?.video_url || result?.data?.video?.url;
+      const videoUrl = result?.video_url || 
+                      result?.data?.video?.url || 
+                      (result as any)?.url;
       
       if (videoUrl) {
         const updatedScript = generatedScript.map(scene => {
@@ -247,10 +261,24 @@ const ScriptToVideo = () => {
         
         setGeneratedScript(updatedScript);
         
+        await falService.saveToHistory(
+          'video',
+          videoUrl,
+          sceneWithImage.imagePrompt,
+          false,
+          {
+            scriptTitle: title,
+            sourceImageUrl: sceneWithImage.imageUrl
+          }
+        );
+        
         toast({
           title: "Video created!",
           description: "Generated a sample video from your scene.",
         });
+        
+        const updatedLimits = await getRemainingCountsAsync();
+        setRemainingVideos(updatedLimits.remainingVideos);
       } else {
         throw new Error("No video URL returned from the API");
       }
@@ -348,8 +376,14 @@ const ScriptToVideo = () => {
     }
   };
   
+  const navigateToBuyCredits = () => {
+    navigate("/buy-credits");
+  };
+  
   return (
     <div className="w-full">
+      <MyanmarVpnWarning className="mb-4" />
+      
       <Card className="mb-6 shadow-lg glass-morphism">
         <CardHeader>
           <CardTitle className="text-gradient">Script to Video Generator</CardTitle>
@@ -391,7 +425,7 @@ const ScriptToVideo = () => {
                     <Slider
                       value={[scenesCount]}
                       min={1}
-                      max={10}
+                      max={5}
                       step={1}
                       onValueChange={(value) => setScenesCount(value[0])}
                       className="mt-2"
@@ -470,9 +504,39 @@ const ScriptToVideo = () => {
                     <AlertTriangle className="h-4 w-4 text-amber-500" />
                     <div className="text-sm text-amber-200">
                       <p>You have {remainingImages} image credits remaining.</p>
-                      <p className="mt-1 text-amber-300">
+                      <div className="mt-1 text-amber-300 flex gap-2">
                         <BuyApiKeyPopover />
-                      </p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={navigateToBuyCredits}
+                          className="text-amber-300 hover:text-amber-100 border-amber-400"
+                        >
+                          <CreditCard className="mr-1 h-3 w-3" />
+                          Buy Credits
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {hasApiKey && remainingVideos <= 3 && (
+                  <div className="mt-2 p-3 bg-amber-600/30 border border-amber-700/50 rounded-md flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <div className="text-sm text-amber-200">
+                      <p>You have {remainingVideos} video credits remaining.</p>
+                      <div className="mt-1 text-amber-300 flex gap-2">
+                        <BuyApiKeyPopover />
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={navigateToBuyCredits}
+                          className="text-amber-300 hover:text-amber-100 border-amber-400"
+                        >
+                          <CreditCard className="mr-1 h-3 w-3" />
+                          Buy Credits
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -528,7 +592,7 @@ const ScriptToVideo = () => {
                         variant="default" 
                         size="sm"
                         onClick={generateVideo}
-                        disabled={generatingVideo || !hasApiKey || !generatedScript.some(scene => scene.imageUrl)}
+                        disabled={generatingVideo || !hasApiKey || !generatedScript.some(scene => scene.imageUrl) || remainingVideos <= 0}
                       >
                         {generatingVideo ? (
                           <>
@@ -544,6 +608,32 @@ const ScriptToVideo = () => {
                       </Button>
                     </div>
                   </div>
+                  
+                  {hasApiKey && (remainingImages <= 5 || remainingVideos <= 3) && (
+                    <Alert variant="warning" className="bg-amber-600/30 border border-amber-700/50">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+                          <span className="text-amber-200">
+                            {remainingImages <= 5 && remainingVideos <= 3 
+                              ? `Low credits: ${remainingImages} images, ${remainingVideos} videos remaining.` 
+                              : remainingImages <= 5 
+                                ? `${remainingImages} image credits remaining.` 
+                                : `${remainingVideos} video credits remaining.`}
+                          </span>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={navigateToBuyCredits}
+                          className="text-amber-300 hover:text-amber-100 border-amber-400"
+                        >
+                          <CreditCard className="mr-1 h-3 w-3" />
+                          Buy Credits
+                        </Button>
+                      </div>
+                    </Alert>
+                  )}
                   
                   <div className="space-y-6">
                     {generatedScript.map((scene, index) => (
@@ -601,7 +691,7 @@ const ScriptToVideo = () => {
                   
                   {hasApiKey && (
                     <p className="text-xs text-slate-500 text-center">
-                      You have {remainingImages} image generation credits remaining
+                      You have {remainingImages} image generation credits and {remainingVideos} video credits remaining
                     </p>
                   )}
                 </div>

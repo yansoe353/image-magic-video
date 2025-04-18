@@ -212,7 +212,7 @@ const Index = () => {
                 <div className="w-full overflow-hidden rounded-lg">
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
                     <iframe
-                      src="https://multimodalart-loratheexplorer.hf.space"
+                      src="https://imginevi.vercel.app/generate"
                       title="Standard Image"
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

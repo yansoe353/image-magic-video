@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
@@ -42,6 +41,7 @@ interface ImageToVideoResult {
 
 interface ImageToVideoInput {
   image_url: string;
+  prompt?: string;
   cameraMode?: string;
   framesPerSecond?: number;
   modelType?: string; 
@@ -158,24 +158,33 @@ export function useImageToVideo(): ImageToVideoResult {
       // Make sure falService is initialized with latest key
       falService.initialize();
       
+      // Enhanced error handling
+      if (!input.image_url || typeof input.image_url !== 'string' || !input.image_url.startsWith('http')) {
+        throw new Error("Invalid image URL provided. Please ensure you have a valid image.");
+      }
+      
       const result = await falService.generateVideoFromImage(input.image_url, {
-        cameraMode: input.cameraMode,
-        framesPerSecond: input.framesPerSecond,
-        modelType: input.modelType,
-        seed: input.seed
+        prompt: input.prompt || "Animate this image with smooth motion"
       });
       
-      // Handle either direct video_url or nested in data.video.url
-      const videoData = result?.video_url || result?.data?.video?.url;
+      // Improved response handling with more detailed logging
+      console.log("Video generation raw result:", JSON.stringify(result));
+      
+      // Handle different response formats more robustly
+      const videoData = result?.video_url || 
+                        result?.data?.video?.url || 
+                        result?.url || 
+                        (result?.data && typeof result.data === 'string' ? result.data : null);
+      
       if (videoData) {
         setVideoUrl(videoData);
-        console.log("Video generated successfully");
+        console.log("Video generated successfully:", videoData);
         
         // Store the generated video in user history
         await falService.saveToHistory(
           'video',
           videoData,
-          "Generated from image",
+          input.prompt || "Generated from image",
           false,
           {
             source_image_url: input.image_url,
@@ -185,7 +194,8 @@ export function useImageToVideo(): ImageToVideoResult {
           }
         );
       } else {
-        throw new Error("No video was returned from the API");
+        console.error("Video generation response structure:", result);
+        throw new Error("No video was returned from the API. Check console for details.");
       }
     } catch (e) {
       console.error("Error generating video:", e);

@@ -1,5 +1,4 @@
 
-// Import fal-ai client properly
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,9 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 // Default API key
 const DEFAULT_API_KEY = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA";
 
-// Model URLs/IDs
-export const TEXT_TO_IMAGE_MODEL = "110602490-lcm-sd15-i2i/fast"; // Lt. Create model
-export const IMAGE_TO_VIDEO_MODEL = "110602490-ltx-animation/run"; 
+// Model URLs/IDs - Updated with latest models
+export const TEXT_TO_IMAGE_MODEL = "fal-ai/imagen3/fast";
+export const IMAGE_TO_VIDEO_MODEL = "fal-ai/kling-video/v1.6/standard/image-to-video";
 export const VIDEO_TO_VIDEO_MODEL = "fal-ai/mmaudio-v2";
 export const IMAGEN_3_MODEL = "fal-ai/imagen3/fast";
 
@@ -63,15 +62,15 @@ class FalService {
         this.apiKey = envApiKey || localStorage.getItem("falApiKey") || this.apiKey || DEFAULT_API_KEY;
       }
       
-      console.log("Initializing FAL client with key:", this.apiKey ? "API key present" : "No API key");
+      console.log("Initializing Infinity API client with key:", this.apiKey ? "API key present" : "No API key");
       
       // Initialize client with the right credentials
       this.falClient = createFalClient({ credentials: this.apiKey });
       
       this.isInitialized = true;
-      console.log("FAL client initialized successfully");
+      console.log("Infinity API client initialized successfully");
     } catch (error) {
-      console.error("Failed to initialize FAL client:", error);
+      console.error("Failed to initialize Infinity API client:", error);
       this.isInitialized = false;
     }
   }
@@ -117,14 +116,11 @@ class FalService {
     }
   }
 
-  // Image to Video generation
+  // Image to Video generation - improved implementation
   async generateVideoFromImage(
     image_url: string,
     options: {
-      cameraMode?: string;
-      framesPerSecond?: number;
-      modelType?: string;
-      seed?: number;
+      prompt?: string;
     } = {}
   ): Promise<FalRunResult> {
     if (!this.isInitialized) {
@@ -134,15 +130,38 @@ class FalService {
     try {
       console.log("Generating video from image:", image_url);
       
-      const result = await this.falClient.run(IMAGE_TO_VIDEO_MODEL, {
-        input: {
-          image_url,
-          ...options
-        }
-      });
-
-      console.log("Video generation result:", result);
-      return result;
+      // Validate image URL
+      if (!image_url || typeof image_url !== 'string' || !image_url.startsWith('http')) {
+        throw new Error("Invalid image URL format");
+      }
+      
+      // Try the primary model
+      try {
+        console.log("Attempting video generation with Kling model");
+        const result = await this.falClient.run(IMAGE_TO_VIDEO_MODEL, {
+          input: {
+            image_url,
+            prompt: options.prompt || "Animate this image with smooth motion"
+          }
+        });
+        
+        console.log("Primary model result:", result);
+        return result;
+      } catch (primaryError) {
+        console.error("Error with primary model, falling back to backup:", primaryError);
+        
+        // Fallback to original model if primary fails
+        const fallbackModel = "110602490-ltx-animation/run";
+        const result = await this.falClient.run(fallbackModel, {
+          input: {
+            image_url,
+            ...options
+          }
+        });
+        
+        console.log("Fallback model result:", result);
+        return result;
+      }
     } catch (error) {
       console.error("Error generating video from image:", error);
       throw error;

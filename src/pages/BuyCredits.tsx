@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,12 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, Check, MessageCircle, Phone, Send } from "lucide-react";
+import { Loader2, Check, MessageCircle, Phone, Send, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { convertCurrency } from "@/utils/currencyUtils";
 
 const packages = [
   {
@@ -43,16 +44,55 @@ const BuyCredits = () => {
   const [additionalInfo, setAdditionalInfo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [priceInBaht, setPriceInBaht] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   
   const { toast } = useToast();
   const navigate = useNavigate();
   
   const selectedPkg = packages.find(pkg => pkg.id === selectedPackage);
   
+  useEffect(() => {
+    if (selectedPkg) {
+      // Use the exact conversion from the currencyUtils
+      setPriceInBaht(convertCurrency(selectedPkg.price, "KS", "THB"));
+    }
+  }, [selectedPackage]);
+  
+  useEffect(() => {
+    const checkUserStatus = async () => {
+      try {
+        setIsLoading(true);
+        const userId = await getUserId();
+        
+        if (!userId) {
+          toast({
+            title: "Authentication required",
+            description: "Please log in before purchasing credits",
+            variant: "destructive"
+          });
+          navigate("/login");
+          return;
+        }
+      } catch (error) {
+        console.error("Error checking user status:", error);
+        toast({
+          title: "Error",
+          description: "Unable to verify your account status",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkUserStatus();
+  }, [navigate, toast]);
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!name || !phone || !paymentMethod) {
+    if (!name || !email || !phone || !paymentMethod) {
       toast({
         title: "Missing information",
         description: "Please fill in all required fields",
@@ -76,7 +116,6 @@ const BuyCredits = () => {
         return;
       }
       
-      // Create payment request in database
       const { error } = await supabase.from("payment_requests").insert({
         user_id: userId,
         package_id: selectedPackage,
@@ -88,7 +127,8 @@ const BuyCredits = () => {
           email,
           phone,
           additional_info: additionalInfo,
-          selected_package: selectedPkg
+          selected_package: selectedPkg,
+          price_in_baht: paymentMethod === "bank" ? priceInBaht : null
         }
       });
       
@@ -113,6 +153,20 @@ const BuyCredits = () => {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
+        <Header />
+        <main className="container max-w-4xl py-8 px-4 md:px-6 mt-16 flex justify-center items-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p className="text-white">Checking your account status...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
@@ -120,6 +174,15 @@ const BuyCredits = () => {
       
       <main className="container max-w-4xl py-8 px-4 md:px-6 mt-16">
         <h1 className="text-4xl font-bold text-white mb-8 text-center">Buy Additional Credits</h1>
+        
+        <div className="mb-8">
+          <Alert className="bg-blue-950/30 border-blue-500/50">
+            <AlertTitle className="text-blue-400">Additional Infinity API Credits</AlertTitle>
+            <AlertDescription className="text-slate-300">
+              These credits are additional to your account and allow you to create more pro-quality content using Infinity API.
+            </AlertDescription>
+          </Alert>
+        </div>
         
         {!isSubmitted ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -184,13 +247,14 @@ const BuyCredits = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
                       <Input
                         id="email"
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Your email address (optional)"
+                        placeholder="Your email address"
+                        required
                         className="bg-slate-900"
                       />
                     </div>
@@ -222,6 +286,9 @@ const BuyCredits = () => {
                           <RadioGroupItem value="kpay" id="kpay" className="sr-only" />
                           <Label htmlFor="kpay" className="flex flex-col items-center gap-2 cursor-pointer">
                             <span className="text-sm font-medium">KBZ Pay</span>
+                            <div className="text-xs text-slate-400">
+                              09974902335 (Yan Naing Soe)
+                            </div>
                           </Label>
                         </div>
                         
@@ -233,6 +300,9 @@ const BuyCredits = () => {
                           <RadioGroupItem value="wave" id="wave" className="sr-only" />
                           <Label htmlFor="wave" className="flex flex-col items-center gap-2 cursor-pointer">
                             <span className="text-sm font-medium">Wave Pay</span>
+                            <div className="text-xs text-slate-400">
+                              09969609655 (Su Shwe Sin Win)
+                            </div>
                           </Label>
                         </div>
                         
@@ -243,7 +313,15 @@ const BuyCredits = () => {
                         }`}>
                           <RadioGroupItem value="bank" id="bank" className="sr-only" />
                           <Label htmlFor="bank" className="flex flex-col items-center gap-2 cursor-pointer">
-                            <span className="text-sm font-medium">Bank Transfer</span>
+                            <span className="text-sm font-medium">Bangkok Bank</span>
+                            <div className="text-xs text-slate-400">
+                              1494154519 (Yan Naing Soe)
+                              {paymentMethod === "bank" && (
+                                <div className="font-bold text-green-400 mt-1">
+                                  {priceInBaht} THB
+                                </div>
+                              )}
+                            </div>
                           </Label>
                         </div>
                         
@@ -295,7 +373,8 @@ const BuyCredits = () => {
                           </>
                         ) : (
                           <>
-                            Complete Purchase ({selectedPkg?.price.toLocaleString()} Ks)
+                            Complete Purchase ({selectedPkg?.price.toLocaleString()} Ks
+                            {paymentMethod === "bank" && ` / ${priceInBaht} THB`})
                           </>
                         )}
                       </Button>

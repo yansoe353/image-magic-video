@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
-import { fal } from "@fal-ai/client";
 import { Languages, AlertCircle } from "lucide-react";
 import { LANGUAGES, translateText, type LanguageOption } from "@/utils/translationUtils";
 import { useVideoControls } from "@/hooks/useVideoControls";
@@ -21,18 +21,7 @@ import { uploadUrlToStorage, getUserId } from "@/utils/storageUtils";
 import ProLabel from "./ProLabel";
 import KlingAILabel from "./KlingAILabel";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
-
-// Initialize fal.ai client with proper environment variable handling for browser
-try {
-  const apiKey = import.meta.env.VITE_FAL_API_KEY;
-  if (apiKey) {
-    fal.config({
-      credentials: apiKey
-    });
-  }
-} catch (error) {
-  console.error("Error initializing fal.ai client:", error);
-}
+import { useImageToVideo } from "@/hooks/useFalClient";
 
 interface ImageToVideoProps {
   initialImageUrl?: string | null;
@@ -46,7 +35,6 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
   const [imageUrl, setImageUrl] = useState("");
   const [imagePreview, setImagePreview] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [generationLogs, setGenerationLogs] = useState<string[]>([]);
   const [originalVideoUrl, setOriginalVideoUrl] = useState("");
@@ -62,6 +50,13 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
   const [counts, setCounts] = useState(getRemainingCounts());
+  
+  const { 
+    videoUrl: generatedVideoUrl, 
+    isGenerating: isLoading, 
+    error: generationError,
+    generate: generateVideoFromImage
+  } = useImageToVideo();
 
   useEffect(() => {
     const updateCounts = async () => {
@@ -77,6 +72,23 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
       setImageUrl(initialImageUrl);
     }
   }, [initialImageUrl]);
+  
+  useEffect(() => {
+    if (generatedVideoUrl && !isLoading) {
+      handleVideoGenerated(generatedVideoUrl);
+    }
+  }, [generatedVideoUrl, isLoading]);
+  
+  useEffect(() => {
+    if (generationError) {
+      setGenerationLogs(prev => [...prev, `Error: ${generationError}`]);
+      toast({
+        title: "Video Generation Failed",
+        description: generationError,
+        variant: "destructive",
+      });
+    }
+  }, [generationError, toast]);
 
   const saveToHistory = async (videoUrl: string, originalUrl: string) => {
     if (!isLoggedIn()) return;
@@ -115,6 +127,44 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
     }
   };
 
+  const handleVideoGenerated = async (videoUrl: string) => {
+    setOriginalVideoUrl(videoUrl);
+    setVideoUrl(""); // Clear any existing URL
+
+    setIsStoringVideo(true);
+    try {
+      const userId = await getUserId();
+      const supabaseUrl = await uploadUrlToStorage(videoUrl, 'video', userId, isPublic);
+      setSupabaseVideoUrl(supabaseUrl);
+      setVideoUrl(supabaseUrl); // Set the Supabase URL as the video URL
+
+      await saveToHistory(supabaseUrl, videoUrl);
+
+      if (onVideoGenerated) {
+        onVideoGenerated(supabaseUrl);
+      }
+
+      toast({
+        title: "Video Stored",
+        description: "Video uploaded to your storage",
+      });
+      
+      const freshCounts = await getRemainingCountsAsync();
+      setCounts(freshCounts);
+    } catch (uploadError) {
+      console.error("Failed to upload to Supabase:", uploadError);
+      setVideoUrl(videoUrl);
+      
+      if (onVideoGenerated) {
+        onVideoGenerated(videoUrl);
+      }
+      
+      await saveToHistory(videoUrl, videoUrl);
+    } finally {
+      setIsStoringVideo(false);
+    }
+  };
+
   const generateVideo = async () => {
     if (!imageUrl || !prompt.trim()) {
       toast({
@@ -134,12 +184,10 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
       return;
     }
 
-    setIsLoading(true);
     setGenerationLogs([]);
+    setGenerationLogs(prev => [...prev, "Initializing model..."]);
 
     try {
-      setGenerationLogs(prev => [...prev, "Initializing model..."]);
-
       let promptToUse = prompt;
       if (selectedLanguage !== "en") {
         try {
@@ -150,76 +198,19 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
         }
       }
 
-      const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
-        input: {
-          prompt: promptToUse,
-          image_url: imageUrl,
-          duration: "5",
-          aspect_ratio: aspectRatio as "16:9" | "9:16" | "1:1",
-          negative_prompt: negativePrompt,
-          cfg_scale: cfgScale,
-        },
-        logs: true,
-        onQueueUpdate: (update) => {
-          if (update.status === "IN_PROGRESS") {
-            const newLogs = update.logs.map(log => log.message);
-            setGenerationLogs(prev => [...prev, ...newLogs]);
-          }
-        },
+      setGenerationLogs(prev => [...prev, "Starting video generation..."]);
+      setGenerationLogs(prev => [...prev, "This may take up to 30-60 seconds"]);
+      
+      await generateVideoFromImage({
+        image_url: imageUrl,
+        prompt: promptToUse,  // Pass the prompt to the generate function
+        cameraMode: "zoom-out",
+        framesPerSecond: 24,
+        seed: Math.floor(Math.random() * 10000)
       });
-
-      if (result.data?.video?.url) {
-        const falVideoUrl = result.data.video.url;
-        setOriginalVideoUrl(falVideoUrl);
-        setVideoUrl(""); // Clear any existing URL
-
-        setIsStoringVideo(true);
-        try {
-          const userId = await getUserId();
-          const supabaseUrl = await uploadUrlToStorage(falVideoUrl, 'video', userId, isPublic);
-          setSupabaseVideoUrl(supabaseUrl);
-          setVideoUrl(supabaseUrl); // Set the Supabase URL as the video URL
-
-          await saveToHistory(supabaseUrl, falVideoUrl);
-
-          if (onVideoGenerated) {
-            onVideoGenerated(supabaseUrl);
-          }
-
-          toast({
-            title: "Video Stored",
-            description: "Video uploaded to your storage",
-          });
-        } catch (uploadError) {
-          console.error("Failed to upload to Supabase:", uploadError);
-          setVideoUrl(falVideoUrl);
-          
-          if (onVideoGenerated) {
-            onVideoGenerated(falVideoUrl);
-          }
-          
-          await saveToHistory(falVideoUrl, falVideoUrl);
-        } finally {
-          setIsStoringVideo(false);
-        }
-
-        if (await incrementVideoCount()) {
-          toast({
-            title: "Success",
-            description: "Video generated successfully!",
-          });
-          const freshCounts = await getRemainingCountsAsync();
-          setCounts(freshCounts);
-        } else {
-          toast({
-            title: "Usage Limit Reached",
-            description: "You've reached your video generation limit.",
-            variant: "destructive",
-          });
-        }
-      } else {
-        throw new Error("No video URL in response");
-      }
+      
+      setGenerationLogs(prev => [...prev, "Processing video..."]);
+      
     } catch (error) {
       console.error("Failed to generate video:", error);
       toast({
@@ -227,8 +218,6 @@ const ImageToVideo = ({ initialImageUrl, onVideoGenerated, onSwitchToEditor }: I
         description: "Failed to generate video. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
