@@ -31,9 +31,8 @@ const StoryToVideo = () => {
   const { toast } = useToast();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isCreatingVideo, setIsCreatingVideo] = useState(false);
-  const [cameraMode, setCameraMode] = useState("zoom-in");
+  const [cameraMode, setCameraMode] = useState("zoom in");
   const [framesPerSecond, setFramesPerSecond] = useState(8);
-  const [modelType, setModelType] = useState("version-1");
   const [counts, setCounts] = useState(getRemainingCounts());
   const [isPublic, setIsPublic] = useState(false);
 
@@ -63,7 +62,7 @@ const StoryToVideo = () => {
       const paragraphs = story.split('\n').filter(p => p.trim() !== '');
       const newScenes: Scene[] = paragraphs.map((paragraph, index) => ({
         text: paragraph,
-        imagePrompt: `A visually stunning scene from the story: ${paragraph}`,
+        imagePrompt: `A visually stunning scene from the story "${title}": ${paragraph}`,
         imageUrl: null
       }));
       setScenes(newScenes);
@@ -95,9 +94,7 @@ const StoryToVideo = () => {
         const scene = scenes[i];
         setCurrentStep(`Generating image for scene ${i + 1}/${scenes.length}`);
         
-        // Use the falService to generate image using imagen3
-        const result = await falService.generateImage({
-          prompt: scene.imagePrompt,
+        const result = await falService.generateImage(scene.imagePrompt, {
           negative_prompt: "low quality, bad anatomy, distorted",
           width: 1024,
           height: 1024
@@ -155,10 +152,8 @@ const StoryToVideo = () => {
         throw new Error("No image URLs available to create video.");
       }
 
-      // Use the first image URL as the base and animate it
       const firstImageUrl = videoUrls[0];
 
-      // Check if the URL is valid
       if (!firstImageUrl || typeof firstImageUrl !== 'string' || !firstImageUrl.startsWith('http')) {
         throw new Error("Invalid image URL provided. Please ensure you have a valid image.");
       }
@@ -171,16 +166,12 @@ const StoryToVideo = () => {
       falService.initialize();
 
       const result = await falService.generateVideoFromImage(firstImageUrl, {
-        prompt: "Animate this image with smooth motion",
-        cameraMode: cameraMode,
-        framesPerSecond: framesPerSecond,
-        modelType: modelType
+        prompt: `Animate this image with ${cameraMode} motion for the story "${title}"`
       });
 
       if (result?.video_url) {
         setVideoUrl(result.video_url);
 
-        // Save to history
         if (isLoggedIn()) {
           const userId = await getUserId();
           if (userId) {
@@ -193,8 +184,7 @@ const StoryToVideo = () => {
               metadata: {
                 title: title,
                 cameraMode: cameraMode,
-                framesPerSecond: framesPerSecond,
-                modelType: modelType
+                framesPerSecond: framesPerSecond
               }
             });
           }
@@ -229,8 +219,8 @@ const StoryToVideo = () => {
           </div>
 
           <UsageLimits
-            remainingVideos={counts.remainingVideos}
-            videoLimit={VIDEO_LIMIT}
+            remainingImages={counts.remainingVideos}
+            imageLimit={VIDEO_LIMIT}
           />
 
           <div className="space-y-4">
@@ -312,23 +302,23 @@ const StoryToVideo = () => {
 
             <div className="space-y-4">
               <div>
-                <Label htmlFor="cameraMode">Camera Mode</Label>
+                <Label htmlFor="cameraMode">Camera Motion</Label>
                 <Select value={cameraMode} onValueChange={setCameraMode}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select camera mode" />
+                    <SelectValue placeholder="Select camera motion" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="zoom-in">Zoom In</SelectItem>
-                    <SelectItem value="zoom-out">Zoom Out</SelectItem>
-                    <SelectItem value="pan-left">Pan Left</SelectItem>
-                    <SelectItem value="pan-right">Pan Right</SelectItem>
-                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="zoom in">Zoom In</SelectItem>
+                    <SelectItem value="zoom out">Zoom Out</SelectItem>
+                    <SelectItem value="pan left">Pan Left</SelectItem>
+                    <SelectItem value="pan right">Pan Right</SelectItem>
+                    <SelectItem value="slow">Slow Motion</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="framesPerSecond">Frames Per Second</Label>
+                <Label htmlFor="framesPerSecond">Animation Speed</Label>
                 <Slider
                   id="framesPerSecond"
                   defaultValue={[framesPerSecond]}
@@ -338,20 +328,18 @@ const StoryToVideo = () => {
                   onValueChange={(value) => setFramesPerSecond(value[0])}
                   disabled={isCreatingVideo}
                 />
-                <p className="text-sm text-gray-500 mt-1">Selected: {framesPerSecond} FPS</p>
+                <p className="text-sm text-gray-500 mt-1">Selected: {framesPerSecond}</p>
               </div>
 
-              <div>
-                <Label htmlFor="modelType">Model Type</Label>
-                <Select value={modelType} onValueChange={setModelType}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select model type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="version-1">Version 1</SelectItem>
-                    <SelectItem value="version-2">Version 2</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="isPublic"
+                  checked={isPublic}
+                  onChange={(e) => setIsPublic(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <Label htmlFor="isPublic">Make video public</Label>
               </div>
 
               <div className="flex items-center justify-between">
