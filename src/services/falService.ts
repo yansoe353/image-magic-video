@@ -1,323 +1,386 @@
-
-import { createFalClient } from '@fal-ai/client';
+import React, { useState, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, ImageIcon, PlayIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { falService } from "@/services/falService";
+import { incrementVideoCount, VIDEO_LIMIT, getRemainingCounts, getRemainingCountsAsync } from "@/utils/usageTracker";
+import { UsageLimits } from "./image-generation/UsageLimits";
+import { isLoggedIn } from "@/utils/authUtils";
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
+import ProLabel from "./ProLabel";
 
-// Default API key
-const DEFAULT_API_KEY = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA";
-
-// Model URLs/IDs - Updated with latest models
-export const TEXT_TO_IMAGE_MODEL = "fal-ai/imagen3/fast";
-export const IMAGE_TO_VIDEO_MODEL = "fal-ai/kling-video/v1.6/standard/image-to-video";
-export const VIDEO_TO_VIDEO_MODEL = "fal-ai/mmaudio-v2";
-export const IMAGEN_3_MODEL = "fal-ai/imagen3/fast";
-
-interface FalRunResult {
-  images?: { url: string }[];
-  seed?: number;
-  video_url?: string;
-  requestId?: string;
-  data?: {
-    images?: { url: string }[];
-    video?: { url: string };
-  };
-  image_url?: string;
-  url?: string;
+interface Scene {
+  text: string;
+  imagePrompt: string;
+  imageUrl: string | null;
 }
 
-// Generic type for handling different API response formats
-type GenericApiResponse = {
-  [key: string]: any;
-  data?: {
-    [key: string]: any;
-    images?: { url: string }[];
+const StoryToVideo = () => {
+  const [title, setTitle] = useState("");
+  const [story, setStory] = useState("");
+  const [scenes, setScenes] = useState<Scene[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [currentStep, setCurrentStep] = useState("");
+  const { toast } = useToast();
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [isCreatingVideo, setIsCreatingVideo] = useState(false);
+  const [cameraMode, setCameraMode] = useState("zoom in");
+  const [framesPerSecond, setFramesPerSecond] = useState(8);
+  const [counts, setCounts] = useState(getRemainingCounts());
+  const [isPublic, setIsPublic] = useState(false);
+
+  useEffect(() => {
+    const updateCounts = async () => {
+      const freshCounts = await getRemainingCountsAsync();
+      setCounts(freshCounts);
+    };
+    updateCounts();
+  }, []);
+
+  const generateScenes = async () => {
+    if (!title.trim() || !story.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter both title and story.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    setCurrentStep("Generating scenes from story...");
+
+    try {
+      // Basic scene splitting logic - split by paragraphs
+      const paragraphs = story.split('\n').filter(p => p.trim() !== '');
+      const newScenes: Scene[] = paragraphs.map((paragraph, index) => ({
+        text: paragraph,
+        imagePrompt: `A visually stunning scene from the story "${title}": ${paragraph}`,
+        imageUrl: null
+      }));
+      setScenes(newScenes);
+      setCurrentStep("Scenes generated. Generating images...");
+
+      const updatedScenes = await generateImagesForScenes(newScenes);
+      if (updatedScenes) {
+        setScenes(updatedScenes);
+        setCurrentStep("Images generated. Ready to create video.");
+      }
+    } catch (error) {
+      console.error("Error generating scenes:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate scenes. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
-  images?: { url: string }[];
-  image_url?: string;
-  url?: string;
+
+  const generateImagesForScenes = async (scenes: Scene[]) => {
+    const updatedScenes = [...scenes];
+    setIsGenerating(true);
+    
+    try {
+      for (let i = 0; i < scenes.length; i++) {
+        const scene = scenes[i];
+        setCurrentStep(`Generating image for scene ${i + 1}/${scenes.length}`);
+        
+        const result = await falService.generateImage(scene.imagePrompt, {
+          negative_prompt: "low quality, bad anatomy, distorted",
+          width: 1024,
+          height: 1024
+        });
+
+        if (result.images?.[0]?.url) {
+          updatedScenes[i] = {
+            ...scene,
+            imageUrl: result.images[0].url
+          };
+          setScenes(updatedScenes);
+        } else {
+          throw new Error("Failed to generate image for scene");
+        }
+      }
+      return updatedScenes;
+    } catch (error) {
+      console.error("Error generating images:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate images. Please try again.",
+        variant: "destructive"
+      });
+      return null;
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const createVideoFromScenes = async () => {
+    if (counts.remainingVideos <= 0) {
+      toast({
+        title: "Usage Limit Reached",
+        description: `You've reached the limit of ${VIDEO_LIMIT} video generations.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!scenes.every(scene => scene.imageUrl)) {
+      toast({
+        title: "Error",
+        description: "Please generate images for all scenes first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsCreatingVideo(true);
+    setCurrentStep("Creating video from images...");
+
+    try {
+      const videoUrls = scenes.map(scene => scene.imageUrl).filter(url => url !== null) as string[];
+      if (videoUrls.length === 0) {
+        throw new Error("No image URLs available to create video.");
+      }
+
+      const firstImageUrl = videoUrls[0];
+
+      if (!firstImageUrl || typeof firstImageUrl !== 'string' || !firstImageUrl.startsWith('http')) {
+        throw new Error("Invalid image URL provided. Please ensure you have a valid image.");
+      }
+
+      const canGenerate = await incrementVideoCount();
+      if (!canGenerate) {
+        throw new Error("You have reached your video generation limit");
+      }
+
+      falService.initialize();
+
+      const result = await falService.generateVideoFromImage(firstImageUrl, {
+        prompt: `Animate this image with ${cameraMode} motion for the story "${title}"`
+      });
+
+      if (result?.video_url) {
+        setVideoUrl(result.video_url);
+
+        if (isLoggedIn()) {
+          const userId = await getUserId();
+          if (userId) {
+            await supabase.from('user_content_history').insert({
+              user_id: userId,
+              content_type: 'video',
+              content_url: result.video_url,
+              prompt: `Video generated from story: ${title}`,
+              is_public: isPublic,
+              metadata: {
+                title: title,
+                cameraMode: cameraMode,
+                framesPerSecond: framesPerSecond
+              }
+            });
+          }
+        }
+
+        toast({
+          title: "Success",
+          description: "Video created successfully!",
+        });
+      } else {
+        throw new Error("Failed to create video.");
+      }
+    } catch (error) {
+      console.error("Error creating video:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create video. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCreatingVideo(false);
+    }
+  };
+
+  return (
+    <div className="grid gap-8 md:grid-cols-1">
+      <Card className="overflow-hidden">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-2xl font-bold">Story to Video</h2>
+            <ProLabel />
+          </div>
+
+          <UsageLimits
+            remainingImages={counts.remainingVideos}
+            imageLimit={VIDEO_LIMIT}
+          />
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                type="text"
+                placeholder="Enter story title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                disabled={isGenerating || isCreatingVideo}
+              />
+            </div>
+            <div>
+              <Label htmlFor="story">Story</Label>
+              <Textarea
+                id="story"
+                placeholder="Enter your story"
+                value={story}
+                onChange={(e) => setStory(e.target.value)}
+                rows={4}
+                disabled={isGenerating || isCreatingVideo}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Button
+                onClick={generateScenes}
+                disabled={isGenerating || isCreatingVideo || !title.trim() || !story.trim()}
+                className="w-full"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {currentStep}
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon className="mr-2 h-4 w-4" />
+                    Generate Scenes
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {scenes.length > 0 && (
+        <Card className="overflow-hidden">
+          <CardContent className="p-6">
+            <h3 className="text-xl font-semibold mb-4">Generated Scenes</h3>
+            <div className="space-y-4">
+              {scenes.map((scene, index) => (
+                <div key={index} className="border rounded-md p-4">
+                  <p className="text-sm text-gray-500 mb-2">Scene {index + 1}</p>
+                  <p className="mb-2">{scene.text}</p>
+                  {scene.imageUrl && (
+                    <div className="relative">
+                      <img
+                        src={scene.imageUrl}
+                        alt={`Scene ${index + 1}`}
+                        className="w-full rounded-md aspect-video object-cover"
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {scenes.length > 0 && (
+        <Card className="overflow-hidden">
+          <CardContent className="p-6">
+            <h3 className="text-xl font-semibold mb-4">Create Video</h3>
+
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="cameraMode">Camera Motion</Label>
+                <Select value={cameraMode} onValueChange={setCameraMode}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select camera motion" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="zoom in">Zoom In</SelectItem>
+                    <SelectItem value="zoom out">Zoom Out</SelectItem>
+                    <SelectItem value="pan left">Pan Left</SelectItem>
+                    <SelectItem value="pan right">Pan Right</SelectItem>
+                    <SelectItem value="slow">Slow Motion</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="framesPerSecond">Animation Speed</Label>
+                <Slider
+                  id="framesPerSecond"
+                  defaultValue={[framesPerSecond]}
+                  max={24}
+                  min={1}
+                  step={1}
+                  onValueChange={(value) => setFramesPerSecond(value[0])}
+                  disabled={isCreatingVideo}
+                />
+                <p className="text-sm text-gray-500 mt-1">Selected: {framesPerSecond}</p>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="isPublic"
+                  checked={isPublic}
+                  onChange={(e) => setIsPublic(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <Label htmlFor="isPublic">Make video public</Label>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Button
+                  onClick={createVideoFromScenes}
+                  disabled={isCreatingVideo || counts.remainingVideos <= 0}
+                  className="w-full"
+                >
+                  {isCreatingVideo ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {currentStep}
+                    </>
+                  ) : (
+                    <>
+                      <PlayIcon className="mr-2 h-4 w-4" />
+                      Create Video
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {videoUrl && (
+        <Card className="overflow-hidden">
+          <CardContent className="p-6">
+            <h3 className="text-xl font-semibold mb-4">Generated Video</h3>
+            <div className="relative">
+              <video controls className="w-full rounded-md aspect-video">
+                <source src={videoUrl} type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
 };
 
-class FalService {
-  private apiKey: string = DEFAULT_API_KEY;
-  private isInitialized: boolean = false;
-  private falClient: ReturnType<typeof createFalClient>;
-
-  constructor() {
-    // Try to get API key from environment first, then localStorage, then default
-    const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_API_KEY : undefined;
-    this.apiKey = envApiKey || localStorage.getItem("falApiKey") || DEFAULT_API_KEY;
-    
-    // Create fal client with API key
-    this.falClient = createFalClient({ credentials: this.apiKey });
-    this.initialize();
-  }
-
-  initialize(apiKey?: string) {
-    try {
-      // Use provided key or try to get from environment or localStorage
-      if (apiKey) {
-        this.apiKey = apiKey;
-      } else {
-        const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_API_KEY : undefined;
-        this.apiKey = envApiKey || localStorage.getItem("falApiKey") || this.apiKey || DEFAULT_API_KEY;
-      }
-      
-      console.log("Initializing Infinity API client with key:", this.apiKey ? "API key present" : "No API key");
-      
-      // Initialize client with the right credentials
-      this.falClient = createFalClient({ credentials: this.apiKey });
-      
-      this.isInitialized = true;
-      console.log("Infinity API client initialized successfully");
-    } catch (error) {
-      console.error("Failed to initialize Infinity API client:", error);
-      this.isInitialized = false;
-    }
-  }
-
-  setApiKey(apiKey: string) {
-    this.apiKey = apiKey;
-    localStorage.setItem("falApiKey", apiKey);
-    this.initialize(apiKey);
-  }
-
-  // Text to Image generation
-  async generateImage(
-    prompt: string, 
-    options: {
-      negative_prompt?: string;
-      height?: number;
-      width?: number;
-      guidance_scale?: number;
-      num_inference_steps?: number;
-      seed?: number;
-      strength?: number;
-    } = {}
-  ): Promise<FalRunResult> {
-    if (!this.isInitialized) {
-      this.initialize();
-    }
-
-    try {
-      console.log("Generating image with prompt:", prompt);
-      
-      const result = await this.falClient.run(TEXT_TO_IMAGE_MODEL, {
-        input: {
-          prompt,
-          ...options
-        }
-      });
-
-      console.log("Image generation result:", result);
-      return result;
-    } catch (error) {
-      console.error("Error generating image:", error);
-      throw error;
-    }
-  }
-
-  // Image to Video generation - improved implementation
-  async generateVideoFromImage(
-    image_url: string,
-    options: {
-      prompt?: string;
-    } = {}
-  ): Promise<FalRunResult> {
-    if (!this.isInitialized) {
-      this.initialize();
-    }
-
-    try {
-      console.log("Generating video from image:", image_url);
-      
-      // Validate image URL
-      if (!image_url || typeof image_url !== 'string' || !image_url.startsWith('http')) {
-        throw new Error("Invalid image URL format");
-      }
-      
-      // Try the primary model
-      try {
-        console.log("Attempting video generation with Kling model");
-        const result = await this.falClient.run(IMAGE_TO_VIDEO_MODEL, {
-          input: {
-            image_url,
-            prompt: options.prompt || "Animate this image with smooth motion"
-          }
-        });
-        
-        console.log("Primary model result:", result);
-        return result;
-      } catch (primaryError) {
-        console.error("Error with primary model, falling back to backup:", primaryError);
-        
-        // Fallback to original model if primary fails
-        const fallbackModel = "110602490-ltx-animation/run";
-        const result = await this.falClient.run(fallbackModel, {
-          input: {
-            image_url,
-            ...options
-          }
-        });
-        
-        console.log("Fallback model result:", result);
-        return result;
-      }
-    } catch (error) {
-      console.error("Error generating video from image:", error);
-      throw error;
-    }
-  }
-
-  // Video to Video generation
-  async generateVideoFromVideo(input: {
-    video_url: string;
-    prompt: string;
-    negative_prompt?: string;
-    num_steps?: number;
-    duration?: number;
-    cfg_strength?: number;
-    seed?: number;
-    mask_away_clip?: boolean;
-  }): Promise<FalRunResult> {
-    if (!this.isInitialized) {
-      this.initialize();
-    }
-
-    try {
-      const result = await this.falClient.run(VIDEO_TO_VIDEO_MODEL, {
-        input
-      });
-
-      return result;
-    } catch (error) {
-      console.error("Error processing video:", error);
-      throw error;
-    }
-  }
-
-  // Image generation with Imagen 3
-  async generateImageWithImagen3(prompt: string, options: any = {}): Promise<FalRunResult> {
-    if (!this.isInitialized) {
-      this.initialize();
-    }
-
-    try {
-      console.log("Generating image with Imagen3, prompt:", prompt);
-      
-      if (!prompt || prompt.trim() === '') {
-        throw new Error("Prompt cannot be empty");
-      }
-      
-      const result = await this.falClient.run(IMAGEN_3_MODEL, {
-        input: {
-          prompt,
-          aspect_ratio: options.aspect_ratio || "1:1",
-          negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
-          ...options
-        }
-      }) as GenericApiResponse; // Cast to our generic type to handle response variations
-      
-      console.log("Imagen3 response received:", result);
-      
-      // Fix the type issue - handle the result properly based on actual structure
-      if (!result) {
-        throw new Error("Empty response from Imagen3 API");
-      }
-      
-      // Access data first to ensure we're working with the correct structure
-      if (result.data && result.data.images && result.data.images.length > 0) {
-        // If we have a direct data.images structure, use it
-        return result as FalRunResult;
-      } else if (result.images && result.images.length > 0) {
-        // If images are at the top level
-        return result as FalRunResult;
-      } else {
-        // If there's no standard images structure, wrap any available URL in our expected format
-        const imageUrl = result.image_url || result.url || 
-                        // Access potential nested properties safely
-                        result.data?.image_url || 
-                        result.data?.url;
-                        
-        if (!imageUrl) {
-          console.error("Unable to find image URL in response:", result);
-          throw new Error("Could not extract image URL from API response");
-        }
-        
-        return {
-          data: {
-            images: [{ url: imageUrl }]
-          }
-        };
-      }
-    } catch (error) {
-      console.error("Error generating image with Imagen3:", error);
-      throw error;
-    }
-  }
-
-  // Upload file to FAL.ai
-  async uploadFile(file: File) {
-    if (!this.isInitialized) {
-      this.initialize();
-    }
-
-    try {
-      // Use the file-upload specific endpoint
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('https://gateway.fal.ai/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Key ${this.apiKey}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to upload file: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return data.url; // Return the URL of the uploaded file
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      throw error;
-    }
-  }
-
-  // Save content to history
-  async saveToHistory(
-    contentType: 'image' | 'video', 
-    contentUrl: string, 
-    prompt: string,
-    isPublic: boolean = false,
-    metadata: any = {}
-  ) {
-    try {
-      const userId = await getUserId();
-      if (!userId) return;
-
-      await supabase.from('user_content_history').insert({
-        user_id: userId,
-        content_type: contentType,
-        content_url: contentUrl,
-        prompt: prompt,
-        is_public: isPublic,
-        metadata: metadata
-      });
-      
-      console.log(`${contentType} saved to history`);
-      return true;
-    } catch (error) {
-      console.error(`Failed to save ${contentType} to history:`, error);
-      return false;
-    }
-  }
-}
-
-// Create and export a singleton instance
-export const falService = new FalService();
-
-// Re-export the createFalClient function for direct access when needed
-export { createFalClient };
+export default StoryToVideo;
