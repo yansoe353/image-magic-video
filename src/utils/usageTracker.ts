@@ -138,14 +138,17 @@ export const getRemainingCountsForUser = async (userId: string): Promise<{
   remainingVideos: number;
 }> => {
   try {
-    // Get user's custom limits
+    // Get user's custom limits from profiles table
     const { data: userData, error: userError } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle(); // Use maybeSingle instead of single to prevent errors when no data is found
     
-    if (userError) throw userError;
+    if (userError) {
+      console.error("Error fetching user profile:", userError);
+      return { remainingImages: 0, remainingVideos: 0 };
+    }
     
     // Get user's generation counts
     const { data: imageData, error: imageError } = await supabaseAdmin
@@ -154,7 +157,10 @@ export const getRemainingCountsForUser = async (userId: string): Promise<{
       .eq('user_id', userId)
       .eq('content_type', 'image');
     
-    if (imageError) throw imageError;
+    if (imageError) {
+      console.error("Error fetching image count:", imageError);
+      return { remainingImages: 0, remainingVideos: 0 };
+    }
     
     const { data: videoData, error: videoError } = await supabaseAdmin
       .from('user_content_history')
@@ -162,8 +168,13 @@ export const getRemainingCountsForUser = async (userId: string): Promise<{
       .eq('user_id', userId)
       .eq('content_type', 'video');
     
-    if (videoError) throw videoError;
+    if (videoError) {
+      console.error("Error fetching video count:", videoError);
+      return { remainingImages: 0, remainingVideos: 0 };
+    }
     
+    // Use image_credits and video_credits from profiles table,
+    // or fall back to default limits if not present
     const imageLimit = userData?.image_credits || IMAGE_LIMIT;
     const videoLimit = userData?.video_credits || VIDEO_LIMIT;
     
@@ -218,7 +229,7 @@ export const addCustomAmountToUser = async (userId: string, imageAmount: number,
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle(); // Use maybeSingle instead of single
     
     if (userError) {
       console.error("Error getting user data:", userError);
@@ -231,6 +242,8 @@ export const addCustomAmountToUser = async (userId: string, imageAmount: number,
     
     const newImageCredits = currentImageCredits + imageAmount;
     const newVideoCredits = currentVideoCredits + videoAmount;
+    
+    console.log(`Adding credits for user ${userId}: images ${currentImageCredits} + ${imageAmount} = ${newImageCredits}, videos ${currentVideoCredits} + ${videoAmount} = ${newVideoCredits}`);
     
     // Update user's limits
     const { error: updateError } = await supabaseAdmin

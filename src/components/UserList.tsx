@@ -14,13 +14,10 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-  DialogClose,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
-import { Label } from "@/components/ui/label";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from "@/components/ui/form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -55,6 +52,47 @@ const UserList = () => {
       videoCredits: 0
     },
   });
+
+  // Handle the form submission for adding credits
+  const handleAddCredits = async (data: z.infer<typeof formSchema>) => {
+    if (!selectedUserId) return;
+    
+    setIsAddingCredits(true);
+    try {
+      console.log(`Adding credits to user ${selectedUserId}: image=${data.imageCredits}, video=${data.videoCredits}`);
+      
+      const success = await addCustomAmountToUser(
+        selectedUserId, 
+        data.imageCredits, 
+        data.videoCredits
+      );
+      
+      if (success) {
+        toast({
+          title: "Success",
+          description: "Credits added successfully",
+        });
+        await fetchUserLimits();
+        setSelectedUserId(null);
+        form.reset();
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to add credits",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error adding credits:", error);
+      toast({
+        title: "Error",
+        description: "An error occurred while adding credits",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAddingCredits(false);
+    }
+  };
 
   const loadUsers = async () => {
     try {
@@ -139,15 +177,22 @@ const UserList = () => {
 
   const fetchUserLimits = async () => {
     const limits: Record<string, { remainingImages: number; remainingVideos: number }> = {};
+    console.log("Fetching limits for", users.length, "users");
+    
     for (const user of users) {
       try {
+        console.log(`Fetching limits for user ${user.id}`);
         const counts = await getRemainingCountsForUser(user.id);
+        console.log(`Got limits for user ${user.id}:`, counts);
         limits[user.id] = counts;
       } catch (error) {
         console.error(`Error fetching limits for user ${user.id}:`, error);
+        limits[user.id] = { remainingImages: 0, remainingVideos: 0 };
       }
     }
+    
     setUserLimits(limits);
+    console.log("All user limits:", limits);
   };
 
   const handleDeleteUser = async (userId: string) => {
@@ -215,44 +260,6 @@ const UserList = () => {
       });
     } finally {
       setIsRefilling(null);
-    }
-  };
-  
-  const handleAddCredits = async (data: z.infer<typeof formSchema>) => {
-    if (!selectedUserId) return;
-    
-    setIsAddingCredits(true);
-    try {
-      const success = await addCustomAmountToUser(
-        selectedUserId, 
-        data.imageCredits, 
-        data.videoCredits
-      );
-      
-      if (success) {
-        toast({
-          title: "Success",
-          description: "Credits added successfully",
-        });
-        fetchUserLimits();
-        setSelectedUserId(null);
-        form.reset();
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to add credits",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error adding credits:", error);
-      toast({
-        title: "Error",
-        description: "An error occurred while adding credits",
-        variant: "destructive",
-      });
-    } finally {
-      setIsAddingCredits(false);
     }
   };
 
