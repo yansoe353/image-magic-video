@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,7 +14,7 @@ import { StoryScene, CharacterDetails } from "@/types";
 import { type LanguageOption } from "@/utils/translationUtils";
 import CharacterDetailsForm from "./story-generator/CharacterDetailsForm";
 import StoryDisplay from "./story-generator/StoryDisplay";
-import { useFalStoryGenerator } from "@/hooks/useFalStoryGenerator";
+import { useGeminiStoryGenerator } from "@/hooks/useGeminiStoryGenerator";
 
 const StoryToVideo = () => {
   const [storyPrompt, setStoryPrompt] = useState("");
@@ -37,7 +38,7 @@ const StoryToVideo = () => {
     generateCharacterTemplate: generateCharacterTemplateFromHook, 
     generateStory,
     setGeneratedStory
-  } = useFalStoryGenerator();
+  } = useGeminiStoryGenerator();
 
   const { toast } = useToast();
 
