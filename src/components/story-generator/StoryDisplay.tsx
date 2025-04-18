@@ -1,38 +1,30 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { StoryScene } from "@/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ImageIcon, Film, Loader2, Download, Globe, FileText } from "lucide-react";
+import { Download, Globe, FileText, ImageIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LANGUAGES, type LanguageOption } from "@/utils/translationUtils";
 import { CharacterDetails } from "@/types";
 import { generateStoryPDF } from "@/services/pdfService";
 import { generateStoryTextFile, downloadTextFile } from "@/services/textFileService";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 interface StoryDisplayProps {
   storyTitle: string;
   generatedStory: StoryScene[];
-  videoUrls: string[];
-  currentGeneratingIndex: number | null;
   isGeneratingPDF: boolean;
   isDownloadingText: boolean;
   pdfLanguage: LanguageOption;
   characterDetails: CharacterDetails;
-  counts: {
-    remainingImages: number;
-    remainingVideos: number;
-  };
   onEditModeToggle: () => void;
   onSaveEdits: () => void;
   editMode: boolean;
   editedStory: StoryScene[];
   onEditedStoryChange: (index: number, field: 'text' | 'imagePrompt', value: string) => void;
-  generateImageForScene: (index: number) => void;
-  generateVideoForScene: (index: number) => void;
   setPdfLanguage: (language: LanguageOption) => void;
   storyPrompt: string;
 }
@@ -40,25 +32,21 @@ interface StoryDisplayProps {
 const StoryDisplay = ({
   storyTitle,
   generatedStory,
-  videoUrls,
-  currentGeneratingIndex,
   isGeneratingPDF,
   isDownloadingText,
   pdfLanguage,
   characterDetails,
-  counts,
   onEditModeToggle,
   onSaveEdits,
   editMode,
   editedStory,
   onEditedStoryChange,
-  generateImageForScene,
-  generateVideoForScene,
   setPdfLanguage,
   storyPrompt,
 }: StoryDisplayProps) => {
   const { toast } = useToast();
   const [tabValue, setTabValue] = useState("0");
+  const navigate = useNavigate();
 
   const downloadStoryPDF = async () => {
     if (generatedStory.length === 0) {
@@ -142,10 +130,8 @@ const StoryDisplay = ({
     }
   };
 
-  const renderSceneTabs = () => {
-    return generatedStory.map((_, index) => (
-      <TabsTrigger key={index} value={index.toString()}>Scene {index + 1}</TabsTrigger>
-    ));
+  const handleCreateImage = (sceneText: string) => {
+    navigate('/create?tab=text-to-image', { state: { prompt: sceneText } });
   };
 
   if (generatedStory.length === 0) {
@@ -179,11 +165,7 @@ const StoryDisplay = ({
               variant="secondary"
               size="sm"
             >
-              {isGeneratingPDF ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-4 w-4" />
-              )}
+              <Download className="mr-2 h-4 w-4" />
               PDF
             </Button>
 
@@ -193,11 +175,7 @@ const StoryDisplay = ({
               variant="secondary"
               size="sm"
             >
-              {isDownloadingText ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <FileText className="mr-2 h-4 w-4" />
-              )}
+              <FileText className="mr-2 h-4 w-4" />
               Text
             </Button>
           </div>
@@ -222,12 +200,6 @@ const StoryDisplay = ({
                 onChange={(e) => onEditedStoryChange(index, 'text', e.target.value)}
                 className="min-h-[120px]"
               />
-              <Label>Scene {index + 1} Image Prompt</Label>
-              <Textarea
-                value={scene.imagePrompt}
-                onChange={(e) => onEditedStoryChange(index, 'imagePrompt', e.target.value)}
-                className="min-h-[120px]"
-              />
             </div>
           ))}
           <Button
@@ -240,7 +212,9 @@ const StoryDisplay = ({
       ) : (
         <Tabs value={tabValue} onValueChange={setTabValue} className="w-full mt-4">
           <TabsList className="w-full grid" style={{ gridTemplateColumns: `repeat(${generatedStory.length}, 1fr)` }}>
-            {renderSceneTabs()}
+            {generatedStory.map((_, index) => (
+              <TabsTrigger key={index} value={index.toString()}>Scene {index + 1}</TabsTrigger>
+            ))}
           </TabsList>
 
           {generatedStory.map((scene, index) => (
@@ -248,72 +222,15 @@ const StoryDisplay = ({
               <div className="p-4 bg-slate-800/50 rounded-md">
                 <p className="text-slate-200">{scene.text}</p>
               </div>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="mb-2 block">Scene Image</Label>
-                  <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
-                    {scene.imageUrl ? (
-                      <img
-                        src={scene.imageUrl}
-                        alt={`Scene ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <ImageIcon className="h-16 w-16 text-slate-600" />
-                      </div>
-                    )}
-                    {currentGeneratingIndex === index && !scene.imageUrl && (
-                      <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                        <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
-                      </div>
-                    )}
-                  </div>
-
-                  <Button
-                    onClick={() => generateImageForScene(index)}
-                    disabled={currentGeneratingIndex !== null || counts.remainingImages <= 0}
-                    className="mt-2 w-full"
-                    variant="outline"
-                  >
-                    <ImageIcon className="mr-2 h-4 w-4" />
-                    Generate Image ({counts.remainingImages} remaining)
-                  </Button>
-                </div>
-
-                <div>
-                  <Label className="mb-2 block">Scene Video</Label>
-                  <div className="relative aspect-square rounded-md overflow-hidden bg-slate-800/50 border border-slate-700/50">
-                    {videoUrls[index] ? (
-                      <video
-                        src={videoUrls[index]}
-                        controls
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Film className="h-16 w-16 text-slate-600" />
-                      </div>
-                    )}
-                    {currentGeneratingIndex === index && scene.imageUrl && !videoUrls[index] && (
-                      <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                        <Loader2 className="h-10 w-10 animate-spin text-brand-500" />
-                      </div>
-                    )}
-                  </div>
-
-                  <Button
-                    onClick={() => generateVideoForScene(index)}
-                    disabled={currentGeneratingIndex !== null || !scene.imageUrl || counts.remainingVideos <= 0}
-                    className="mt-2 w-full"
-                    variant={scene.imageUrl ? "default" : "outline"}
-                  >
-                    <Film className="mr-2 h-4 w-4" />
-                    Generate Video ({counts.remainingVideos} remaining)
-                  </Button>
-                </div>
-              </div>
+              
+              <Button 
+                onClick={() => handleCreateImage(scene.text)}
+                className="w-full mt-4"
+                variant="outline"
+              >
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Create Image for this Scene
+              </Button>
             </TabsContent>
           ))}
         </Tabs>
