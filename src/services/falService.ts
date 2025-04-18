@@ -1,3 +1,4 @@
+
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,7 +45,7 @@ class FalService {
 
     this.falClient = createFalClient({ 
       credentials: this.apiKey,
-      requestOptions: {
+      fetchOptions: {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -61,7 +62,7 @@ class FalService {
       if (apiKey) {
         this.apiKey = apiKey;
       } else {
-        const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_AI_API_KEY : undefined;
+        const envApiKey = typeof window !== 'undefined' ? window.ENV_FAL_API_KEY : undefined;
         this.apiKey = envApiKey || localStorage.getItem("falApiKey") || this.apiKey || DEFAULT_API_KEY;
       }
 
@@ -69,7 +70,7 @@ class FalService {
 
       this.falClient = createFalClient({ 
         credentials: this.apiKey,
-        requestOptions: {
+        fetchOptions: {
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
