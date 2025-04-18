@@ -1,15 +1,14 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ImageIcon, BookText, Film, Sparkles, User, Download, Globe, FileText } from "lucide-react";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
 import { incrementImageCount, incrementVideoCount, getRemainingCountsAsync } from "@/utils/usageTracker";
-import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 import { falService } from "@/services/falService";
@@ -667,7 +666,7 @@ const StoryToVideo = () => {
               <Label htmlFor="storyPrompt">Story Prompt</Label>
               <Textarea
                 id="storyPrompt"
-                placeholder="Enter a story idea like ဥပမာ 'မြန်မာဆန်ဆန် သိပ္ပံစွန့်စားခန်း ပုံပြင်တစ်ပုဒ် မြန်မာလိုရေးပေးပါ'"
+                placeholder="Enter a story idea like 'A cyberpunk adventure with a rogue AI' or in any language"
                 value={storyPrompt}
                 onChange={(e) => setStoryPrompt(e.target.value)}
                 className="min-h-[80px]"
