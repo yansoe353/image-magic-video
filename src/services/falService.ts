@@ -119,10 +119,7 @@ class FalService {
   async generateVideoFromImage(
     image_url: string,
     options: {
-      cameraMode?: string;
-      framesPerSecond?: number;
-      modelType?: string;
-      seed?: number;
+      // Remove unsupported parameters
     } = {}
   ): Promise<FalRunResult> {
     if (!this.isInitialized) {
@@ -137,15 +134,13 @@ class FalService {
         throw new Error("Invalid image URL format");
       }
       
-      // Try the primary model first
+      // Try the primary model
       try {
-        console.log("Attempting video generation with primary model");
+        console.log("Attempting video generation with Kling model");
         const result = await this.falClient.run(IMAGE_TO_VIDEO_MODEL, {
           input: {
+            // Only include the required parameter
             image_url,
-            // Don't pass any additional parameters - the model will use defaults
-            seed: options.seed || Math.floor(Math.random() * 10000)
-            // The Kling model v1.6 standard doesn't accept fps parameter
           }
         });
         
