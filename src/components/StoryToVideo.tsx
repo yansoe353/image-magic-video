@@ -334,7 +334,11 @@ const StoryToVideo = () => {
         return;
       }
 
-      falService.initialize();
+      try {
+        await falService.initialize();
+      } catch (error) {
+        throw new Error("Failed to initialize FAL service: " + error.message);
+      }
 
       const enhancedPrompt = characterDetails.mainCharacter 
         ? `${characterDetails.mainCharacter}. ${scene.imagePrompt} in ${imageStyle} style`
@@ -424,7 +428,11 @@ const StoryToVideo = () => {
         return;
       }
 
-      falService.initialize();
+      try {
+        await falService.initialize();
+      } catch (error) {
+        throw new Error("Failed to initialize FAL service: " + error.message);
+      }
 
       const result = await falService.generateVideoFromImage(scene.imageUrl, {
         seed: Math.floor(Math.random() * 1000000)

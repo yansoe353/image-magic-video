@@ -3,9 +3,6 @@ import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
 import { supabase } from "@/integrations/supabase/client";
 
-// Default API key
-const DEFAULT_API_KEY = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA";
-
 // Model URLs/IDs
 export const TEXT_TO_IMAGE_MODEL = "110602490-lcm-sd15-i2i/fast"; // Lt. Create model
 export const IMAGE_TO_VIDEO_MODEL = "110602490-ltx-animation/run"; 
@@ -45,7 +42,6 @@ class FalService {
   constructor() {
     // Initialize with a temporary client that will be updated
     this.falClient = createFalClient({ credentials: this.apiKey });
-    this.initialize();
   }
 
   async initialize() {
@@ -70,6 +66,7 @@ class FalService {
     } catch (error) {
       console.error("Failed to initialize Infinity API client:", error);
       this.isInitialized = false;
+      throw error; // Propagate error to caller
     }
   }
 

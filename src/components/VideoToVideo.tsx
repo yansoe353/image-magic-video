@@ -164,7 +164,11 @@ const VideoToVideo = () => {
         setGenerationLogs(prev => [...prev, "Uploading video file..."]);
         setIsUploading(true);
         
-        falService.initialize();
+        try {
+          await falService.initialize();
+        } catch (error) {
+          throw new Error("Failed to initialize FAL service: " + error.message);
+        }
         
         uploadedVideoUrl = await falService.uploadFile(videoFile);
         setGenerationLogs(prev => [...prev, "Video uploaded successfully."]);
