@@ -153,7 +153,7 @@ export function useImageToVideo(): ImageToVideoResult {
         body: { input }
       });
 
-      if (functionError) throw function Error;
+      if (functionError) throw new Error(functionError.message);
       
       if (data?.video_url) {
         setVideoUrl(data.video_url);
