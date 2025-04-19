@@ -1,7 +1,6 @@
 
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/hooks/use-toast";
 import { getUserId } from "@/utils/storageUtils";
 import { incrementImageCount, incrementVideoCount } from "@/utils/usageTracker";
@@ -72,7 +71,17 @@ export function useTextToImage(): TextToImageResult {
         body: { input }
       });
 
-      if (functionError) throw functionError;
+      if (functionError) {
+        throw new Error(functionError.message);
+      }
+      
+      if (!data) {
+        throw new Error("No data returned from the API");
+      }
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
       
       if (data?.images?.[0]) {
         setImageUrl(data.images[0]);
@@ -153,7 +162,17 @@ export function useImageToVideo(): ImageToVideoResult {
         body: { input }
       });
 
-      if (functionError) throw new Error(functionError.message);
+      if (functionError) {
+        throw new Error(functionError.message);
+      }
+      
+      if (!data) {
+        throw new Error("No data returned from the API");
+      }
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
       
       if (data?.video_url) {
         setVideoUrl(data.video_url);
