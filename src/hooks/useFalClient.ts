@@ -1,15 +1,10 @@
 
-import { useState, useEffect } from "react";
-import { fal } from '@fal-ai/client';
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/components/ui/use-toast";
 import { getUserId } from "@/utils/storageUtils";
 import { incrementImageCount, incrementVideoCount } from "@/utils/usageTracker";
-
-// Initialize the FAL client with the environment variable
-const falApiKey = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA"; // Hardcoded API key
-fal.credentials(falApiKey);
 
 // LTX Text to Image model
 const ltxTextToImageProxyUrl = "110602490-lcm-sd15-i2i/fast"; // Lt. Create model
@@ -42,19 +37,19 @@ interface TextToImageResult {
 }
 
 // Image to Video interfaces
-interface ImageToVideoResult {
-  videoUrl: string | null;
-  isGenerating: boolean;
-  error: string | null;
-  generate: (input: ImageToVideoInput) => Promise<void>;
-}
-
 interface ImageToVideoInput {
   image_url: string;
   cameraMode?: string;
   framesPerSecond?: number;
   modelType?: string; 
   seed?: number;
+}
+
+interface ImageToVideoResult {
+  videoUrl: string | null;
+  isGenerating: boolean;
+  error: string | null;
+  generate: (input: ImageToVideoInput) => Promise<void>;
 }
 
 // Hook for text-to-image generation
@@ -77,15 +72,20 @@ export function useTextToImage(): TextToImageResult {
       if (!canGenerate) {
         throw new Error("You have reached your image generation limit");
       }
+
+      // Call Supabase edge function for image generation
+      const { data, error: functionError } = await supabase.functions.invoke('fal-image-generate', {
+        body: { input }
+      });
+
+      if (functionError) throw functionError;
       
-      const result = await fal.run(ltxTextToImageProxyUrl, input);
-      
-      if (result?.images?.[0]) {
-        setImageUrl(result.images[0]);
+      if (data?.images?.[0]) {
+        setImageUrl(data.images[0]);
         console.log("Image generated successfully");
         
-        if (result.seed) {
-          setSeed(result.seed);
+        if (data.seed) {
+          setSeed(data.seed);
         }
         
         // Store the generated image in user history if userId exists
@@ -95,10 +95,10 @@ export function useTextToImage(): TextToImageResult {
             await supabase.from('user_content_history').insert({
               user_id: userId,
               content_type: 'image',
-              content_url: result.images[0],
+              content_url: data.images[0],
               prompt: input.prompt,
               metadata: {
-                seed: result.seed,
+                seed: data.seed,
                 negative_prompt: input.negative_prompt,
                 width: input.width,
                 height: input.height
@@ -153,17 +153,16 @@ export function useImageToVideo(): ImageToVideoResult {
       if (!canGenerate) {
         throw new Error("You have reached your video generation limit");
       }
-      
-      const result = await fal.run(ltxImageToVideoUrl, {
-        image_url: input.image_url,
-        cameraMode: input.cameraMode || "Default",
-        framesPerSecond: input.framesPerSecond || 6,
-        modelType: input.modelType || "svd",
-        seed: input.seed || Math.floor(Math.random() * 1000000)
+
+      // Call Supabase edge function for video generation
+      const { data, error: functionError } = await supabase.functions.invoke('fal-video-generate', {
+        body: { input }
       });
+
+      if (functionError) throw functionError;
       
-      if (result?.video_url) {
-        setVideoUrl(result.video_url);
+      if (data?.video_url) {
+        setVideoUrl(data.video_url);
         console.log("Video generated successfully");
         
         // Store the generated video in user history if userId exists
@@ -173,7 +172,7 @@ export function useImageToVideo(): ImageToVideoResult {
             await supabase.from('user_content_history').insert({
               user_id: userId,
               content_type: 'video',
-              content_url: result.video_url,
+              content_url: data.video_url,
               prompt: "Generated from image",
               metadata: {
                 source_image_url: input.image_url,
