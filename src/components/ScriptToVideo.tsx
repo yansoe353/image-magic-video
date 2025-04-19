@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -59,7 +58,6 @@ const ScriptToVideo = () => {
       
       const response = await generateResponse(prompt);
       
-      // Split the response into scenes, ensuring we get exactly the number of scenes requested
       const scenes = response.split('\n')
         .filter(scene => scene.trim() !== '')
         .slice(0, scenesCount)

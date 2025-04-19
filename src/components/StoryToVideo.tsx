@@ -1,11 +1,9 @@
-
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, BookText, Download, FileText } from "lucide-react";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
@@ -198,7 +196,7 @@ const StoryToVideo = () => {
         <CardContent className="p-6">
           <h2 className="text-2xl font-bold mb-4 flex items-center">
             <BookText className="mr-2 h-6 w-6" />
-            AI Story Generator
+            Story Generator
           </h2>
 
           <div className="space-y-4">
