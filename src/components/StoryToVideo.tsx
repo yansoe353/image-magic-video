@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,6 +20,9 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import { FileText, FileDown, Download } from "lucide-react";
+import { saveAs } from "file-saver";
+import jsPDF from "jspdf";
 
 interface StoryScene {
   text: string;
@@ -510,6 +512,104 @@ const StoryToVideo = () => {
     }
   };
 
+  const downloadStoryText = () => {
+    if (generatedStory.length === 0) {
+      toast({
+        title: "No Story",
+        description: "Please generate a story first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const storyText = generatedStory.map((scene, index) => (
+      `Scene ${index + 1}:\n\n${scene.text}\n\n---\n\n`
+    )).join('');
+
+    const blob = new Blob([storyText], { type: "text/plain;charset=utf-8" });
+    const fileName = `${storyTitle || 'generated-story'}.txt`;
+    saveAs(blob, fileName);
+
+    toast({
+      title: "Success",
+      description: "Story text file downloaded",
+    });
+  };
+
+  const downloadStoryPDF = async () => {
+    if (generatedStory.length === 0) {
+      toast({
+        title: "No Story",
+        description: "Please generate a story first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const hasImages = generatedStory.some(scene => scene.imageUrl);
+    if (!hasImages) {
+      toast({
+        title: "No Images",
+        description: "Please generate at least one image first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const pdf = new jsPDF();
+    let yPosition = 20;
+
+    // Add title
+    pdf.setFontSize(20);
+    pdf.text(storyTitle || 'Generated Story', 20, yPosition);
+    yPosition += 20;
+
+    // Process each scene
+    for (let i = 0; i < generatedStory.length; i++) {
+      const scene = generatedStory[i];
+      
+      pdf.setFontSize(16);
+      pdf.text(`Scene ${i + 1}`, 20, yPosition);
+      yPosition += 10;
+
+      // Add scene text
+      pdf.setFontSize(12);
+      const textLines = pdf.splitTextToSize(scene.text, 170);
+      pdf.text(textLines, 20, yPosition);
+      yPosition += (textLines.length * 7) + 10;
+
+      // Add image if available
+      if (scene.imageUrl) {
+        try {
+          // Add image if it fits on current page, otherwise create new page
+          if (yPosition > 250) {
+            pdf.addPage();
+            yPosition = 20;
+          }
+          
+          pdf.addImage(scene.imageUrl, 'JPEG', 20, yPosition, 170, 170);
+          yPosition += 180;
+        } catch (error) {
+          console.error('Error adding image to PDF:', error);
+        }
+      }
+
+      // Add new page for next scene if needed
+      if (i < generatedStory.length - 1) {
+        pdf.addPage();
+        yPosition = 20;
+      }
+    }
+
+    const fileName = `${storyTitle || 'generated-story'}.pdf`;
+    pdf.save(fileName);
+
+    toast({
+      title: "Success",
+      description: "Story PDF file downloaded",
+    });
+  };
+
   const CharacterDetailsForm = () => (
     <Card className="mt-4">
       <CardContent className="p-6 space-y-4">
@@ -690,7 +790,27 @@ const StoryToVideo = () => {
       {generatedStory.length > 0 && (
         <Card>
           <CardContent className="p-6">
-            <h2 className="text-xl font-bold mb-4">{storyTitle}</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">{storyTitle}</h2>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={downloadStoryText}
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  Download Text
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={downloadStoryPDF}
+                  className="flex items-center gap-2"
+                >
+                  <FileDown className="h-4 w-4" />
+                  Download PDF
+                </Button>
+              </div>
+            </div>
 
             <Button
               onClick={() => setEditMode(!editMode)}
