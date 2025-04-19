@@ -27,16 +27,32 @@ serve(async (req) => {
     }
 
     console.log(`Proxying request to FAL.ai endpoint: ${endpoint}`)
+    console.log(`Request method: ${method}`)
+    console.log(`Request input: ${JSON.stringify(input, null, 2)}`)
+    
+    // Build the URL with proper encoding
+    const url = new URL(`https://fal.run/${endpoint}`)
+    
+    // Set up headers for the FAL API request
+    const headers = {
+      'Authorization': `Key ${falApiKey}`,
+      'Content-Type': 'application/json',
+    }
+    
+    // Create request options
+    const requestOptions = {
+      method: method,
+      headers: headers,
+    }
+    
+    // Only add body for non-GET requests
+    if (method !== 'GET') {
+      requestOptions.body = JSON.stringify({ input })
+    }
     
     // Forward the request to FAL API
-    const falResponse = await fetch(`https://fal.run/${endpoint}`, {
-      method: method,
-      headers: {
-        'Authorization': `Key ${falApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: method !== 'GET' ? JSON.stringify({ input }) : null,
-    })
+    console.log(`Sending request to: ${url.toString()}`)
+    const falResponse = await fetch(url.toString(), requestOptions)
 
     // Check if the request was successful
     if (!falResponse.ok) {
@@ -47,6 +63,7 @@ serve(async (req) => {
 
     // Return the FAL response to the client
     const data = await falResponse.json()
+    console.log(`Successfully received response from FAL.ai: ${JSON.stringify(data, null, 2).substring(0, 200)}...`)
     
     return new Response(
       JSON.stringify(data),
@@ -59,8 +76,25 @@ serve(async (req) => {
     )
   } catch (error) {
     console.error('Error in fal-proxy function:', error)
+    
+    // Enhanced error reporting
+    let errorMessage = error.message || 'Unknown error'
+    let errorDetails = {}
+    
+    if (error instanceof Error) {
+      errorDetails = {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      }
+    }
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: errorMessage,
+        details: errorDetails,
+        timestamp: new Date().toISOString()
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500 

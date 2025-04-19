@@ -60,6 +60,10 @@ class FalService {
         throw new Error('Failed to get FAL API key: ' + response.error.message);
       }
 
+      if (!response.data?.apiKey) {
+        throw new Error('No API key returned from edge function');
+      }
+
       this.apiKey = response.data.apiKey;
       console.log("Initializing Infinity API client");
       

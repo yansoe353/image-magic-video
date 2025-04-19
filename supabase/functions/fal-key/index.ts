@@ -18,12 +18,20 @@ serve(async (req) => {
       throw new Error('FAL_API_KEY environment variable is not set')
     }
 
+    console.log("Returning FAL API key to client")
+    
     return new Response(
       JSON.stringify({ apiKey: falApiKey }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
+      }
     )
   } catch (error) {
     console.error('Error in fal-key function:', error)
+    
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
