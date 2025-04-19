@@ -1,15 +1,13 @@
 
 import { useState, useEffect } from "react";
-import { Menu, X, LogOut, LogIn, Users, History, Key, HelpCircle } from "lucide-react";
+import { Menu, X, LogOut, LogIn, Users, History, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ApiKeyInput from "@/components/ApiKeyInput";
 import ApiKeyDialog from "@/components/api-key/ApiKeyDialog";
-import { fal } from "@fal-ai/client";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { isLoggedIn, logoutUser, getCurrentUser, AppUser } from "@/utils/authUtils";
 
 const Header = () => {
-  const [isApiKeySet, setIsApiKeySet] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
@@ -25,18 +23,6 @@ const Header = () => {
       if (isUserLoggedIn) {
         const user = await getCurrentUser();
         setCurrentUser(user);
-      }
-      
-      const storedApiKey = localStorage.getItem("falApiKey");
-      if (storedApiKey) {
-        try {
-          fal.config({
-            credentials: storedApiKey
-          });
-          setIsApiKeySet(true);
-        } catch (error) {
-          console.error("Error configuring fal.ai client:", error);
-        }
       }
     };
     
@@ -111,22 +97,7 @@ const Header = () => {
                 {currentUser?.name || currentUser?.email}
               </span>
 
-              <ApiKeyInput onApiKeySet={setIsApiKeySet} />
-              {isApiKeySet && (
-                <span className={`text-xs ${isHomePage ? 'text-green-300' : 'text-green-600'} mr-2`}>
-                  API Key Set
-                </span>
-              )}
-
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-2"
-                onClick={handleApiKeyClick}
-              >
-                <Key className="h-4 w-4" />
-                API Info
-              </Button>
+              <ApiKeyInput onApiKeySet={() => {}} />
 
               <Link 
                 to="/users"
@@ -214,22 +185,8 @@ const Header = () => {
                   <span className="text-sm text-slate-700 dark:text-slate-300 block mb-2">
                     {currentUser?.name || currentUser?.email}
                   </span>
-                  <ApiKeyInput onApiKeySet={setIsApiKeySet} />
-                  {isApiKeySet && (
-                    <span className="text-xs text-green-600 dark:text-green-400 ml-2">
-                      API Key Set
-                    </span>
-                  )}
+                  <ApiKeyInput onApiKeySet={() => {}} />
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="gap-2 w-full flex items-center border-slate-300 dark:border-slate-600" 
-                  onClick={handleApiKeyClick}
-                >
-                  <Key className="h-4 w-4" />
-                  API Info
-                </Button>
                 <Link 
                   to="/users"
                   className="font-medium flex items-center gap-1 text-slate-700 dark:text-slate-200 hover:text-brand-purple dark:hover:text-brand-purple"

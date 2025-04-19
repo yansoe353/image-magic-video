@@ -17,26 +17,12 @@ import { GuidanceScaleSlider } from "./image-generation/GuidanceScaleSlider";
 import { GeneratedImageDisplay } from "./image-generation/GeneratedImageDisplay";
 import { UsageLimits } from "./image-generation/UsageLimits";
 import { translateText } from "@/utils/translationUtils";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import ProLabel from "./ProLabel";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
 
 type SupportedLanguage = "en" | "my" | "th";
 
-const LANGUAGES = {
-  en: "English",
-  my: "Myanmar",
-  th: "Thai"
-};
-
-type LanguageOption = keyof typeof LANGUAGES;
-
-interface TextToImageProps {
-  onImageGenerated: (imageUrl: string) => void;
-}
-
-const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
+const TextToImage = ({ onImageGenerated }: { onImageGenerated: (imageUrl: string) => void }) => {
   const [prompt, setPrompt] = useState("");
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,8 +34,6 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedLoras, setSelectedLoras] = useState<LoraOption[]>([]);
   const [guidanceScale, setGuidanceScale] = useState(9);
-  const [apiKey, setApiKey] = useState<string>(localStorage.getItem("falApiKey") || "");
-  const [isApiKeySet, setIsApiKeySet] = useState<boolean>(!!localStorage.getItem("falApiKey"));
   const [isPublic, setIsPublic] = useState(false);
 
   useEffect(() => {
@@ -70,40 +54,6 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         ? current.filter(id => id !== loraId)
         : [...current, loraId]
     );
-  };
-
-  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setApiKey(e.target.value);
-  };
-
-  const saveApiKey = () => {
-    if (!apiKey.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a valid API key",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      localStorage.setItem("falApiKey", apiKey);
-      fal.config({
-        credentials: apiKey
-      });
-      setIsApiKeySet(true);
-      toast({
-        title: "Success",
-        description: "API key saved successfully",
-      });
-    } catch (error) {
-      console.error("Failed to save API key:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save API key",
-        variant: "destructive",
-      });
-    }
   };
 
   const getAspectRatio = (sizeOption: ImageSizeOption): string => {
@@ -157,15 +107,6 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
       return;
     }
 
-    if (!isApiKeySet) {
-      toast({
-        title: "API Key Required",
-        description: "Please set your FAL.AI API key first",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (counts.remainingImages <= 0) {
       toast({
         title: "Usage Limit Reached",
@@ -190,21 +131,20 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
         }
       }
 
-      fal.config({
-        credentials: apiKey
+      const { data, error: functionError } = await supabase.functions.invoke('fal-image-generate', {
+        body: { 
+          input: {
+            prompt: promptToUse,
+            aspect_ratio: getAspectRatio(imageSize) as "16:9" | "9:16" | "1:1",
+            negative_prompt: selectedLoras.length > 0 ? "low quality, bad anatomy" : ""
+          }
+        }
       });
 
-      // Remove guidance_scale which is not supported by the model
-      const result = await fal.subscribe("fal-ai/imagen3/fast", {
-        input: {
-          prompt: promptToUse,
-          aspect_ratio: getAspectRatio(imageSize) as "16:9" | "9:16" | "1:1",
-          negative_prompt: selectedLoras.length > 0 ? "low quality, bad anatomy" : ""
-        },
-      });
+      if (functionError) throw functionError;
 
-      if (result.data?.images?.[0]?.url) {
-        const falImageUrl = result.data.images[0].url;
+      if (data?.images?.[0]) {
+        const falImageUrl = data.images[0];
         setOriginalImageUrl(falImageUrl);
         setGeneratedImage("");
 
@@ -297,41 +237,6 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             <ProLabel />
           </div>
 
-          {!isApiKeySet && (
-            <Alert className="mb-4">
-              <AlertTitle>API Key Required</AlertTitle>
-              <AlertDescription>
-                <div className="space-y-4 mt-2">
-                  <p>ပုံတွေ ဗွီဒီယိုတွေ ထုတ်ဖို့ Infinity Tech မှဝယ်ယူထားသည့် Infinity API Key ထည့်ရပါမယ်</p>
-                  <div>
-                    <Label htmlFor="apiKey">Infinity API Key</Label>
-                    <div className="flex gap-2 mt-1">
-                      <Input
-                        id="apiKey"
-                        type="password"
-                        value={apiKey}
-                        onChange={handleApiKeyChange}
-                        placeholder="Enter your Infinity API key"
-                        className="flex-1"
-                      />
-                      <Button onClick={saveApiKey}>Save Key</Button>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      <a
-                        href="https://m.me/infinitytechmyanmar"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-500 hover:underline"
-                      >
-                        Get your key here
-                      </a>
-                    </p>
-                  </div>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
-
           <UsageLimits
             remainingImages={counts.remainingImages}
             imageLimit={IMAGE_LIMIT}
@@ -365,7 +270,7 @@ const TextToImage = ({ onImageGenerated }: TextToImageProps) => {
             <div className="flex items-center justify-between">
               <Button
                 onClick={generateImage}
-                disabled={isLoading || !prompt.trim() || counts.remainingImages <= 0 || !isApiKeySet}
+                disabled={isLoading || !prompt.trim() || counts.remainingImages <= 0}
                 className="w-full"
               >
                 {isLoading ? (

@@ -1,42 +1,42 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { fal } from "https://esm.sh/@fal-ai/client";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+
+const FAL_API_KEY = Deno.env.get('FAL_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const falApiKey = Deno.env.get('FAL_API_KEY')
-    if (!falApiKey) {
-      throw new Error('FAL_API_KEY not configured')
-    }
+    const { input } = await req.json();
 
-    fal.credentials(falApiKey)
-    
-    const { input } = await req.json()
-    
-    const result = await fal.run("110602490-lcm-sd15-i2i/fast", input)
-    
-    return new Response(
-      JSON.stringify(result),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    const response = await fetch('https://fal.ai/fal-ai/imagen3/fast', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Key ${FAL_API_KEY}`,
+        'Content-Type': 'application/json',
       },
-    )
+      body: JSON.stringify(input),
+    });
+
+    const data = await response.json();
+
+    return new Response(JSON.stringify(data), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      },
-    )
+    console.error('Error in image generation function:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
-})
+});
