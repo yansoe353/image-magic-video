@@ -140,7 +140,7 @@ const Index = () => {
               value="script-to-video" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
-              {isMobile ? "Script→Video" : "Script to Video"}
+              {isMobile ? "Script" : "Script Generator"}
             </TabsTrigger>
             <TabsTrigger 
               value="video-editor" 

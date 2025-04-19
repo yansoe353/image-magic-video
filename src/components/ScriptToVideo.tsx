@@ -6,20 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
 import { useToast } from "@/hooks/use-toast";
 import { Wand2, FileText, Loader2, FileDown } from "lucide-react";
 import { generateStoryTextFile, downloadTextFile } from "@/services/textFileService";
-import { StoryScene } from "@/types";
 import { generateStoryPDF } from "@/services/pdfService";
 import { LANGUAGES, LanguageOption } from "@/utils/translationUtils";
 import MyanmarVpnWarning from "./MyanmarVpnWarning";
 
 interface ScriptItem {
   text: string;
-  imagePrompt: string;
 }
 
 const ScriptToVideo = () => {
@@ -57,45 +54,24 @@ const ScriptToVideo = () => {
         Act as a professional script writer and create a ${scriptStyle} script with ${scenesCount} scenes based on the following idea:
         "${scriptIdea}"
         
-        Format your response as valid JSON like this:
-        [
-          {
-            "text": "Scene description and script text for scene 1",
-            "imagePrompt": "Visual description for this scene"
-          }
-        ]
-        
-        Make each scene descriptive and visual. Do not include any explanations, just return valid JSON.
+        Format your response as a list of scene descriptions. Each scene should be a coherent part of the story.
       `;
       
       const response = await generateResponse(prompt);
       
-      try {
-        const jsonStart = response.indexOf('[');
-        const jsonEnd = response.lastIndexOf(']') + 1;
-        const jsonStr = response.substring(jsonStart, jsonEnd);
-        const parsedScript = JSON.parse(jsonStr) as ScriptItem[];
-        
-        const validatedScript = parsedScript.map(scene => ({
-          text: scene.text,
-          imagePrompt: scene.imagePrompt || scene.text
-        }));
-        
-        setGeneratedScript(validatedScript);
-        setActiveTab("preview");
-        
-        toast({
-          title: "Script generated!",
-          description: `Created ${validatedScript.length} scenes for your script.`,
-        });
-      } catch (jsonError) {
-        console.error("Failed to parse script JSON:", jsonError, response);
-        toast({
-          title: "Error parsing script",
-          description: "The generated script format was invalid. Please try again.",
-          variant: "destructive",
-        });
-      }
+      // Split the response into scenes, ensuring we get exactly the number of scenes requested
+      const scenes = response.split('\n')
+        .filter(scene => scene.trim() !== '')
+        .slice(0, scenesCount)
+        .map(scene => ({ text: scene.trim() }));
+      
+      setGeneratedScript(scenes);
+      setActiveTab("preview");
+      
+      toast({
+        title: "Script generated!",
+        description: `Created ${scenes.length} scenes for your script.`,
+      });
     } catch (error) {
       console.error("Failed to generate script:", error);
       toast({
@@ -120,12 +96,13 @@ const ScriptToVideo = () => {
     
     const fileName = title.trim() ? `${title.trim().replace(/\s+/g, '_')}.txt` : 'script.txt';
     
-    const storyScenes: StoryScene[] = generatedScript.map(item => ({
-      text: item.text,
-      imagePrompt: item.imagePrompt
-    }));
-    
-    const content = generateStoryTextFile(title || "Untitled Script", storyScenes);
+    const content = generateStoryTextFile(
+      title || "Untitled Script", 
+      generatedScript.map(scene => ({
+        ...scene, 
+        imagePrompt: "" // Remove image prompt
+      }))
+    );
     downloadTextFile(content, fileName);
     
     toast({
@@ -147,21 +124,13 @@ const ScriptToVideo = () => {
     setGeneratingPDF(true);
     
     try {
-      const storyScenes: StoryScene[] = generatedScript.map(item => ({
-        text: item.text,
-        imagePrompt: item.imagePrompt
-      }));
-      
-      const characterDetails = {
-        title: title || "Untitled Script",
-        scriptStyle: scriptStyle,
-        scenesCount: scenesCount.toString(),
-      };
-      
       const pdfDataUri = await generateStoryPDF(
         title || "Untitled Script", 
-        storyScenes,
-        characterDetails,
+        generatedScript.map(scene => ({
+          ...scene, 
+          imagePrompt: "" // Remove image prompt
+        })),
+        {}, // Empty character details
         selectedLanguage
       );
       
@@ -230,14 +199,9 @@ const ScriptToVideo = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label>Number of Scenes ({scenesCount})</Label>
-                    <Slider
-                      value={[scenesCount]}
-                      min={1}
-                      max={10}
-                      step={1}
-                      onValueChange={(value) => setScenesCount(value[0])}
-                      className="mt-2"
-                    />
+                    <div className="bg-slate-800/60 px-3 py-2 rounded-md border border-slate-700/50 text-slate-300">
+                      {scenesCount} Scenes
+                    </div>
                   </div>
                   
                   <div>
@@ -343,9 +307,6 @@ const ScriptToVideo = () => {
                         <CardContent className="p-4">
                           <div className="space-y-4">
                             <p className="whitespace-pre-line text-sm">{scene.text}</p>
-                            <p className="text-xs text-muted-foreground">
-                              <strong>Visual description:</strong> {scene.imagePrompt}
-                            </p>
                           </div>
                         </CardContent>
                       </Card>
