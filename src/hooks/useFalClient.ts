@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import * as fal from '@fal-ai/client';
+import { fal } from '@fal-ai/client';
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/components/ui/use-toast";
@@ -9,9 +9,7 @@ import { incrementImageCount, incrementVideoCount } from "@/utils/usageTracker";
 
 // Initialize the FAL client with the environment variable
 const falApiKey = "fal_sandl_jg1a7uXaAtRiJAX6zeKtuGDbkY-lrcbfu9DqZ_J0GdA"; // Hardcoded API key
-fal.config({
-  credentials: falApiKey,
-});
+fal.credentials(falApiKey);
 
 // LTX Text to Image model
 const ltxTextToImageProxyUrl = "110602490-lcm-sd15-i2i/fast"; // Lt. Create model
@@ -80,7 +78,7 @@ export function useTextToImage(): TextToImageResult {
         throw new Error("You have reached your image generation limit");
       }
       
-      const result = await fal.subscribe(ltxTextToImageProxyUrl, input);
+      const result = await fal.run(ltxTextToImageProxyUrl, input);
       
       if (result?.images?.[0]) {
         setImageUrl(result.images[0]);
@@ -156,7 +154,7 @@ export function useImageToVideo(): ImageToVideoResult {
         throw new Error("You have reached your video generation limit");
       }
       
-      const result = await fal.subscribe(ltxImageToVideoUrl, {
+      const result = await fal.run(ltxImageToVideoUrl, {
         image_url: input.image_url,
         cameraMode: input.cameraMode || "Default",
         framesPerSecond: input.framesPerSecond || 6,
