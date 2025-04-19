@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -367,8 +368,32 @@ const StoryToVideo = () => {
         updatedStory[sceneIndex] = { ...updatedStory[sceneIndex], imageUrl: result.data.images[0].url };
         setGeneratedStory(updatedStory);
 
+        // Store the generated image in user history if userId exists
+        const userId = await getUserId();
+        if (userId) {
+          try {
+            await supabase.from('user_content_history').insert({
+              user_id: userId,
+              content_type: 'image',
+              content_url: result.data.images[0].url,
+              prompt: scene.imagePrompt,
+              is_public: isPublic,
+              metadata: {
+                story_title: storyTitle,
+                scene_text: scene.text,
+                story_prompt: storyPrompt,
+                image_style: imageStyle
+              }
+            });
+            console.log("Image saved to history");
+          } catch (historyError) {
+            console.error("Failed to save image to history:", historyError);
+          }
+        }
+
         // Update counts after successful generation
-        setCounts(await getRemainingCountsAsync());
+        const freshCounts = await getRemainingCountsAsync();
+        setCounts(freshCounts);
 
         toast({
           title: "Success",
