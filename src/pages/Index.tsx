@@ -5,7 +5,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TextToImage from "@/components/TextToImage";
 import ImageToVideo from "@/components/ImageToVideo";
 import StoryToVideo from "@/components/StoryToVideo";
-import VideoToVideo from "@/components/VideoToVideo";
 import Header from "@/components/Header";
 import { getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
 import { Card, CardContent } from "@/components/ui/card";
@@ -117,7 +116,7 @@ const Index = () => {
               value="story-to-video" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
-              {isMobile ? "Story→Video" : "Story to Video"}
+              {isMobile ? "Story Script Generator" : "Story Script Generator"}
             </TabsTrigger>
             <TabsTrigger 
               value="video-editor" 
@@ -185,7 +184,7 @@ const Index = () => {
                 <div className="w-full overflow-hidden rounded-lg">
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
                     <iframe
-                      src="https://brainfusion.vercel.app/"
+                      src="https://imginevi.vercel.app/generate"
                       title="Standard Image"
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
