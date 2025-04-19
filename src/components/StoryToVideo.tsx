@@ -6,17 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ImageIcon, BookText, Film, Sparkles, User, Download, Globe, FileText } from "lucide-react";
+import { Loader2, ImageIcon, BookText, Film, Sparkles, User } from "lucide-react";
 import { useGeminiAPI } from "@/hooks/useGeminiAPI";
 import { incrementImageCount, incrementVideoCount, getRemainingCountsAsync } from "@/utils/usageTracker";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { PublicPrivateToggle } from "./image-generation/PublicPrivateToggle";
-import { falService } from "@/services/falService";
-import { generateStoryPDF } from "@/services/pdfService";
-import { generateStoryTextFile, downloadTextFile } from "@/services/textFileService";
-import { StoryScene, CharacterDetails } from "@/types";
-import { LANGUAGES, type LanguageOption } from "@/utils/translationUtils";
+import { fal } from "@fal-ai/client";
 import {
   Select,
   SelectContent,
@@ -24,7 +20,19 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import MyanmarVpnWarning from "./MyanmarVpnWarning";
+
+interface StoryScene {
+  text: string;
+  imagePrompt: string;
+  imageUrl?: string;
+}
+
+interface CharacterDetails {
+  mainCharacter?: string;
+  secondaryCharacters?: string;
+  environment?: string;
+  styleNotes?: string;
+}
 
 const StoryToVideo = () => {
   const [storyPrompt, setStoryPrompt] = useState("");
@@ -41,9 +49,6 @@ const StoryToVideo = () => {
   const [editedStory, setEditedStory] = useState<StoryScene[]>([]);
   const [characterDetails, setCharacterDetails] = useState<CharacterDetails>({});
   const [showCharacterForm, setShowCharacterForm] = useState(false);
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [pdfLanguage, setPdfLanguage] = useState<LanguageOption>("en");
-  const [isDownloadingText, setIsDownloadingText] = useState(false);
 
   const { generateResponse, isLoading: isGeminiLoading } = useGeminiAPI();
   const { toast } = useToast();
@@ -323,6 +328,16 @@ const StoryToVideo = () => {
     setCurrentGeneratingIndex(sceneIndex);
 
     try {
+      const apiKey = localStorage.getItem("falApiKey");
+      if (!apiKey) {
+        toast({
+          title: "API Key Required",
+          description: "Please set your API key first",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const canGenerate = await incrementImageCount();
       if (!canGenerate) {
         toast({
@@ -330,64 +345,41 @@ const StoryToVideo = () => {
           description: "You've used all your image generations",
           variant: "destructive",
         });
-        setCurrentGeneratingIndex(null);
         return;
       }
 
-      try {
-        await falService.initialize();
-      } catch (error) {
-        throw new Error("Failed to initialize FAL service: " + error.message);
-      }
+      fal.config({ credentials: apiKey });
 
       const enhancedPrompt = characterDetails.mainCharacter 
         ? `${characterDetails.mainCharacter}. ${scene.imagePrompt} in ${imageStyle} style`
         : `${scene.imagePrompt} in ${imageStyle} style`;
 
-      console.log("Generating image with prompt:", enhancedPrompt);
-      
-      const result = await falService.generateImageWithImagen3(enhancedPrompt, {
-        aspect_ratio: "1:1",
-        negative_prompt: "low quality, bad anatomy, distorted, ugly"
+      const result = await fal.subscribe("fal-ai/imagen3/fast", {
+        input: {
+          prompt: enhancedPrompt,
+          aspect_ratio: "1:1",
+          negative_prompt: "low quality, bad anatomy, distorted"
+        },
       });
 
-      if (!result || !result.data || !result.data.images || result.data.images.length === 0) {
-        throw new Error("No image was returned from the API");
-      }
-
       if (result.data?.images?.[0]?.url) {
-        const imageUrl = result.data.images[0].url;
-        console.log("Successfully received image URL:", imageUrl);
-        
         const updatedStory = [...generatedStory];
-        updatedStory[sceneIndex] = { ...updatedStory[sceneIndex], imageUrl };
+        updatedStory[sceneIndex] = { ...updatedStory[sceneIndex], imageUrl: result.data.images[0].url };
         setGeneratedStory(updatedStory);
 
-        const freshCounts = await getRemainingCountsAsync();
-        setCounts(freshCounts);
-
-        await falService.saveToHistory(
-          'image',
-          imageUrl,
-          enhancedPrompt,
-          isPublic,
-          {
-            story_title: storyTitle,
-            scene_text: scene.text,
-            story_prompt: storyPrompt
-          }
-        );
+        // Update counts after successful generation
+        setCounts(await getRemainingCountsAsync());
 
         toast({
           title: "Success",
-          description: "Image generated successfully!",
+          description: "Image generated with consistent characters!",
         });
       }
     } catch (error) {
       console.error("Image generation failed:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to generate image. Please try again.",
+        description: "Failed to generate image",
         variant: "destructive"
       });
     } finally {
@@ -418,6 +410,16 @@ const StoryToVideo = () => {
     setCurrentGeneratingIndex(sceneIndex);
 
     try {
+      const apiKey = localStorage.getItem("falApiKey");
+      if (!apiKey) {
+        toast({
+          title: "API Key Required",
+          description: "Please set your API key first",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const canGenerate = await incrementVideoCount();
       if (!canGenerate) {
         toast({
@@ -428,43 +430,48 @@ const StoryToVideo = () => {
         return;
       }
 
-      try {
-        await falService.initialize();
-      } catch (error) {
-        throw new Error("Failed to initialize FAL service: " + error.message);
-      }
+      fal.config({ credentials: apiKey });
 
-      const result = await falService.generateVideoFromImage(scene.imageUrl, {
-        seed: Math.floor(Math.random() * 1000000)
+      const result = await fal.subscribe("fal-ai/kling-video/v1.6/standard/image-to-video", {
+        input: {
+          prompt: scene.imagePrompt,
+          image_url: scene.imageUrl,
+          duration: "5",
+          aspect_ratio: "1:1",
+          negative_prompt: "blur, distort, low quality",
+          cfg_scale: 0.5,
+        },
+        logs: true,
       });
 
-      const videoUrl = result.video_url || result.data?.video?.url;
-      
-      if (videoUrl) {
+      if (result.data?.video?.url) {
         const newVideoUrls = [...videoUrls];
-        newVideoUrls[sceneIndex] = videoUrl;
+        newVideoUrls[sceneIndex] = result.data.video.url;
         setVideoUrls(newVideoUrls);
 
-        await falService.saveToHistory(
-          'video',
-          videoUrl,
-          scene.imagePrompt,
-          isPublic,
-          {
-            story_title: storyTitle,
-            scene_text: scene.text,
-            story_prompt: storyPrompt
-          }
-        );
+        const userId = await getUserId();
+        if (userId) {
+          await supabase.from('user_content_history').insert({
+            user_id: userId,
+            content_type: 'video',
+            content_url: result.data.video.url,
+            prompt: scene.imagePrompt,
+            is_public: isPublic,
+            metadata: {
+              story_title: storyTitle,
+              scene_text: scene.text,
+              story_prompt: storyPrompt
+            }
+          });
+        }
 
+        // Update counts after successful generation
         setCounts(await getRemainingCountsAsync());
 
         toast({
           title: "Success",
           description: "Video generated from scene!",
         });
-      } else {
-        throw new Error("No video URL in response");
       }
     } catch (error) {
       console.error("Video generation failed:", error);
@@ -475,96 +482,6 @@ const StoryToVideo = () => {
       });
     } finally {
       setCurrentGeneratingIndex(null);
-    }
-  };
-
-  const downloadStoryPDF = async () => {
-    if (generatedStory.length === 0) {
-      toast({
-        title: "No story to download",
-        description: "Please generate a story first",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsGeneratingPDF(true);
-
-    try {
-      console.log("Generating PDF with language:", pdfLanguage);
-      
-      const pdfDataUri = await generateStoryPDF(
-        storyTitle || `Story: ${storyPrompt.slice(0, 30)}${storyPrompt.length > 30 ? '...' : ''}`, 
-        generatedStory,
-        characterDetails, 
-        pdfLanguage
-      );
-      
-      if (!pdfDataUri || typeof pdfDataUri !== 'string') {
-        throw new Error("Failed to generate PDF data");
-      }
-      
-      console.log("PDF generated successfully, creating download link");
-      
-      const link = document.createElement('a');
-      link.href = pdfDataUri;
-      link.download = `${storyTitle || 'story'}_${pdfLanguage}.pdf`.replace(/\s+/g, '_').toLowerCase();
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast({
-        title: "Success",
-        description: `Story downloaded as PDF in ${LANGUAGES[pdfLanguage]}`,
-      });
-    } catch (error) {
-      console.error("PDF generation failed:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to generate PDF. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGeneratingPDF(false);
-    }
-  };
-
-  const downloadStoryText = () => {
-    if (generatedStory.length === 0) {
-      toast({
-        title: "No story to download",
-        description: "Please generate a story first",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsDownloadingText(true);
-
-    try {
-      const textContent = generateStoryTextFile(
-        storyTitle || `Story: ${storyPrompt.slice(0, 30)}${storyPrompt.length > 30 ? '...' : ''}`,
-        generatedStory,
-        characterDetails
-      );
-      
-      const filename = `${storyTitle || 'story'}_${pdfLanguage}.txt`.replace(/\s+/g, '_').toLowerCase();
-      
-      downloadTextFile(textContent, filename);
-      
-      toast({
-        title: "Success",
-        description: "Story downloaded as text file",
-      });
-    } catch (error) {
-      console.error("Text file generation failed:", error);
-      toast({
-        title: "Error",
-        description: "Failed to generate text file. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsDownloadingText(false);
     }
   };
 
@@ -643,13 +560,11 @@ const StoryToVideo = () => {
 
   return (
     <div className="space-y-8">
-      <MyanmarVpnWarning className="mb-4" />
-      
       <Card className="overflow-hidden">
         <CardContent className="p-6">
           <h2 className="text-2xl font-bold mb-4 flex items-center">
             <BookText className="mr-2 h-6 w-6" />
-            AI Story and Video Generator
+            Story to Video Generator
           </h2>
 
           <div className="space-y-4">
@@ -657,7 +572,7 @@ const StoryToVideo = () => {
               <Label htmlFor="storyPrompt">Story Prompt</Label>
               <Textarea
                 id="storyPrompt"
-                placeholder="Enter a story idea like ဥပမာ 'မြန်မာဆန်ဆန် သိပ္ပံစွန့်စားခန်း ပုံပြင်တစ်ပုဒ် မြန်မာလိုရေးပေးပါ'"
+                placeholder="Enter a story idea like 'A detective in a cyberpunk city investigates a strange case'"
                 value={storyPrompt}
                 onChange={(e) => setStoryPrompt(e.target.value)}
                 className="min-h-[80px]"
@@ -750,55 +665,7 @@ const StoryToVideo = () => {
       {generatedStory.length > 0 && (
         <Card>
           <CardContent className="p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">{storyTitle}</h2>
-              <div className="flex items-center space-x-2">
-                <Select
-                  value={pdfLanguage}
-                  onValueChange={(value) => setPdfLanguage(value as LanguageOption)}
-                >
-                  <SelectTrigger className="w-32">
-                    <Globe className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Language" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(LANGUAGES).map(([code, name]) => (
-                      <SelectItem key={code} value={code}>{name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="flex space-x-2">
-                  <Button
-                    onClick={downloadStoryPDF}
-                    disabled={isGeneratingPDF || generatedStory.length === 0}
-                    variant="secondary"
-                    size="sm"
-                  >
-                    {isGeneratingPDF ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="mr-2 h-4 w-4" />
-                    )}
-                    PDF
-                  </Button>
-
-                  <Button
-                    onClick={downloadStoryText}
-                    disabled={isDownloadingText || generatedStory.length === 0}
-                    variant="secondary"
-                    size="sm"
-                  >
-                    {isDownloadingText ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <FileText className="mr-2 h-4 w-4" />
-                    )}
-                    Text
-                  </Button>
-                </div>
-              </div>
-            </div>
+            <h2 className="text-xl font-bold mb-4">{storyTitle}</h2>
 
             <Button
               onClick={() => setEditMode(!editMode)}

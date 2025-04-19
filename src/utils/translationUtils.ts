@@ -19,28 +19,17 @@ export async function translateText(text: string, from: SupportedLanguage, to: S
     const response = await fetch(apiUrl);
 
     if (!response.ok) {
-      console.error(`Translation API HTTP error: ${response.status}`);
       throw new Error(`Translation API error: ${response.statusText}`);
     }
 
     const data = await response.json();
-    
+
     // Check if the response structure is as expected
-    if (!data || !Array.isArray(data) || !data[0]) {
-      console.error("Unexpected translation API response structure:", data);
+    if (data && data[0] && data[0][0] && data[0][0][0]) {
+      return data[0][0][0]; // Return translated text
+    } else {
       throw new Error("Unexpected response structure from translation API");
     }
-    
-    // Extract the translated text from the response
-    const translatedTextParts = data[0]
-      .filter(part => Array.isArray(part) && part[0])
-      .map(part => part[0]);
-    
-    if (translatedTextParts.length === 0) {
-      throw new Error("No translated text found in API response");
-    }
-    
-    return translatedTextParts.join(" ");
   } catch (error) {
     console.error("Translation error:", error);
     return text; // Return original text if translation fails

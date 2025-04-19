@@ -7,33 +7,6 @@ export const getUserId = async (): Promise<string | null> => {
   return data.session?.user?.id || null;
 };
 
-export const getUserProfile = async () => {
-  try {
-    const userId = await getUserId();
-    
-    if (!userId) {
-      return null;
-    }
-    
-    // Query the user profile from the profiles table
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    
-    if (error) {
-      console.error('Error fetching user profile:', error);
-      return null;
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('Error in getUserProfile:', error);
-    return null;
-  }
-};
-
 export const uploadUrlToStorage = async (
   url: string, 
   contentType: "image" | "video" | "audio", 

@@ -25,7 +25,6 @@ export function usePromptTranslation(initialPrompt: string) {
         description: `Translated to ${language}`,
       });
     } catch (error) {
-      console.error("Translation error:", error);
       toast({
         title: "Translation Error",
         description: "Failed to translate text",

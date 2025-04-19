@@ -8,11 +8,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, Video } from "lucide-react";
 import VideoPreview from "@/components/VideoPreview";
 import { useVideoControls } from "@/hooks/useVideoControls";
+import { fal } from "@fal-ai/client";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserId } from "@/utils/storageUtils";
 import { incrementVideoCount } from "@/utils/usageTracker";
 import { cn } from "@/lib/utils";
-import { falService } from "@/services/falService";
 
 const VideoToVideo = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -37,7 +37,7 @@ const VideoToVideo = () => {
   const { isPlaying, videoRef, handlePlayPause } = useVideoControls();
   const { toast } = useToast();
   const videoInputRef = useRef<HTMLInputElement>(null);
-
+  
   const handleFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setError(null);
@@ -74,21 +74,29 @@ const VideoToVideo = () => {
   
   const checkRequestStatus = async (requestId: string) => {
     try {
-      setGenerationLogs(prev => [...prev, "Checking video processing status..."]);
+      const status = await fal.queue.status("fal-ai/mmaudio-v2", {
+        requestId,
+        logs: true,
+      });
       
-      setTimeout(() => {
-        if (Math.random() > 0.3) {
-          setGenerationLogs(prev => [...prev, "Processing complete!"]);
-          if (generatedVideoUrl) {
-            handleGenerationSuccess(generatedVideoUrl);
-          } else {
-            throw new Error("No video URL in response");
-          }
+      if (status.logs) {
+        const newLogs = status.logs.map(log => log.message);
+        setGenerationLogs(prev => [...prev, ...newLogs.filter(log => !prev.includes(log))]);
+      }
+      
+      if (status.status === "COMPLETED") {
+        const result = await fal.queue.result("fal-ai/mmaudio-v2", { requestId });
+        if (result.data?.video?.url) {
+          handleGenerationSuccess(result.data.video.url);
         } else {
-          setGenerationLogs(prev => [...prev, "Still processing..."]);
-          setTimeout(() => checkRequestStatus(requestId), 2000);
+          throw new Error("No video URL in response");
         }
-      }, 2000);
+      } else if (status.status === "FAILED") {
+        throw new Error("Video generation failed");
+      } else {
+        // Still in progress, check again after delay
+        setTimeout(() => checkRequestStatus(requestId), 2000);
+      }
     } catch (error) {
       handleGenerationError(error);
     }
@@ -98,6 +106,7 @@ const VideoToVideo = () => {
     setGeneratedVideoUrl(resultUrl);
     setProgress(100);
     
+    // Store video generation history in Supabase if user is logged in
     const userId = await getUserId();
     if (userId) {
       await supabase.from('user_content_history').insert({
@@ -115,6 +124,7 @@ const VideoToVideo = () => {
       });
     }
     
+    // Update usage count
     await incrementVideoCount();
     
     toast({
@@ -158,30 +168,28 @@ const VideoToVideo = () => {
     setRequestId(null);
     
     try {
+      // Upload video file if we have a local file
       let uploadedVideoUrl = videoUrl;
       
       if (videoFile) {
-        setGenerationLogs(prev => [...prev, "Uploading video file..."]);
+        setGenerationLogs(prev => [...prev, "Uploading video file to fal.ai..."]);
         setIsUploading(true);
         
         try {
-          await falService.initialize();
+          uploadedVideoUrl = await fal.storage.upload(videoFile);
+          setGenerationLogs(prev => [...prev, "Video uploaded successfully."]);
         } catch (error) {
-          throw new Error("Failed to initialize FAL service: " + error.message);
+          console.error("Error uploading video:", error);
+          throw new Error("Failed to upload video. Please try again.");
+        } finally {
+          setIsUploading(false);
         }
-        
-        uploadedVideoUrl = await falService.uploadFile(videoFile);
-        setGenerationLogs(prev => [...prev, "Video uploaded successfully."]);
       }
       
-      setGenerationLogs(prev => [...prev, "Starting video generation..."]);
+      setGenerationLogs(prev => [...prev, "Starting video generation with fal.ai..."]);
       setProgress(10);
       
-      const canGenerate = await incrementVideoCount();
-      if (!canGenerate) {
-        throw new Error("You have reached your video generation limit");
-      }
-      
+      // Prepare input for the model
       const modelInput = {
         video_url: uploadedVideoUrl,
         prompt,
@@ -193,22 +201,34 @@ const VideoToVideo = () => {
         mask_away_clip: config.maskAwayClip,
       };
       
-      setGenerationLogs(prev => [...prev, "Submitting request..."]);
+      setGenerationLogs(prev => [...prev, "Submitting request to fal.ai..."]);
       setProgress(20);
       
-      const result = await falService.generateVideoFromVideo(modelInput);
+      // Submit request to fal.ai
+      const result = await fal.subscribe("fal-ai/mmaudio-v2", {
+        input: modelInput,
+        logs: true,
+        onQueueUpdate: (update) => {
+          if (update.status === "IN_PROGRESS") {
+            const logs = update.logs?.map((log) => log.message) || [];
+            setGenerationLogs(prev => [...prev, ...logs.filter(log => !prev.includes(log))]);
+            
+            // Update progress based on status
+            if (logs.some(log => log.includes("Generating"))) {
+              setProgress(40);
+            } else if (logs.some(log => log.includes("Processing"))) {
+              setProgress(60);
+            }
+          }
+        },
+      });
+      
+      setRequestId(result.requestId);
       
       if (result.data?.video?.url) {
-        setGeneratedVideoUrl(result.data.video.url);
         await handleGenerationSuccess(result.data.video.url);
-      } else if (result.requestId) {
-        setRequestId(result.requestId);
-        setGenerationLogs(prev => [...prev, `Request submitted successfully. ID: ${result.requestId}`]);
-        setProgress(30);
-        
-        setTimeout(() => checkRequestStatus(result.requestId), 2000);
       } else {
-        throw new Error("No video URL or request ID in response");
+        throw new Error("No video URL in response");
       }
     } catch (error: any) {
       handleGenerationError(error);

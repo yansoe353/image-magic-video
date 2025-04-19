@@ -1,8 +1,8 @@
 
-import { supabase, supabaseAdmin } from "@/integrations/supabase/client";
-import { getCurrentUser, isAdmin } from "./authUtils";
+import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUser } from "./authUtils";
 
-// Define constants for default usage limits
+// Define constants for usage limits
 export const IMAGE_LIMIT = 100;
 export const VIDEO_LIMIT = 20;
 export const RUNWAY_VIDEO_LIMIT = 5;
@@ -60,7 +60,6 @@ export const getApiKeyUsage = async (): Promise<ApiKeyUsage | null> => {
   }
 };
 
-// Get the user's custom limits from their user metadata or fallback to defaults
 export const getUserLimits = async (): Promise<{ imageLimit: number; videoLimit: number }> => {
   const user = await getCurrentUser();
   if (!user) {
@@ -73,22 +72,22 @@ export const getUserLimits = async (): Promise<{ imageLimit: number; videoLimit:
   };
 };
 
-// Check if the user can generate more images
 export const incrementImageCount = async (): Promise<boolean> => {
+  // Don't increment count, as it will be handled by history entries
   // Just check if user can generate more images
   const { remainingImages } = await getRemainingCountsAsync();
   return remainingImages > 0;
 };
 
-// Check if the user can generate more videos
 export const incrementVideoCount = async (): Promise<boolean> => {
+  // Don't increment count, as it will be handled by history entries
   // Just check if user can generate more videos
   const { remainingVideos } = await getRemainingCountsAsync();
   return remainingVideos > 0;
 };
 
-// Check if the user can generate more Runway videos
 export const incrementRunwayVideoCount = async (): Promise<boolean> => {
+  // Don't increment count, as it will be handled by history entries
   // Just check if user can generate more Runway videos
   const { remainingRunwayVideos } = await getRemainingCountsAsync();
   return (remainingRunwayVideos || 0) > 0;
@@ -132,141 +131,6 @@ export const getRemainingCountsAsync = async (): Promise<{
   };
 };
 
-// Get remaining counts for a specific user (admin function)
-export const getRemainingCountsForUser = async (userId: string): Promise<{ 
-  remainingImages: number; 
-  remainingVideos: number;
-}> => {
-  try {
-    // Get user's custom limits from profiles table
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle(); // Use maybeSingle instead of single to prevent errors when no data is found
-    
-    if (userError) {
-      console.error("Error fetching user profile:", userError);
-      return { remainingImages: 0, remainingVideos: 0 };
-    }
-    
-    // Get user's generation counts
-    const { data: imageData, error: imageError } = await supabaseAdmin
-      .from('user_content_history')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('content_type', 'image');
-    
-    if (imageError) {
-      console.error("Error fetching image count:", imageError);
-      return { remainingImages: 0, remainingVideos: 0 };
-    }
-    
-    const { data: videoData, error: videoError } = await supabaseAdmin
-      .from('user_content_history')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('content_type', 'video');
-    
-    if (videoError) {
-      console.error("Error fetching video count:", videoError);
-      return { remainingImages: 0, remainingVideos: 0 };
-    }
-    
-    // Use image_credits and video_credits from profiles table,
-    // or fall back to default limits if not present
-    const imageLimit = userData?.image_credits || IMAGE_LIMIT;
-    const videoLimit = userData?.video_credits || VIDEO_LIMIT;
-    
-    return {
-      remainingImages: Math.max(0, imageLimit - (imageData?.length || 0)),
-      remainingVideos: Math.max(0, videoLimit - (videoData?.length || 0))
-    };
-  } catch (error) {
-    console.error("Error getting remaining counts for user:", error);
-    return { remainingImages: 0, remainingVideos: 0 };
-  }
-};
-
-// Refill user limits to their maximum values (admin function)
-export const refillUserLimits = async (userId: string): Promise<boolean> => {
-  try {
-    const isAdminUser = await isAdmin();
-    if (!isAdminUser) {
-      console.error("Only admins can refill user limits");
-      return false;
-    }
-    
-    // Delete all user's content history to reset their usage
-    const { error: deleteError } = await supabaseAdmin
-      .from('user_content_history')
-      .delete()
-      .eq('user_id', userId);
-    
-    if (deleteError) {
-      console.error("Error deleting user content history:", deleteError);
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    console.error("Error refilling user limits:", error);
-    return false;
-  }
-};
-
-// Add custom amount to user's limits (admin function)
-export const addCustomAmountToUser = async (userId: string, imageAmount: number, videoAmount: number): Promise<boolean> => {
-  try {
-    const isAdminUser = await isAdmin();
-    if (!isAdminUser) {
-      console.error("Only admins can add credits to users");
-      return false;
-    }
-    
-    // Get current limits
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle(); // Use maybeSingle instead of single
-    
-    if (userError) {
-      console.error("Error getting user data:", userError);
-      return false;
-    }
-    
-    // Calculate new limits
-    const currentImageCredits = userData?.image_credits || IMAGE_LIMIT;
-    const currentVideoCredits = userData?.video_credits || VIDEO_LIMIT;
-    
-    const newImageCredits = currentImageCredits + imageAmount;
-    const newVideoCredits = currentVideoCredits + videoAmount;
-    
-    console.log(`Adding credits for user ${userId}: images ${currentImageCredits} + ${imageAmount} = ${newImageCredits}, videos ${currentVideoCredits} + ${videoAmount} = ${newVideoCredits}`);
-    
-    // Update user's limits
-    const { error: updateError } = await supabaseAdmin
-      .from('profiles')
-      .update({
-        image_credits: newImageCredits,
-        video_credits: newVideoCredits
-      })
-      .eq('id', userId);
-    
-    if (updateError) {
-      console.error("Error updating user limits:", updateError);
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    console.error("Error adding custom amount to user:", error);
-    return false;
-  }
-};
-
-// For backwards compatibility
 export const initializeApiKeyUsage = async (apiKey: string): Promise<void> => {
   // We don't need to track the API key usage in local storage anymore
   // The apiKey parameter is kept for backward compatibility

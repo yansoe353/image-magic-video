@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -5,19 +6,11 @@ import TextToImage from "@/components/TextToImage";
 import ImageToVideo from "@/components/ImageToVideo";
 import StoryToVideo from "@/components/StoryToVideo";
 import VideoToVideo from "@/components/VideoToVideo";
-import ScriptToVideo from "@/components/ScriptToVideo";
 import Header from "@/components/Header";
 import { getRemainingCounts, getRemainingCountsAsync, IMAGE_LIMIT, VIDEO_LIMIT } from "@/utils/usageTracker";
 import { Card, CardContent } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AIAssistant } from "@/components/AIAssistant";
-import { falService } from "@/services/falService";
-
-declare global {
-  interface Window {
-    ENV_FAL_API_KEY?: string;
-  }
-}
 
 interface SelectedContent {
   url: string;
@@ -35,17 +28,7 @@ const Index = () => {
 
   useEffect(() => {
     const initialize = async () => {
-      if (import.meta.env.VITE_FAL_API_KEY) {
-        window.ENV_FAL_API_KEY = import.meta.env.VITE_FAL_API_KEY;
-        console.log("FAL API key loaded from environment variables");
-      }
-      
-      const apiKeyExists = localStorage.getItem("falApiKey") || window.ENV_FAL_API_KEY;
-      setHasApiKey(!!apiKeyExists);
-      
-      if (window.ENV_FAL_API_KEY) {
-        falService.initialize();
-      }
+      setHasApiKey(true);
       
       const counts = await getRemainingCountsAsync();
       setUsageCounts(counts);
@@ -117,7 +100,7 @@ const Index = () => {
           className="w-full"
           onValueChange={(value) => setActiveTab(value)}
         >
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-8 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md rounded-xl overflow-x-auto">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 gap-1 mb-8 bg-slate-800/70 p-1 backdrop-blur-md rounded-xl overflow-x-auto">
             <TabsTrigger 
               value="text-to-image" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
@@ -134,31 +117,25 @@ const Index = () => {
               value="story-to-video" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
-              {isMobile ? "Story Generator" : "Story Generator"}
-            </TabsTrigger>
-            <TabsTrigger 
-              value="script-to-video" 
-              className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
-            >
-              {isMobile ? "Script→Video" : "Script to Video"}
+              {isMobile ? "Story→Video" : "Story to Video"}
             </TabsTrigger>
             <TabsTrigger 
               value="video-editor" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
-              {isMobile ? "Edit Videos" : "Video Edit"}
+              {isMobile ? "Merge Videos" : "Video Merger"}
             </TabsTrigger>
             <TabsTrigger 
               value="image-playground" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
-              {isMobile ? "Standard Image" : "Standard Image"}
+              {isMobile ? "Free Image" : "Standard Image"}
             </TabsTrigger>
             <TabsTrigger 
               value="video-playground" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
-              {isMobile ? "Standard Video" : "Standard Video"}
+              {isMobile ? "Free Video" : "Standard Video"}
             </TabsTrigger>
             <TabsTrigger 
               value="ai-voice" 
@@ -184,17 +161,13 @@ const Index = () => {
             <StoryToVideo />
           </TabsContent>
           
-          <TabsContent value="script-to-video" className="mt-0">
-            <ScriptToVideo />
-          </TabsContent>
-          
           <TabsContent value="video-editor" className="mt-0">
             <Card className="border-0 shadow-lg glass-morphism overflow-hidden">
               <CardContent className="p-0">
                 <div className="w-full overflow-hidden rounded-lg">
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
                     <iframe
-                      src="https://fabric-video-editor.vercel.app/editor"
+                      src="https://ezgif.com/merge-videos"
                       title="Video Merger"
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -212,7 +185,7 @@ const Index = () => {
                 <div className="w-full overflow-hidden rounded-lg">
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
                     <iframe
-                      src="https://imginevi.vercel.app/generate"
+                      src="https://brainfusion.vercel.app/"
                       title="Standard Image"
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

@@ -6,9 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { setUserLimits, isAdmin, getCurrentUser, AppUser } from "@/utils/authUtils";
+import { setUserLimits, isAdmin, getAllUsers, AppUser } from "@/utils/authUtils";
 import { BarChart } from "lucide-react";
-import { supabaseAdmin } from "@/integrations/supabase/client";
 
 const UserLimits = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -39,33 +38,17 @@ const UserLimits = () => {
       
       // Load user data
       if (userId) {
-        try {
-          // Get user from Supabase using admin client
-          const { data: userData, error: userError } = await supabaseAdmin
-            .auth.admin.getUserById(userId);
-          
-          if (userError || !userData?.user) {
-            throw new Error("User not found or access denied");
-          }
-          
-          const userMeta = userData.user.user_metadata || {};
-          
-          setUser({
-            id: userData.user.id,
-            email: userData.user.email || '',
-            name: userMeta.name,
-            isAdmin: userMeta.isAdmin === true,
-            imageLimit: userMeta.imageLimit || 100,
-            videoLimit: userMeta.videoLimit || 20
-          });
-          
-          setImageLimit(userMeta.imageLimit || 100);
-          setVideoLimit(userMeta.videoLimit || 20);
-        } catch (error) {
-          console.error("Error loading user data:", error);
+        const users = await getAllUsers();
+        const foundUser = users.find(u => u.id === userId);
+        
+        if (foundUser) {
+          setUser(foundUser);
+          setImageLimit(foundUser.imageLimit || 100);
+          setVideoLimit(foundUser.videoLimit || 20);
+        } else {
           toast({
             title: "Error",
-            description: "User not found or you don't have permission to edit this user",
+            description: "User not found",
             variant: "destructive",
           });
           navigate("/users");
@@ -130,7 +113,7 @@ const UserLimits = () => {
             <div>
               <CardTitle className="text-2xl font-bold">User Generation Limits</CardTitle>
               <CardDescription>
-                Set content generation limits for {user?.name || user?.email}
+                Set content generation limits for {user.name || user.email}
               </CardDescription>
             </div>
             <BarChart className="h-10 w-10 text-muted-foreground" />

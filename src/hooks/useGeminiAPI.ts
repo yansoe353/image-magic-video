@@ -21,14 +21,8 @@ export function useGeminiAPI(options: GeminiAPIOptions = {}) {
 
     setIsLoading(true);
     setError(null);
-    
-    // Add delay between requests to avoid rate limiting
-    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
     try {
-      // Add a small delay to avoid rate-limiting issues
-      await delay(300);
-      
       const response = await fetch(
         "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent",
         {
@@ -56,9 +50,9 @@ export function useGeminiAPI(options: GeminiAPIOptions = {}) {
 
       if (!response.ok) {
         const errorData = await response.json();
-        const errorMessage = errorData.error?.message || `HTTP error ${response.status}`;
-        console.error("Gemini API error:", errorMessage);
-        throw new Error(errorMessage);
+        throw new Error(
+          errorData.error?.message || "Failed to generate response"
+        );
       }
 
       const data = await response.json();
@@ -69,13 +63,10 @@ export function useGeminiAPI(options: GeminiAPIOptions = {}) {
           data.candidates[0].content.parts.length > 0) {
         return data.candidates[0].content.parts[0].text;
       } else {
-        console.error("Unexpected Gemini API response structure:", data);
         throw new Error("No response generated");
       }
     } catch (err) {
-      const errorMessage = (err as Error).message || "Unknown error";
-      console.error("Gemini API error:", err);
-      setError(errorMessage);
+      setError((err as Error).message);
       throw err;
     } finally {
       setIsLoading(false);
