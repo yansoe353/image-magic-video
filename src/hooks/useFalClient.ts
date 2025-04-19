@@ -1,9 +1,16 @@
 
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { v4 as uuidv4 } from 'uuid';
+import { useToast } from "@/components/ui/use-toast";
 import { getUserId } from "@/utils/storageUtils";
 import { incrementImageCount, incrementVideoCount } from "@/utils/usageTracker";
+
+// LTX Text to Image model
+const ltxTextToImageProxyUrl = "110602490-lcm-sd15-i2i/fast"; // Lt. Create model
+
+// LTX Image to Video model
+const ltxImageToVideoUrl = "110602490-ltx-animation/run";
 
 type ImageGenerationInput = {
   prompt: string;
@@ -71,17 +78,7 @@ export function useTextToImage(): TextToImageResult {
         body: { input }
       });
 
-      if (functionError) {
-        throw new Error(functionError.message);
-      }
-      
-      if (!data) {
-        throw new Error("No data returned from the API");
-      }
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      if (functionError) throw functionError;
       
       if (data?.images?.[0]) {
         setImageUrl(data.images[0]);
@@ -162,17 +159,7 @@ export function useImageToVideo(): ImageToVideoResult {
         body: { input }
       });
 
-      if (functionError) {
-        throw new Error(functionError.message);
-      }
-      
-      if (!data) {
-        throw new Error("No data returned from the API");
-      }
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      if (functionError) throw functionError;
       
       if (data?.video_url) {
         setVideoUrl(data.video_url);

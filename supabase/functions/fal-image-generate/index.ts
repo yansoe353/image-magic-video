@@ -1,59 +1,42 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-
-const FAL_API_KEY = Deno.env.get('FAL_API_KEY');
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { fal } from "@fal-ai/client";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const { input } = await req.json();
-    
-    if (!FAL_API_KEY) {
-      console.error("Missing FAL_API_KEY environment variable");
-      return new Response(
-        JSON.stringify({ error: "Server configuration error: Missing API key" }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const falApiKey = Deno.env.get('FAL_API_KEY')
+    if (!falApiKey) {
+      throw new Error('FAL_API_KEY not configured')
     }
 
-    console.log("Calling fal.ai imagen3 API with input:", JSON.stringify(input));
+    fal.credentials(falApiKey)
     
-    const response = await fetch('https://fal.ai/fal-ai/imagen3/fast', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Key ${FAL_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(input),
-    });
+    const { input } = await req.json()
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`FAL API error (${response.status}):`, errorText);
-      throw new Error(`FAL API returned status ${response.status}: ${errorText}`);
-    }
-
-    const data = await response.json();
-    console.log("Successfully generated image, response:", JSON.stringify(data));
-
-    return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    console.error('Error in image generation function:', error);
+    const result = await fal.run("110602490-lcm-sd15-i2i/fast", input)
+    
     return new Response(
-      JSON.stringify({ error: error.message || String(error) }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+      JSON.stringify(result),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      },
+    )
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      },
+    )
   }
-});
+})
