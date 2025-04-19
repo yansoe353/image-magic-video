@@ -18,6 +18,10 @@ serve(async (req) => {
       throw new Error('FAL_API_KEY environment variable is not set')
     }
 
+    if (falApiKey.trim() === '') {
+      throw new Error('FAL_API_KEY is set but empty')
+    }
+
     // Get the request body from the client
     const requestData = await req.json()
     const { endpoint, input, method = 'POST' } = requestData
@@ -52,12 +56,20 @@ serve(async (req) => {
     
     // Forward the request to FAL API
     console.log(`Sending request to: ${url.toString()}`)
+    console.log(`Using Authorization header: Key ${falApiKey.substring(0, 5)}...`)
+    
     const falResponse = await fetch(url.toString(), requestOptions)
 
     // Check if the request was successful
     if (!falResponse.ok) {
       const errorText = await falResponse.text()
       console.error(`FAL API error (${falResponse.status}): ${errorText}`)
+      
+      // Special handling for auth errors
+      if (falResponse.status === 401) {
+        throw new Error(`API Key Authentication Failed: Your FAL API key appears to be invalid or has expired. Status: ${falResponse.status}, Details: ${errorText}`)
+      }
+      
       throw new Error(`FAL API returned ${falResponse.status}: ${errorText}`)
     }
 

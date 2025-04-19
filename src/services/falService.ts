@@ -39,6 +39,7 @@ class FalService {
   private apiKey: string = '';
   private isInitialized: boolean = false;
   private falClient: ReturnType<typeof createFalClient>;
+  private initializationError: string | null = null;
 
   constructor() {
     // Initialize with a temporary client that will be updated
@@ -51,17 +52,33 @@ class FalService {
     }
     
     try {
+      // Reset any previous errors
+      this.initializationError = null;
+      
       // Try to get API key from Supabase edge function
       const response = await supabase.functions.invoke('fal-key', {
         method: 'GET'
       });
 
       if (response.error) {
-        throw new Error('Failed to get FAL API key: ' + response.error.message);
+        const errorMessage = `Failed to get FAL API key: ${response.error.message}`;
+        console.error(errorMessage);
+        this.initializationError = errorMessage;
+        throw new Error(errorMessage);
       }
 
       if (!response.data?.apiKey) {
-        throw new Error('No API key returned from edge function');
+        const errorMessage = 'No API key returned from edge function';
+        console.error(errorMessage);
+        this.initializationError = errorMessage;
+        throw new Error(errorMessage);
+      }
+
+      if (response.data.apiKey.trim() === '') {
+        const errorMessage = 'API key is empty';
+        console.error(errorMessage);
+        this.initializationError = errorMessage;
+        throw new Error(errorMessage);
       }
 
       this.apiKey = response.data.apiKey;
@@ -75,8 +92,13 @@ class FalService {
     } catch (error) {
       console.error("Failed to initialize Infinity API client:", error);
       this.isInitialized = false;
+      this.initializationError = error.message;
       throw error; // Propagate error to caller
     }
+  }
+
+  getInitializationError() {
+    return this.initializationError;
   }
 
   // Text to Image generation
@@ -92,11 +114,12 @@ class FalService {
       strength?: number;
     } = {}
   ): Promise<FalRunResult> {
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
-
     try {
+      // Always try to initialize if not already - will be a no-op if already initialized
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
       console.log("Generating image with prompt:", prompt);
       
       // Use Supabase edge function as a proxy to call FAL.ai
@@ -133,11 +156,12 @@ class FalService {
       seed?: number;
     } = {}
   ): Promise<FalRunResult> {
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
-
     try {
+      // Always try to initialize if not already
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
       console.log("Generating video from image:", image_url);
       
       const result = await supabase.functions.invoke('fal-proxy', {
@@ -174,11 +198,12 @@ class FalService {
     seed?: number;
     mask_away_clip?: boolean;
   }): Promise<FalRunResult> {
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
-
     try {
+      // Always try to initialize if not already
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
       const result = await supabase.functions.invoke('fal-proxy', {
         method: 'POST',
         body: {
@@ -200,11 +225,12 @@ class FalService {
 
   // Image generation with Imagen 3
   async generateImageWithImagen3(prompt: string, options: any = {}): Promise<FalRunResult> {
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
-
     try {
+      // Always try to initialize if not already
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
       console.log("Generating image with Imagen3, prompt:", prompt);
       
       if (!prompt || prompt.trim() === '') {
@@ -269,11 +295,12 @@ class FalService {
 
   // Upload file to FAL.ai
   async uploadFile(file: File) {
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
-
     try {
+      // Always try to initialize if not already
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
       // Use our proxy edge function for file uploads
       const formData = new FormData();
       formData.append('file', file);

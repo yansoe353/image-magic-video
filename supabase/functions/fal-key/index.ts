@@ -18,7 +18,12 @@ serve(async (req) => {
       throw new Error('FAL_API_KEY environment variable is not set')
     }
 
+    if (falApiKey.trim() === '') {
+      throw new Error('FAL_API_KEY is set but empty')
+    }
+
     console.log("Returning FAL API key to client")
+    console.log(`API Key prefix: ${falApiKey.substring(0, 5)}...`)
     
     return new Response(
       JSON.stringify({ apiKey: falApiKey }),
@@ -33,7 +38,10 @@ serve(async (req) => {
     console.error('Error in fal-key function:', error)
     
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        timestamp: new Date().toISOString()
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500 
