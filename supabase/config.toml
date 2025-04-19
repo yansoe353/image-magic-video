@@ -1,1 +1,11 @@
+
 project_id = "rhbpeivthnmvzhblnvya"
+
+[functions.fal-key]
+verify_jwt = true
+
+[functions.fal-proxy]
+verify_jwt = true
+
+[functions.fal-upload]
+verify_jwt = true

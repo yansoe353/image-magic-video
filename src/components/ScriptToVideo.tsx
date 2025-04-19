@@ -57,8 +57,13 @@ const ScriptToVideo = () => {
       setRemainingImages(limits.remainingImages);
       setRemainingVideos(limits.remainingVideos);
       
-      const apiKey = localStorage.getItem("falApiKey");
-      setHasApiKey(!!apiKey);
+      try {
+        await falService.initialize();
+        setHasApiKey(true);
+      } catch (error) {
+        console.error("Failed to initialize FAL service:", error);
+        setHasApiKey(false);
+      }
     };
     
     checkLimits();
@@ -143,7 +148,7 @@ const ScriptToVideo = () => {
     if (!hasApiKey) {
       toast({
         title: "API Key Required",
-        description: "To generate images, buy an Infinity API key",
+        description: "Unable to connect to the image generation service. Please try again later.",
         variant: "destructive",
       });
       return;
@@ -195,7 +200,7 @@ const ScriptToVideo = () => {
           console.error(`Error generating image for scene ${i + 1}:`, error);
           toast({
             title: `Error on scene ${i + 1}`,
-            description: "Failed to generate image. Please check your API key.",
+            description: "Failed to generate image. Please try again later.",
             variant: "destructive",
           });
         }
@@ -211,8 +216,8 @@ const ScriptToVideo = () => {
   const generateVideo = async () => {
     if (!hasApiKey) {
       toast({
-        title: "API Key Required",
-        description: "To generate videos, buy an Infinity API key",
+        title: "Service Unavailable",
+        description: "Unable to connect to the video generation service. Please try again later.",
         variant: "destructive",
       });
       return;
@@ -238,7 +243,11 @@ const ScriptToVideo = () => {
         throw new Error("You have reached your video generation limit");
       }
       
-      falService.initialize();
+      try {
+        await falService.initialize();
+      } catch (error) {
+        throw new Error("Failed to connect to video service: " + error.message);
+      }
       
       const result = await falService.generateVideoFromImage(
         sceneWithImage.imageUrl, 
@@ -489,7 +498,7 @@ const ScriptToVideo = () => {
                   <div className="mt-2 p-3 bg-amber-600/30 border border-amber-700/50 rounded-md flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4 text-amber-500" />
                     <div className="text-sm text-amber-200">
-                      <p>To generate images, you need an Infinity API key.</p>
+                      <p>To generate images, buy an Infinity API key.</p>
                       <p className="mt-1 text-amber-300">
                         <BuyApiKeyPopover />
                       </p>

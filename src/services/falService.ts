@@ -1,3 +1,4 @@
+
 // Import fal-ai client properly
 import { createFalClient } from '@fal-ai/client';
 import { getUserId } from "@/utils/storageUtils";
@@ -45,6 +46,10 @@ class FalService {
   }
 
   async initialize() {
+    if (this.isInitialized) {
+      return;
+    }
+    
     try {
       // Try to get API key from Supabase edge function
       const response = await supabase.functions.invoke('fal-key', {
@@ -84,21 +89,30 @@ class FalService {
     } = {}
   ): Promise<FalRunResult> {
     if (!this.isInitialized) {
-      this.initialize();
+      await this.initialize();
     }
 
     try {
       console.log("Generating image with prompt:", prompt);
       
-      const result = await this.falClient.run(TEXT_TO_IMAGE_MODEL, {
-        input: {
-          prompt,
-          ...options
+      // Use Supabase edge function as a proxy to call FAL.ai
+      const result = await supabase.functions.invoke('fal-proxy', {
+        method: 'POST',
+        body: {
+          endpoint: TEXT_TO_IMAGE_MODEL,
+          input: {
+            prompt,
+            ...options
+          }
         }
       });
+      
+      if (result.error) {
+        throw new Error(`Error from proxy: ${result.error.message}`);
+      }
 
-      console.log("Image generation result:", result);
-      return result;
+      console.log("Image generation result:", result.data);
+      return result.data;
     } catch (error) {
       console.error("Error generating image:", error);
       throw error;
@@ -116,21 +130,29 @@ class FalService {
     } = {}
   ): Promise<FalRunResult> {
     if (!this.isInitialized) {
-      this.initialize();
+      await this.initialize();
     }
 
     try {
       console.log("Generating video from image:", image_url);
       
-      const result = await this.falClient.run(IMAGE_TO_VIDEO_MODEL, {
-        input: {
-          image_url,
-          ...options
+      const result = await supabase.functions.invoke('fal-proxy', {
+        method: 'POST',
+        body: {
+          endpoint: IMAGE_TO_VIDEO_MODEL,
+          input: {
+            image_url,
+            ...options
+          }
         }
       });
+      
+      if (result.error) {
+        throw new Error(`Error from proxy: ${result.error.message}`);
+      }
 
-      console.log("Video generation result:", result);
-      return result;
+      console.log("Video generation result:", result.data);
+      return result.data;
     } catch (error) {
       console.error("Error generating video from image:", error);
       throw error;
@@ -149,15 +171,23 @@ class FalService {
     mask_away_clip?: boolean;
   }): Promise<FalRunResult> {
     if (!this.isInitialized) {
-      this.initialize();
+      await this.initialize();
     }
 
     try {
-      const result = await this.falClient.run(VIDEO_TO_VIDEO_MODEL, {
-        input
+      const result = await supabase.functions.invoke('fal-proxy', {
+        method: 'POST',
+        body: {
+          endpoint: VIDEO_TO_VIDEO_MODEL,
+          input
+        }
       });
+      
+      if (result.error) {
+        throw new Error(`Error from proxy: ${result.error.message}`);
+      }
 
-      return result;
+      return result.data;
     } catch (error) {
       console.error("Error processing video:", error);
       throw error;
@@ -167,7 +197,7 @@ class FalService {
   // Image generation with Imagen 3
   async generateImageWithImagen3(prompt: string, options: any = {}): Promise<FalRunResult> {
     if (!this.isInitialized) {
-      this.initialize();
+      await this.initialize();
     }
 
     try {
@@ -177,38 +207,47 @@ class FalService {
         throw new Error("Prompt cannot be empty");
       }
       
-      const result = await this.falClient.run(IMAGEN_3_MODEL, {
-        input: {
-          prompt,
-          aspect_ratio: options.aspect_ratio || "1:1",
-          negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
-          ...options
+      const result = await supabase.functions.invoke('fal-proxy', {
+        method: 'POST',
+        body: {
+          endpoint: IMAGEN_3_MODEL,
+          input: {
+            prompt,
+            aspect_ratio: options.aspect_ratio || "1:1",
+            negative_prompt: options.negative_prompt || "low quality, bad anatomy, distorted",
+            ...options
+          }
         }
-      }) as GenericApiResponse; // Cast to our generic type to handle response variations
+      });
       
-      console.log("Imagen3 response received:", result);
+      if (result.error) {
+        throw new Error(`Error from proxy: ${result.error.message}`);
+      }
+      
+      console.log("Imagen3 response received:", result.data);
       
       // Fix the type issue - handle the result properly based on actual structure
-      if (!result) {
+      const responseData = result.data as GenericApiResponse;
+      if (!responseData) {
         throw new Error("Empty response from Imagen3 API");
       }
       
       // Access data first to ensure we're working with the correct structure
-      if (result.data && result.data.images && result.data.images.length > 0) {
+      if (responseData.data && responseData.data.images && responseData.data.images.length > 0) {
         // If we have a direct data.images structure, use it
-        return result as FalRunResult;
-      } else if (result.images && result.images.length > 0) {
+        return responseData as FalRunResult;
+      } else if (responseData.images && responseData.images.length > 0) {
         // If images are at the top level
-        return result as FalRunResult;
+        return responseData as FalRunResult;
       } else {
         // If there's no standard images structure, wrap any available URL in our expected format
-        const imageUrl = result.image_url || result.url || 
+        const imageUrl = responseData.image_url || responseData.url || 
                         // Access potential nested properties safely
-                        result.data?.image_url || 
-                        result.data?.url;
+                        responseData.data?.image_url || 
+                        responseData.data?.url;
                         
         if (!imageUrl) {
-          console.error("Unable to find image URL in response:", result);
+          console.error("Unable to find image URL in response:", responseData);
           throw new Error("Could not extract image URL from API response");
         }
         
@@ -227,28 +266,24 @@ class FalService {
   // Upload file to FAL.ai
   async uploadFile(file: File) {
     if (!this.isInitialized) {
-      this.initialize();
+      await this.initialize();
     }
 
     try {
-      // Use the file-upload specific endpoint
+      // Use our proxy edge function for file uploads
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('https://gateway.fal.ai/upload', {
+      const result = await supabase.functions.invoke('fal-upload', {
         method: 'POST',
-        headers: {
-          'Authorization': `Key ${this.apiKey}`
-        },
         body: formData
       });
-
-      if (!response.ok) {
-        throw new Error(`Failed to upload file: ${response.statusText}`);
+      
+      if (result.error) {
+        throw new Error(`Error from upload proxy: ${result.error.message}`);
       }
 
-      const data = await response.json();
-      return data.url; // Return the URL of the uploaded file
+      return result.data.url; // Return the URL of the uploaded file
     } catch (error) {
       console.error("Error uploading file:", error);
       throw error;
