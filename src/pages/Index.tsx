@@ -116,13 +116,13 @@ const Index = () => {
               value="story-to-video" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
-              {isMobile ? "Story Script Generator" : "Story Script Generator"}
+              {isMobile ? "Story & Script" : "Story & Script"}
             </TabsTrigger>
             <TabsTrigger 
               value="video-editor" 
               className="text-xs md:text-sm py-1.5 px-1 md:px-3 data-[state=active]:bg-gradient-to-b data-[state=active]:from-brand-purple data-[state=active]:to-brand-blue data-[state=active]:text-white"
             >
-              {isMobile ? "Merge Videos" : "Video Merger"}
+              {isMobile ? "Video Editor" : "Video Editor"}
             </TabsTrigger>
             <TabsTrigger 
               value="image-playground" 
@@ -166,7 +166,8 @@ const Index = () => {
                 <div className="w-full overflow-hidden rounded-lg">
                   <div className={isMobile ? "h-[500px]" : "h-[700px]"}>
                     <iframe
-                      src="https://ezgif.com/merge-videos"
+                      src="h
+                      https://fabric-video-editor.vercel.app/editor"
                       title="Video Merger"
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
